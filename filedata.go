@@ -121,7 +121,10 @@ func (fd FileData) BlockList() ([]Block, error) {
 				item = *planetBlock
 			} else if block.Type == PlayerBlockType {
 				// if type == 6
-				playerBlock := NewPlayerBlock(*block)
+				playerBlock, err := NewPlayerBlock(*block)
+				if err != nil {
+					return nil, err
+				}
 				item = *playerBlock
 			} else {
 				// by default return the most basic kind of block

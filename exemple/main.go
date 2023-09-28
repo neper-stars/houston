@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 
 	hs "github.com/neper-stars/houston"
 )
@@ -71,6 +71,8 @@ func main() {
 				fmt.Println("Player Block found")
 				fmt.Println("Hashed password bytes:", pb.HashedPass())
 				fmt.Println("Hashed password:", pb.HashedPass().Uint32())
+				fmt.Println("race plural name:", pb.NamePlural)
+				fmt.Println("race singular name:", pb.NameSingular)
 			} else {
 				fmt.Println("empty player block... nothing to report")
 			}
