@@ -1,7 +1,14 @@
 package houston
 
-// Initial seeds for our Random Number Generator
-// 279 is not prime
+/*
+* The first 64 prime numbers, after '2' (so all are odd). These are used
+* as starting seeds to the random number generator.
+*
+* IMPORTANT:  One number here is not prime (279).  I thought it should be
+* replaced with 269, which is prime.  StarsHostEditor 0.3 decompiled source
+* uses 279, and it turns out that an analysis of the stars EXE with a hex editor
+* also shows a primes table with 279.  Fun!
+ */
 var primes = []int{
 	3, 5, 7, 11, 13, 17, 19, 23,
 	29, 31, 37, 41, 43, 47, 53, 59,
