@@ -31,8 +31,12 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 		atByteIndex = t / 2
 		thisNibble := hexChars[t]
 
-		if thisNibble <= 'A' {
-			charIndex := int(thisNibble - '0')
+		if thisNibble <= 'A' { // ascii math FTW
+			thisNibbleStr := string(thisNibble)
+			charIndex, err := strconv.ParseInt(thisNibbleStr, 16, 0)
+			if err != nil {
+				return "", err
+			}
 			result.WriteByte(encodesOneNibble[charIndex])
 		} else if thisNibble == 'F' {
 			if atByteIndex >= byteSize-1 {
@@ -42,9 +46,13 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 			nextNibble := hexChars[t+1]
 			nextNextNibble := hexChars[t+2]
 
-			parsed := int(nextNextNibble-'0')*16 + int(nextNibble-'0')
-			theChar := byte(parsed & 0xff)
+			combinedNibbles := string(nextNibble) + string(nextNextNibble)
+			parsed, err := strconv.ParseInt(combinedNibbles, 16, 0)
+			if err != nil {
+				return "", err
+			}
 
+			theChar := byte(parsed & 0xff)
 			result.WriteByte(theChar)
 			t += 2
 		} else {
