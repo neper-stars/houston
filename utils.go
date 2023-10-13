@@ -16,7 +16,9 @@ func read32(bytes []byte, offset int) uint32 {
 }
 
 const (
-	encodesOneNibble = " aehilnorst"
+	// All of these characters are found in the stars26jrc4 binary at offset
+	// 000B:DD8A
+	encodesOneNibble = " aehilnorst" // 0-A indexed
 	encodesB         = "ABCDEFGHIJKLMNOP"
 	encodesC         = "QRSTUVWXYZ012345"
 	encodesD         = "6789bcdfgjkmpquv"
@@ -25,20 +27,31 @@ const (
 
 func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 	var result strings.Builder
+	// Keep track of what byte we're at for certain checks
 	atByteIndex := -1
 
+	// Loop through each hex character and decode the text depending on
+	// what the hex value is. 1 Nibble (4 bits) is represented by one char
+	//	    for (int t = 0; t < hexChars.length(); t++) {
 	for t := 0; t < 2*byteSize; t++ {
+		// Every 2 nibbles is the start of a new byte
+		// Integer division expected
 		atByteIndex = t / 2
 		thisNibble := hexChars[t]
 
+		// 0-A is 1-Nibble (4-bits) encoded text
 		if thisNibble <= 'A' { // ascii math FTW
 			thisNibbleStr := string(thisNibble)
 			charIndex, err := strconv.ParseInt(thisNibbleStr, 16, 0)
 			if err != nil {
 				return "", err
 			}
+			// This nibble is just an index in a char array
 			result.WriteByte(encodesOneNibble[charIndex])
 		} else if thisNibble == 'F' {
+			// Three-nibble encoded text starts with an 'F'
+			// We've already hit the last byte, no decodeable 3-nibble
+			// chars are left (probably just junk remaining)
 			if atByteIndex >= byteSize-1 {
 				continue
 			}
@@ -46,7 +59,9 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 			nextNibble := hexChars[t+1]
 			nextNextNibble := hexChars[t+2]
 
-			combinedNibbles := string(nextNibble) + string(nextNextNibble)
+			// The encoded text is the direct ASCII value of the swapped
+			// nibbles
+			combinedNibbles := string(nextNextNibble) + string(nextNibble)
 			parsed, err := strconv.ParseInt(combinedNibbles, 16, 0)
 			if err != nil {
 				return "", err
@@ -54,8 +69,11 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 
 			theChar := byte(parsed & 0xff)
 			result.WriteByte(theChar)
+			// Advance passed the two characters we decoded
 			t += 2
 		} else {
+			// Otherwise, the next hex value is B,C,D, or E, and text is
+			// 2-nibble encoded
 			nextNibble := hexChars[t+1]
 			nextNibbleStr := string(nextNibble)
 			charIndex, err := strconv.ParseInt(nextNibbleStr, 16, 0)
@@ -74,6 +92,7 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 				result.WriteByte(encodesE[charIndex])
 			}
 
+			// Advance passed the character we decoded
 			t++
 		}
 	}
