@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 
 	hs "github.com/neper-stars/houston"
 )
@@ -42,7 +42,9 @@ func main() {
 				fmt.Println("Player Block found")
 				fmt.Println("Hashed password bytes:", pb.HashedPass())
 				fmt.Println("Hashed password:", pb.HashedPass().Uint32())
-				hs.GuessRacePassword(pb.HashedPass().Uint32(), 8, 1, "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ+!.,", true)
+				// searchArea := "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ+!.,"
+				searchArea := "abcdefghijklmnopqrstuvwxyz"
+				hs.GuessRacePassword(pb.HashedPass().Uint32(), 8, 1, searchArea, true)
 			} else {
 				fmt.Println("empty player block... nothing to report")
 			}

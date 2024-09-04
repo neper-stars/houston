@@ -24,23 +24,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	// if you only need the header, let's say because you only want
-	// to see if an .xN file is being submitted or just saved
-	// then you can call FileHeader() on the raw FileData
-	fh, err := fd.FileHeader()
-	if err != nil {
-		fmt.Println("failed to parse file header", err.Error())
-		os.Exit(1)
-	}
+	/*
+		// if you only need the header, let's say because you only want
+		// to see if an .xN file is being submitted or just saved
+		// then you can call FileHeader() on the raw FileData
+		fh, err := fd.FileHeader()
+		if err != nil {
+			fmt.Println("failed to parse file header", err.Error())
+			os.Exit(1)
+		}
 
-	// the FileHeader struct has handy methods to get useful info
-	// like the:
-	//   - player index (beware player1 will be numbered 0)
-	//   - the turn number
-	//   - the year (2400 + turn number)
-	fmt.Println("Player #:", fh.PlayerIndex())
-	fmt.Println("Turn Submitted:", fh.TurnSubmitted())
-	fmt.Println("Year:", fh.Year())
+		// the FileHeader struct has handy methods to get useful info
+		// like the:
+		//   - player index (beware player1 will be numbered 0)
+		//   - the turn number
+		//   - the year (2400 + turn number)
+		fmt.Println("Player #:", fh.PlayerIndex())
+		fmt.Println("Turn Submitted:", fh.TurnSubmitted())
+		fmt.Println("Year:", fh.Year())
+	*/
 
 	// if you want to iterate over all blocks
 	bl, err := fd.BlockList()
@@ -60,7 +62,10 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Println("File Header found")
-			fmt.Println("Year is:", fh.Year())
+			fmt.Println("	Year is:", fh.Year())
+			fmt.Println("	Player index is:", fh.PlayerIndex())
+			fmt.Println("	Turn Submitted:", fh.TurnSubmitted())
+			fmt.Printf("	Game ID is: %d\n", fh.GameID)
 		case hs.PlayerBlockType:
 			pb, ok := b.(hs.PlayerBlock)
 			if !ok {
@@ -69,17 +74,18 @@ func main() {
 			}
 			if pb.Valid {
 				fmt.Println("Player Block found")
-				fmt.Println("Hashed password bytes:", pb.HashedPass())
-				fmt.Println("Hashed password:", pb.HashedPass().Uint32())
-				fmt.Println("race plural name:", pb.NamePlural)
-				fmt.Println("race singular name:", pb.NameSingular)
+				// fmt.Println("Hashed password bytes:", pb.HashedPass())
+				// fmt.Println("Hashed password:", pb.HashedPass().Uint32())
+				fmt.Println("	player index:", pb.PlayerNumber)
+				fmt.Println("	race plural name:", pb.NamePlural)
+				fmt.Println("	race singular name:", pb.NameSingular)
 			} else {
 				fmt.Println("empty player block... nothing to report")
 			}
 
 		default:
 			// use the decrypted version
-			fmt.Println("-->", b.BlockTypeID(), b.BlockSize(), b.DecryptedData())
+			// fmt.Println("-->", b.BlockTypeID(), b.BlockSize(), b.DecryptedData())
 		}
 	}
 }
