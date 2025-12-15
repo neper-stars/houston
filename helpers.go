@@ -46,10 +46,10 @@ func NewOrderFromBytes(data []byte) (*Order, error) {
 	return NewOrder(&fd)
 }
 
-func (o *Order) TurnSubmitted() (bool, error) {
+func (o *Order) TurnSubmitted() bool {
 	if o.Header == nil {
-		return false, errors.New("cannot test turn submitted on a nil Header")
+		panic("cannot test turn submitted on a nil Header")
 	}
 
-	return o.Header.TurnSubmitted(), nil
+	return o.Header.TurnSubmitted()
 }
