@@ -1,8 +1,8 @@
 package houston
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 )
 
 var ErrInvalidFileHeaderBlock = errors.New("invalid file header")
