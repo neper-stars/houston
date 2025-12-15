@@ -53,3 +53,10 @@ func (o *Order) TurnSubmitted() bool {
 
 	return o.Header.TurnSubmitted()
 }
+
+func (o *Order) Year() int {
+	if o.Header == nil {
+		panic("cannot work on a nil Header")
+	}
+	return o.Header.Year()
+}
