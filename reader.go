@@ -1,8 +1,8 @@
 package houston
 
 import (
-	"os"
 	"io"
+	"os"
 )
 
 func ReadRawFile(fName string, fileData *FileData) error {
