@@ -1,0 +1,22 @@
+{
+  "scenario": "production-orders",
+  "planet": {
+    "id": "12",
+    "name": "Abacus",
+    "queue": [
+      {
+        "type": "ship",
+        "name": "Armed Probe",
+        "count": 1
+      },
+      {
+        "type": "factory",
+        "count": 3
+      },
+      {
+        "type": "mine",
+        "count": 5
+      }
+    ]
+  }
+}

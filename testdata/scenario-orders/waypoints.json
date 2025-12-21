@@ -1,0 +1,30 @@
+{
+  "scenario": "waypoint-orders",
+  "files": [
+    "game.x1"
+  ],
+  "fleets": [
+    {
+      "id": "3",
+      "name": "Santa Maria #3",
+      "waypoints": [
+        {
+          "x": 1096,
+          "y": 1084,
+          "task": "colonize"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Teamster #4",
+      "waypoints": [
+        {
+          "x": 1096,
+          "y": 1084,
+          "task": "transport"
+        }
+      ]
+    }
+  ]
+}
