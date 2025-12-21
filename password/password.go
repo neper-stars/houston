@@ -1,6 +1,8 @@
 package password
 
-import "fmt"
+import (
+	"github.com/neper-stars/houston/log"
+)
 
 // AsciiString contains all ASCII characters for password guessing
 var AsciiString string
@@ -77,7 +79,7 @@ func GuessRacePassword(hash uint32, maxLength int, matchesAllowed int, charset s
 		if possibleHash == hash {
 			matches = append(matches, combination)
 			if verbose {
-				fmt.Printf("found password [%s]\n", combination)
+				log.Debug("found password", log.F("password", combination))
 			}
 		}
 		if len(matches) == matchesAllowed {
