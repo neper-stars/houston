@@ -3,16 +3,22 @@
 // Race files can become corrupted if edited improperly. This package provides
 // functions to analyze race files and recalculate checksums to make them valid.
 //
+// The library operates entirely in memory - callers are responsible for reading files
+// from and writing files to their storage (disk, database, etc.).
+//
 // Example usage:
 //
-//	info, err := racefixer.Analyze("MyRace.r1")
+//	data, _ := os.ReadFile("MyRace.r1")
+//	info, err := racefixer.AnalyzeBytes("MyRace.r1", data)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //	if info.NeedsRepair {
-//	    if err := racefixer.Repair("MyRace.r1"); err != nil {
+//	    repaired, err := racefixer.RepairBytes(data)
+//	    if err != nil {
 //	        log.Fatal(err)
 //	    }
+//	    os.WriteFile("MyRace.r1", repaired, 0644)
 //	}
 package racefixer
 
@@ -20,8 +26,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
@@ -38,6 +42,7 @@ type FileInfo struct {
 }
 
 // Analyze reads a race file and determines if it needs repair.
+// This is a convenience function that reads from disk.
 func Analyze(filename string) (*FileInfo, error) {
 	fileBytes, err := os.ReadFile(filename)
 	if err != nil {
@@ -47,14 +52,19 @@ func Analyze(filename string) (*FileInfo, error) {
 	return AnalyzeBytes(filename, fileBytes)
 }
 
-// AnalyzeBytes analyzes race file data.
-func AnalyzeBytes(filename string, fileBytes []byte) (*FileInfo, error) {
-	// Validate file extension
-	ext := strings.ToLower(filepath.Ext(filename))
-	if len(ext) < 2 || ext[1] != 'r' {
-		return nil, fmt.Errorf("%s does not appear to be a race file", filename)
+// AnalyzeReader analyzes race file data from an io.Reader.
+func AnalyzeReader(name string, r io.Reader) (*FileInfo, error) {
+	fileBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 
+	return AnalyzeBytes(name, fileBytes)
+}
+
+// AnalyzeBytes analyzes race file data.
+// The name parameter is used for display purposes only.
+func AnalyzeBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	fd := parser.FileData(fileBytes)
 
 	blockList, err := fd.BlockList()
@@ -63,7 +73,7 @@ func AnalyzeBytes(filename string, fileBytes []byte) (*FileInfo, error) {
 	}
 
 	info := &FileInfo{
-		Filename:   filename,
+		Filename:   name,
 		Size:       len(fileBytes),
 		BlockCount: len(blockList),
 		Blocks:     blockList,
@@ -80,65 +90,46 @@ func AnalyzeBytes(filename string, fileBytes []byte) (*FileInfo, error) {
 	return info, nil
 }
 
-// Repair attempts to fix a corrupted race file.
-func Repair(filename string) error {
-	info, err := Analyze(filename)
-	if err != nil {
-		return err
-	}
-
-	if !info.HasHashBlock {
-		return fmt.Errorf("no hash block found - cannot determine checksum location")
-	}
-
-	// Create backup
-	backupName := filename + ".backup"
-	if err := copyFile(filename, backupName); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
-	}
-
-	// Note: Actual checksum recalculation requires understanding the Stars! checksum algorithm
-	// This is a placeholder
-	return fmt.Errorf("checksum recalculation not yet implemented")
-}
-
 // RepairResult contains the results of a repair operation.
 type RepairResult struct {
-	Success    bool
-	BackupFile string
-	Message    string
+	Success bool
+	Message string
 }
 
-// RepairWithResult repairs a race file and returns detailed results.
-func RepairWithResult(filename string) (*RepairResult, error) {
-	info, err := Analyze(filename)
+// RepairBytes attempts to fix corrupted race file data and returns the repaired bytes.
+// Returns the repaired data or an error if repair is not possible.
+func RepairBytes(data []byte) ([]byte, *RepairResult, error) {
+	info, err := AnalyzeBytes("", data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	result := &RepairResult{}
 
 	if !info.HasHashBlock {
-		result.Message = "no hash block found"
-		return result, nil
+		result.Message = "no hash block found - cannot determine checksum location"
+		return nil, result, nil
 	}
 
-	// Create backup
-	backupName := filename + ".backup"
-	if err := copyFile(filename, backupName); err != nil {
-		return nil, fmt.Errorf("failed to create backup: %w", err)
-	}
-	result.BackupFile = backupName
-
-	// Note: Actual implementation would recalculate and write the checksum
+	// Note: Actual checksum recalculation requires understanding the Stars! checksum algorithm
+	// This is a placeholder - return original data for now
 	result.Message = "checksum recalculation not yet implemented"
 
-	return result, nil
+	return data, result, nil
 }
 
-// ValidateChecksum verifies the checksum of a race file.
-func ValidateChecksum(filename string) (bool, error) {
-	info, err := Analyze(filename)
+// RepairReader repairs race file data from an io.Reader.
+func RepairReader(r io.Reader) ([]byte, *RepairResult, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read data: %w", err)
+	}
+	return RepairBytes(data)
+}
+
+// ValidateChecksumBytes verifies the checksum of race file data.
+func ValidateChecksumBytes(data []byte) (bool, error) {
+	info, err := AnalyzeBytes("", data)
 	if err != nil {
 		return false, err
 	}
@@ -151,19 +142,11 @@ func ValidateChecksum(filename string) (bool, error) {
 	return true, nil
 }
 
-func copyFile(src, dst string) error {
-	source, err := os.Open(src)
+// ValidateChecksumReader verifies the checksum from an io.Reader.
+func ValidateChecksumReader(r io.Reader) (bool, error) {
+	data, err := io.ReadAll(r)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("failed to read data: %w", err)
 	}
-	defer source.Close()
-
-	dest, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dest.Close()
-
-	_, err = io.Copy(dest, source)
-	return err
+	return ValidateChecksumBytes(data)
 }

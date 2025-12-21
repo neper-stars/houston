@@ -1,0 +1,36 @@
+  {
+    "scenario": "basic-2player",
+    "game": {
+      "name": "TestBed01",
+      "year": 2400
+    },
+    "player1": {
+      "raceName": "Halfling",
+      "racePluralName": "Halflings",
+      "homeworld": { "name": "Abacus" },
+      "fleets": [
+          { "name": "Armed Probe #1", "shipCount": 1 },
+          { "name": "Long Range Scout #2", "shipCount": 1 },
+          { "name": "Santa Maria #3", "shipCount": 1 },
+          { "name": "Teamster #4", "shipCount": 1 },
+          { "name": "Stalwart Defender #5", "shipCount": 1 },
+          { "name": "Cotton Picker #6", "shipCount": 1 }
+      ]
+    },
+    "player2": {
+      "raceName": "Hobbit",
+      "racePluralName": "Hobbits",
+      "homeworld": { "name": "Milky Way" },
+      "fleets": [
+          { "name": "Armed Probe #1", "shipCount": 1 },
+          { "name": "Long Range Scout #2", "shipCount": 1 },
+          { "name": "Santa Maria #3", "shipCount": 1 },
+          { "name": "Teamster #4", "shipCount": 1 },
+          { "name": "Stalwart Defender #5", "shipCount": 1 },
+          { "name": "Cotton Picker #6", "shipCount": 1 }
+      ]
+    },
+    "universe": {
+      "totalPlanets": "32"
+    }
+  }

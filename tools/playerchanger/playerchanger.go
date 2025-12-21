@@ -3,9 +3,13 @@
 // This package can be used to change player attributes such as AI/human status,
 // which is useful for taking over abandoned positions or debugging games.
 //
+// The library operates entirely in memory - callers are responsible for reading files
+// from and writing files to their storage (disk, database, etc.).
+//
 // Example usage:
 //
-//	info, err := playerchanger.ReadPlayers("Game.hst")
+//	data, _ := os.ReadFile("Game.hst")
+//	info, err := playerchanger.ReadPlayersFromBytes("Game.hst", data)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -48,9 +52,8 @@ type FileInfo struct {
 
 // ChangeResult contains the result of a player change operation.
 type ChangeResult struct {
-	Success    bool
-	BackupFile string
-	Message    string
+	Success bool
+	Message string
 }
 
 // ReadPlayers reads player information from a game file.
@@ -63,8 +66,19 @@ func ReadPlayers(filename string) (*FileInfo, error) {
 	return ReadPlayersFromBytes(filename, fileBytes)
 }
 
+// ReadPlayersFromReader reads player information from an io.Reader.
+func ReadPlayersFromReader(name string, r io.Reader) (*FileInfo, error) {
+	fileBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
+	}
+
+	return ReadPlayersFromBytes(name, fileBytes)
+}
+
 // ReadPlayersFromBytes reads player information from file data.
-func ReadPlayersFromBytes(filename string, fileBytes []byte) (*FileInfo, error) {
+// The name parameter is used for display purposes only.
+func ReadPlayersFromBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	fd := parser.FileData(fileBytes)
 
 	header, err := fd.FileHeader()
@@ -78,7 +92,7 @@ func ReadPlayersFromBytes(filename string, fileBytes []byte) (*FileInfo, error) 
 	}
 
 	info := &FileInfo{
-		Filename:   filename,
+		Filename:   name,
 		Size:       len(fileBytes),
 		BlockCount: len(blockList),
 		GameID:     header.GameID,
@@ -121,71 +135,60 @@ func (fi *FileInfo) PlayerCount() int {
 	return len(fi.Players)
 }
 
-// ChangeToAI changes a player to AI control.
-func ChangeToAI(filename string, playerNumber int) (*ChangeResult, error) {
-	info, err := ReadPlayers(filename)
+// ChangeToAIBytes changes a player to AI control and returns the modified data.
+func ChangeToAIBytes(data []byte, playerNumber int) ([]byte, *ChangeResult, error) {
+	info, err := ReadPlayersFromBytes("", data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	player := info.GetPlayer(playerNumber)
 	if player == nil {
-		return nil, fmt.Errorf("player %d not found", playerNumber)
+		return nil, nil, fmt.Errorf("player %d not found", playerNumber)
 	}
 
-	// Create backup
-	backupName := filename + ".backup"
-	if err := copyFile(filename, backupName); err != nil {
-		return nil, fmt.Errorf("failed to create backup: %w", err)
-	}
-
+	// Note: Actual implementation would modify the player block data
 	result := &ChangeResult{
-		BackupFile: backupName,
-		Message:    "player modification not yet fully implemented",
+		Message: "player modification not yet fully implemented",
 	}
 
-	return result, nil
+	return data, result, nil
 }
 
-// ChangeToHuman changes a player to human control.
-func ChangeToHuman(filename string, playerNumber int) (*ChangeResult, error) {
-	info, err := ReadPlayers(filename)
+// ChangeToAIReader changes a player to AI control from data in an io.Reader.
+func ChangeToAIReader(r io.Reader, playerNumber int) ([]byte, *ChangeResult, error) {
+	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to read data: %w", err)
+	}
+	return ChangeToAIBytes(data, playerNumber)
+}
+
+// ChangeToHumanBytes changes a player to human control and returns the modified data.
+func ChangeToHumanBytes(data []byte, playerNumber int) ([]byte, *ChangeResult, error) {
+	info, err := ReadPlayersFromBytes("", data)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	player := info.GetPlayer(playerNumber)
 	if player == nil {
-		return nil, fmt.Errorf("player %d not found", playerNumber)
+		return nil, nil, fmt.Errorf("player %d not found", playerNumber)
 	}
 
-	// Create backup
-	backupName := filename + ".backup"
-	if err := copyFile(filename, backupName); err != nil {
-		return nil, fmt.Errorf("failed to create backup: %w", err)
-	}
-
+	// Note: Actual implementation would modify the player block data
 	result := &ChangeResult{
-		BackupFile: backupName,
-		Message:    "player modification not yet fully implemented",
+		Message: "player modification not yet fully implemented",
 	}
 
-	return result, nil
+	return data, result, nil
 }
 
-func copyFile(src, dst string) error {
-	source, err := os.Open(src)
+// ChangeToHumanReader changes a player to human control from data in an io.Reader.
+func ChangeToHumanReader(r io.Reader, playerNumber int) ([]byte, *ChangeResult, error) {
+	data, err := io.ReadAll(r)
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("failed to read data: %w", err)
 	}
-	defer source.Close()
-
-	dest, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dest.Close()
-
-	_, err = io.Copy(dest, source)
-	return err
+	return ChangeToHumanBytes(data, playerNumber)
 }

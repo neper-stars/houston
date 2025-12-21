@@ -3,7 +3,6 @@ package blocks
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/neper-stars/houston/data"
 )
@@ -114,12 +113,11 @@ type PlanetsBlock struct {
 }
 
 // GetPlanetCount returns the number of planets in the universe.
-// This should match len(Planets) after ParsePlanetsData() is called.
+// This returns PlanetCount from the block header, which is available
+// immediately after NewPlanetsBlock() is called.
+// After ParsePlanetsData() is called, len(Planets) will match this value.
 func (p *PlanetsBlock) GetPlanetCount() int {
-	if int(p.PlanetCount) != len(p.Planets) {
-		fmt.Println("planet count mismatch")
-	}
-	return len(p.Planets)
+	return int(p.PlanetCount)
 }
 
 // NewPlanetsBlock creates a PlanetsBlock from a GenericBlock.

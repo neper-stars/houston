@@ -17,6 +17,7 @@ package xfilereader
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,12 @@ type Order struct {
 
 // ReadFile reads an X file and returns its contents.
 func ReadFile(filename string) (*FileInfo, error) {
+	// Validate file extension
+	ext := strings.ToLower(filepath.Ext(filename))
+	if len(ext) < 2 || ext[1] != 'x' {
+		return nil, fmt.Errorf("%s does not appear to be an X file", filename)
+	}
+
 	fileBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -56,14 +63,19 @@ func ReadFile(filename string) (*FileInfo, error) {
 	return ReadBytes(filename, fileBytes)
 }
 
-// ReadBytes parses X file data and returns its contents.
-func ReadBytes(filename string, fileBytes []byte) (*FileInfo, error) {
-	// Validate file extension
-	ext := strings.ToLower(filepath.Ext(filename))
-	if len(ext) < 2 || ext[1] != 'x' {
-		return nil, fmt.Errorf("%s does not appear to be an X file", filename)
+// ReadReader reads X file data from an io.Reader and returns its contents.
+func ReadReader(name string, r io.Reader) (*FileInfo, error) {
+	fileBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 
+	return ReadBytes(name, fileBytes)
+}
+
+// ReadBytes parses X file data and returns its contents.
+// The name parameter is used for display purposes only.
+func ReadBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	fd := parser.FileData(fileBytes)
 
 	// Parse header
@@ -79,7 +91,7 @@ func ReadBytes(filename string, fileBytes []byte) (*FileInfo, error) {
 	}
 
 	info := &FileInfo{
-		Filename:    filename,
+		Filename:    name,
 		Size:        len(fileBytes),
 		BlockCount:  len(blockList),
 		GameID:      header.GameID,

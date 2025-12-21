@@ -2,6 +2,7 @@ syntax: glob
 
 cmd/findpass/findpass
 exemple/exemple
+inspiration/
 
 # task cache files should not be versionned ever
 .task/

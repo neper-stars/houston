@@ -4,36 +4,46 @@
 // design, and object data from multiple M files. Each player's file is augmented with
 // information gathered from all allied files.
 //
+// The library operates entirely in memory - callers are responsible for reading files
+// from and writing files to their storage (disk, database, etc.).
+//
 // Example usage:
 //
 //	merger := mfilemerger.New()
-//	if err := merger.AddFile("player1.m1"); err != nil {
+//	if err := merger.Add("player1", player1Data); err != nil {
 //	    log.Fatal(err)
 //	}
-//	if err := merger.AddFile("player2.m2"); err != nil {
+//	if err := merger.Add("player2", player2Data); err != nil {
 //	    log.Fatal(err)
 //	}
 //	if err := merger.Merge(); err != nil {
 //	    log.Fatal(err)
 //	}
-//	// Files are now merged, backups created
+//	// Get merged data for each player
+//	mergedData1 := merger.GetMergedData("player1")
+//	mergedData2 := merger.GetMergedData("player2")
 package mfilemerger
 
 import (
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
 
+// FileEntry represents a single M file's data.
+type FileEntry struct {
+	Name         string
+	OriginalData []byte
+	Blocks       []blocks.Block
+	PlayerIndex  int
+}
+
 // Merger handles merging multiple M files.
 type Merger struct {
-	files      map[string][]blocks.Block
-	filenames  []string
+	entries    map[string]*FileEntry
+	names      []string // preserve order
 	gameID     uint32
 	turn       uint16
 	playerMask int
@@ -46,9 +56,8 @@ type Merger struct {
 	starbases [16][10]*DesignInfo
 	objects   map[int]blocks.ObjectBlock
 
-	// Options
-	MineralSharing bool
-	CreateBackups  bool
+	// State
+	merged bool
 }
 
 // PlanetInfo tracks the best available data for a planet.
@@ -76,23 +85,20 @@ type DesignInfo struct {
 
 // MergeResult contains the results of a merge operation.
 type MergeResult struct {
-	FilesProcessed int
-	PlanetsMerged  int
-	FleetsMerged   int
-	DesignsMerged  int
-	ObjectsMerged  int
-	Warnings       []string
-	BackupFiles    []string
+	EntriesProcessed int
+	PlanetsMerged    int
+	FleetsMerged     int
+	DesignsMerged    int
+	ObjectsMerged    int
+	Warnings         []string
 }
 
-// New creates a new Merger with default options.
+// New creates a new Merger.
 func New() *Merger {
 	m := &Merger{
-		files:          make(map[string][]blocks.Block),
-		planets:        make(map[int]*PlanetInfo),
-		objects:        make(map[int]blocks.ObjectBlock),
-		MineralSharing: true,
-		CreateBackups:  true,
+		entries: make(map[string]*FileEntry),
+		planets: make(map[int]*PlanetInfo),
+		objects: make(map[int]blocks.ObjectBlock),
 	}
 
 	for i := 0; i < 16; i++ {
@@ -102,65 +108,89 @@ func New() *Merger {
 	return m
 }
 
-// AddFile adds an M file to be merged.
-func (m *Merger) AddFile(filename string) error {
-	blockList, err := readFile(filename)
-	if err != nil {
-		return fmt.Errorf("unable to parse file %s: %w", filename, err)
+// Add adds M file data to be merged.
+// The name parameter is a unique identifier for this entry (e.g., filename or player ID).
+func (m *Merger) Add(name string, data []byte) error {
+	if m.merged {
+		return fmt.Errorf("cannot add after merge")
 	}
 
-	if err := m.validateMFile(filename, blockList); err != nil {
-		return err
-	}
-
-	m.files[filename] = blockList
-	m.filenames = append(m.filenames, filename)
-
-	return nil
-}
-
-// AddBytes adds M file data from bytes.
-func (m *Merger) AddBytes(name string, data []byte) error {
 	fd := parser.FileData(data)
 	blockList, err := fd.BlockList()
 	if err != nil {
 		return fmt.Errorf("failed to parse blocks: %w", err)
 	}
 
-	if err := m.validateMFile(name, blockList); err != nil {
-		return err
+	if len(blockList) == 0 {
+		return fmt.Errorf("%s does not parse into block list", name)
 	}
 
-	m.files[name] = blockList
-	m.filenames = append(m.filenames, name)
+	header, ok := blockList[0].(blocks.FileHeader)
+	if !ok {
+		return fmt.Errorf("%s does not start with header block", name)
+	}
+
+	entry := &FileEntry{
+		Name:         name,
+		OriginalData: data,
+		Blocks:       blockList,
+		PlayerIndex:  header.PlayerIndex(),
+	}
+
+	// Validate game ID and turn
+	if len(m.entries) == 0 {
+		m.gameID = header.GameID
+		m.turn = header.Turn
+		m.playerMask = 1 << header.PlayerIndex()
+	} else {
+		if header.GameID != m.gameID {
+			return fmt.Errorf("game ID mismatch in %s (expected %d, got %d)", name, m.gameID, header.GameID)
+		}
+		if header.Turn != m.turn {
+			return fmt.Errorf("turn mismatch in %s (expected %d, got %d)", name, m.turn, header.Turn)
+		}
+		m.playerMask |= 1 << header.PlayerIndex()
+	}
+
+	m.entries[name] = entry
+	m.names = append(m.names, name)
 
 	return nil
 }
 
-// FileCount returns the number of files added.
-func (m *Merger) FileCount() int {
-	return len(m.files)
+// AddReader adds M file data from an io.Reader.
+func (m *Merger) AddReader(name string, r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read data: %w", err)
+	}
+	return m.Add(name, data)
 }
 
-// Validate checks that all files are from the same game and turn.
-func (m *Merger) Validate() error {
-	return m.checkGameIdsAndTurns()
+// EntryCount returns the number of entries added.
+func (m *Merger) EntryCount() int {
+	return len(m.entries)
 }
 
-// Merge performs the merge operation on all added files.
+// Names returns the names of all added entries in order.
+func (m *Merger) Names() []string {
+	return m.names
+}
+
+// Merge performs the merge operation on all added entries.
 func (m *Merger) Merge() (*MergeResult, error) {
-	if len(m.files) == 0 {
-		return nil, fmt.Errorf("no files to merge")
+	if len(m.entries) == 0 {
+		return nil, fmt.Errorf("no entries to merge")
 	}
 
-	// Validate game IDs and turns
-	if err := m.checkGameIdsAndTurns(); err != nil {
-		return nil, err
+	if m.merged {
+		return nil, fmt.Errorf("already merged")
 	}
 
-	// Process each file and collect data
-	for _, blockList := range m.files {
-		if err := m.processFile(blockList); err != nil {
+	// Process each entry and collect data
+	for _, name := range m.names {
+		entry := m.entries[name]
+		if err := m.processEntry(entry); err != nil {
 			return nil, err
 		}
 	}
@@ -168,10 +198,12 @@ func (m *Merger) Merge() (*MergeResult, error) {
 	// Post-process: finalize merged data
 	m.postProcess()
 
+	m.merged = true
+
 	result := &MergeResult{
-		FilesProcessed: len(m.files),
-		PlanetsMerged:  len(m.planets),
-		ObjectsMerged:  len(m.objects),
+		EntriesProcessed: len(m.entries),
+		PlanetsMerged:    len(m.planets),
+		ObjectsMerged:    len(m.objects),
 	}
 
 	// Count fleets and designs
@@ -189,20 +221,36 @@ func (m *Merger) Merge() (*MergeResult, error) {
 		}
 	}
 
-	// Write back merged files
-	if m.CreateBackups {
-		for _, filename := range m.filenames {
-			backupName, err := m.writeFile(filename)
-			if err != nil {
-				return result, err
-			}
-			if backupName != "" {
-				result.BackupFiles = append(result.BackupFiles, backupName)
-			}
-		}
+	return result, nil
+}
+
+// GetMergedData returns the merged data for a specific entry.
+// Note: Currently returns original data as block encoding is not yet implemented.
+// Full implementation would rebuild the file with merged blocks.
+func (m *Merger) GetMergedData(name string) ([]byte, error) {
+	if !m.merged {
+		return nil, fmt.Errorf("must call Merge() first")
 	}
 
-	return result, nil
+	entry, ok := m.entries[name]
+	if !ok {
+		return nil, fmt.Errorf("entry %s not found", name)
+	}
+
+	// TODO: Implement block encoding to rebuild file with merged data
+	// For now, return original data
+	return entry.OriginalData, nil
+}
+
+// WriteMergedData writes the merged data for a specific entry to an io.Writer.
+func (m *Merger) WriteMergedData(name string, w io.Writer) error {
+	data, err := m.GetMergedData(name)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(data)
+	return err
 }
 
 // GetPlanets returns the merged planet data.
@@ -233,81 +281,23 @@ func (m *Merger) GetObjects() map[int]blocks.ObjectBlock {
 	return m.objects
 }
 
-// GetGameID returns the game ID from the merged files.
+// GetGameID returns the game ID from the merged entries.
 func (m *Merger) GetGameID() uint32 {
 	return m.gameID
 }
 
-// GetTurn returns the turn number from the merged files.
+// GetTurn returns the turn number from the merged entries.
 func (m *Merger) GetTurn() uint16 {
 	return m.turn
 }
 
-func readFile(filename string) ([]blocks.Block, error) {
-	fileBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	fd := parser.FileData(fileBytes)
-	return fd.BlockList()
-}
-
-func (m *Merger) validateMFile(filename string, blockList []blocks.Block) error {
-	if len(blockList) == 0 {
-		return fmt.Errorf("%s does not parse into block list", filename)
-	}
-
-	_, ok := blockList[0].(blocks.FileHeader)
-	if !ok {
-		return fmt.Errorf("%s does not start with header block", filename)
-	}
-
-	// Check file extension for M file
-	ext := strings.ToLower(filepath.Ext(filename))
-	if len(ext) < 2 || ext[1] != 'm' {
-		return fmt.Errorf("%s does not appear to be an M file", filename)
-	}
-
-	return nil
-}
-
-func (m *Merger) checkGameIdsAndTurns() error {
-	first := true
-	for filename, blockList := range m.files {
-		var header blocks.FileHeader
-		for _, block := range blockList {
-			if h, ok := block.(blocks.FileHeader); ok {
-				header = h
-				break
-			}
-		}
-
-		if first {
-			m.gameID = header.GameID
-			m.turn = header.Turn
-			m.playerMask = 1 << header.PlayerIndex()
-			first = false
-		} else {
-			if header.GameID != m.gameID {
-				return fmt.Errorf("game ID mismatch in %s", filename)
-			}
-			if header.Turn != m.turn {
-				return fmt.Errorf("turn mismatch in %s (expected %d, got %d)", filename, m.turn, header.Turn)
-			}
-			m.playerMask |= 1 << header.PlayerIndex()
-		}
-	}
-	return nil
-}
-
-func (m *Merger) processFile(blockList []blocks.Block) error {
+func (m *Merger) processEntry(entry *FileEntry) error {
 	shipDesignOwners := make([]int, 0)
 	starbaseDesignOwners := make([]int, 0)
 	shipDesignIndex := 0
 	starbaseDesignIndex := 0
 
-	for _, block := range blockList {
+	for _, block := range entry.Blocks {
 		switch b := block.(type) {
 		case blocks.PlayerBlock:
 			m.processPlayer(&b, &shipDesignOwners, &starbaseDesignOwners)
@@ -473,39 +463,4 @@ func (m *Merger) postProcess() {
 		}
 		m.players[i].StarbaseDesignCount = starbaseCount
 	}
-}
-
-func (m *Merger) writeFile(filename string) (string, error) {
-	backupName := backupFilename(filename)
-	if err := copyFile(filename, backupName); err != nil {
-		return "", fmt.Errorf("failed to create backup: %w", err)
-	}
-
-	// Note: Full file writing would require implementing block encoding
-	return backupName, nil
-}
-
-func backupFilename(filename string) string {
-	ext := filepath.Ext(filename)
-	if len(ext) >= 2 && (ext[1] == 'm' || ext[1] == 'M') {
-		return strings.TrimSuffix(filename, ext) + ".backup-" + ext[1:]
-	}
-	return filename + ".backup-m"
-}
-
-func copyFile(src, dst string) error {
-	source, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	dest, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dest.Close()
-
-	_, err = io.Copy(dest, source)
-	return err
 }

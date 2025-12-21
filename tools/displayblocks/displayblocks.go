@@ -88,8 +88,18 @@ func ReadFile(filename string) (*FileInfo, error) {
 	return ReadBytes(filename, fileBytes)
 }
 
+// ReadReader reads Stars! file data from an io.Reader and returns information about all blocks.
+func ReadReader(name string, r io.Reader) (*FileInfo, error) {
+	fileBytes, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
+	}
+
+	return ReadBytes(name, fileBytes)
+}
+
 // ReadBytes parses Stars! file data and returns information about all blocks.
-func ReadBytes(filename string, fileBytes []byte) (*FileInfo, error) {
+func ReadBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	fd := parser.FileData(fileBytes)
 
 	blockList, err := fd.BlockList()
@@ -98,7 +108,7 @@ func ReadBytes(filename string, fileBytes []byte) (*FileInfo, error) {
 	}
 
 	info := &FileInfo{
-		Filename:   filename,
+		Filename:   name,
 		Size:       len(fileBytes),
 		BlockCount: len(blockList),
 		Blocks:     make([]BlockInfo, 0, len(blockList)),
