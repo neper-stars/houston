@@ -1,7 +1,9 @@
-package houston
+package blocks
 
 import (
 	"errors"
+
+	"github.com/neper-stars/houston/encoding"
 )
 
 var ErrInvalidPlayerBlock = errors.New("invalid player block")
@@ -10,7 +12,7 @@ var ErrInvalidPlayerBlock = errors.New("invalid player block")
 type HashedPass []byte
 
 func (h HashedPass) Uint32() uint32 {
-	return read32(h, 0)
+	return encoding.Read32(h, 0)
 }
 
 type PlayerBlock struct {
@@ -70,11 +72,6 @@ func (p *PlayerBlock) decode() error {
 
 	p.Byte7 = p.Decrypted[7]
 
-	// TODO maybe AI doesn't have this?
-	// if p.decryptedData[7] != 1 {
-	//     return errors.New("Unexpected player values")
-	// }
-
 	index := 8
 	if p.FullDataFlag {
 		p.FullDataBytes = make([]byte, 0x68)
@@ -86,15 +83,13 @@ func (p *PlayerBlock) decode() error {
 		index += 1 + playerRelationsLength
 	}
 
-	// namesStart := index
-
 	// Decode the singular name
 	singularNameLength := int(p.Decrypted[index]) & 0xFF
 	nameBytesSingular := make([]byte, singularNameLength+1)
 	copy(nameBytesSingular, p.Decrypted[index:index+singularNameLength+1])
 
 	var err error
-	p.NameSingular, err = decodeStarsString(nameBytesSingular)
+	p.NameSingular, err = encoding.DecodeStarsString(nameBytesSingular)
 	if err != nil {
 		return err
 	}
@@ -106,7 +101,7 @@ func (p *PlayerBlock) decode() error {
 	nameBytesPlural := make([]byte, pluralNameLength+1)
 	copy(nameBytesPlural, p.Decrypted[index:index+pluralNameLength+1])
 
-	p.NamePlural, err = decodeStarsString(nameBytesPlural)
+	p.NamePlural, err = encoding.DecodeStarsString(nameBytesPlural)
 	if err != nil {
 		return err
 	}

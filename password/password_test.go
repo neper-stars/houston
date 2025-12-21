@@ -1,4 +1,4 @@
-package houston
+package password
 
 import (
 	"encoding/binary"
@@ -7,6 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func read32(bytes []byte, offset int) uint32 {
+	return binary.LittleEndian.Uint32(bytes[offset:])
+}
 
 func TestHashAndGuess(t *testing.T) {
 	expectedHash := uint32(156085230)

@@ -1,4 +1,4 @@
-package houston
+package data
 
 var PlanetNames = map[uint32]string{
 	0:   "007",

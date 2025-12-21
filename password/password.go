@@ -1,7 +1,8 @@
-package houston
+package password
 
 import "fmt"
 
+// AsciiString contains all ASCII characters for password guessing
 var AsciiString string
 
 func generateCombinations(charset string, maxLength int) <-chan string {
@@ -27,6 +28,7 @@ func generate(prefix string, charset string, maxLength int, ch chan<- string) {
 	}
 }
 
+// HashRacePassword computes the weak hash of a race password
 func HashRacePassword(inputString string) uint32 {
 	charList := []byte(inputString)
 
@@ -57,7 +59,7 @@ func HashRacePassword(inputString string) uint32 {
 // a number of alternative strings to use instead of the original password
 //
 // Used like so:
-// guessRacePassword(hash, maxLength, charset)
+// GuessRacePassword(hash, maxLength, matchesAllowed, charset, verbose)
 //
 // hash is the value found in the 4 byte hash generated in a PlayerBlock
 // at data offset 12

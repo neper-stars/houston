@@ -1,19 +1,10 @@
-package houston
+package encoding
 
 import (
-	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
 )
-
-func read16(bytes []byte, offset int) uint16 {
-	return binary.LittleEndian.Uint16(bytes[offset:])
-}
-
-func read32(bytes []byte, offset int) uint32 {
-	return binary.LittleEndian.Uint32(bytes[offset:])
-}
 
 const (
 	// All of these characters are found in the stars26jrc4 binary at offset
@@ -25,14 +16,14 @@ const (
 	encodesE         = "wxyz+-,!.?:;'*%$"
 )
 
-func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
+// DecodeHexStarsString decodes a hex-encoded Stars! string
+func DecodeHexStarsString(hexChars string, byteSize int) (string, error) {
 	var result strings.Builder
 	// Keep track of what byte we're at for certain checks
 	atByteIndex := -1
 
 	// Loop through each hex character and decode the text depending on
 	// what the hex value is. 1 Nibble (4 bits) is represented by one char
-	//	    for (int t = 0; t < hexChars.length(); t++) {
 	for t := 0; t < 2*byteSize; t++ {
 		// Every 2 nibbles is the start of a new byte
 		// Integer division expected
@@ -100,34 +91,38 @@ func decodeHexStarsString(hexChars string, byteSize int) (string, error) {
 	return result.String(), nil
 }
 
-func decodeStarsString(res []byte) (string, error) {
+// DecodeStarsString decodes a Stars! encoded string from raw bytes
+func DecodeStarsString(res []byte) (string, error) {
 	byteSize := int(res[0])
 	textBytes := res[1:]
-	hexChars := byteArrayToHex(textBytes)
-	decoded, err := decodeHexStarsString(hexChars, byteSize)
+	hexChars := ByteArrayToHex(textBytes)
+	decoded, err := DecodeHexStarsString(hexChars, byteSize)
 	if err != nil {
 		return "", err
 	}
 	return decoded, nil
 }
 
-func byteToHex(b byte) string {
+// ByteToHex converts a single byte to a hex string
+func ByteToHex(b byte) string {
 	i := int(b & 0xff)
 	hex := fmt.Sprintf("%02X", i)
 	return hex
 }
 
-func byteArrayToHex(bytes []byte) string {
+// ByteArrayToHex converts a byte array to a hex string
+func ByteArrayToHex(bytes []byte) string {
 	var hexChars strings.Builder
 
 	for _, b := range bytes {
-		hexChars.WriteString(byteToHex(b))
+		hexChars.WriteString(ByteToHex(b))
 	}
 
 	return hexChars.String()
 }
 
-func hexToByteArray(hexChars string) []byte {
+// HexToByteArray converts a hex string to a byte array
+func HexToByteArray(hexChars string) []byte {
 	res := make([]byte, len(hexChars)/2)
 
 	for i := 0; i < len(res); i++ {
@@ -151,15 +146,4 @@ func charToNibble(ch byte) byte {
 		return ch - 'A' + 10
 	}
 	panic("Invalid hex character")
-}
-
-func subArray(input []byte, startIdx int, endIdx int) []byte {
-	size := endIdx - startIdx + 1
-	output := make([]byte, size)
-	copy(output, input[startIdx:endIdx+1])
-	return output
-}
-
-func subArrayFromStart(input []byte, startIdx int) []byte {
-	return subArray(input, startIdx, len(input)-1)
 }

@@ -1,4 +1,4 @@
-package houston
+package blocks
 
 const (
 	FileFooterBlockType                 BlockTypeID = iota // 0
@@ -45,7 +45,7 @@ const (
 	AiHFileRecordBlockType                                 // 41
 	SetFleetBattlePlanBlockType                            // 42
 	ObjectBlockType                                        // 43
-	RenameFleetBlocType                                    // 44
+	RenameFleetBlockType                                   // 44
 	PlayerScoresBlockType                                  // 45
 	SaveAndSubmitBlockType                                 // 46
 )

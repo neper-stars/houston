@@ -1,8 +1,12 @@
-package houston
+package parser
 
 import (
 	"errors"
 	"fmt"
+
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/crypto"
+	"github.com/neper-stars/houston/encoding"
 )
 
 var ErrNoFileHeaderFound = errors.New("no file header found")
@@ -15,45 +19,39 @@ func (e ErrMalformedBlock) Error() string {
 	return e.Msg
 }
 
+// FileData represents the raw bytes of a Stars! file
 type FileData []byte
 
-func (fd FileData) FileHeader() (*FileHeader, error) {
+// FileHeader extracts the file header from the raw file data
+func (fd FileData) FileHeader() (*blocks.FileHeader, error) {
 	b, err := fd.ParseBlock(0)
 	if err != nil {
 		return nil, err
 	}
 
 	// type 8
-	if b.Type == FileHeaderBlockType {
+	if b.Type == blocks.FileHeaderBlockType {
 		// we have found ourselves the file header. Parse content
-		return NewFileHeader(*b)
+		return blocks.NewFileHeader(*b)
 	}
 
 	return nil, ErrNoFileHeaderFound
 }
 
-func (fd FileData) ParseBlock(offset int) (*GenericBlock, error) {
-	// fmt.Println("fd dump:\n", hex.EncodeToString(fd))
-	/*
-		blockHeader = util.read16(fileBytes, offset)
-		typeId = blockHeader >> 10   # First 6 bits
-		size = blockHeader & 0x3FF # Last 10 bits
-		data = fileBytes[offset+2:offset+2+size]
-	*/
-	blockHeader := read16(fd, offset)
-	// fmt.Printf("header @offset %d: %x\n", offset, blockHeader)
+// ParseBlock parses a single block at the given offset
+func (fd FileData) ParseBlock(offset int) (*blocks.GenericBlock, error) {
+	blockHeader := encoding.Read16(fd, offset)
 	// typeID is the first 6 bits of the header
-	typeID := BlockTypeID(blockHeader >> 10)
+	typeID := blocks.BlockTypeID(blockHeader >> 10)
 	// size is the last 10 bits
-	size := BlockSize(blockHeader & 0x3FF)
-	// fmt.Printf("typeID: %d, size: %d, blockHeader: %d\n", typeID, size, blockHeader)
+	size := blocks.BlockSize(blockHeader & 0x3FF)
 	// data is the file data without the 2 first bytes (16 bits) of header
-	var data BlockData
+	var data blocks.BlockData
 	// if size == 0 (like in a FileFooterBlock, then we do not need to read data)
 	if int(size) > 0 {
 		// make sure we have enough data to read
 		if len(fd) >= offset+2+int(size) {
-			data = BlockData(fd[offset+2 : offset+2+int(size)])
+			data = blocks.BlockData(fd[offset+2 : offset+2+int(size)])
 		} else {
 			// report some kind of error
 			wholeDataLen := len(fd)
@@ -66,33 +64,31 @@ func (fd FileData) ParseBlock(offset int) (*GenericBlock, error) {
 				)}
 		}
 	}
-	return &GenericBlock{
+	return &blocks.GenericBlock{
 		Type: typeID,
 		Size: size,
 		Data: data,
 	}, nil
 }
 
-func (fd FileData) BlockList() ([]Block, error) {
-	var blockList []Block
-	decryptor := NewDecryptor()
+// BlockList parses all blocks in the file data and returns them as a list
+func (fd FileData) BlockList() ([]blocks.Block, error) {
+	var blockList []blocks.Block
+	decryptor := crypto.NewDecryptor()
 
 	offset := 0
 	for offset < len(fd) {
-		// fmt.Println("will parse block @", offset)
 		block, err := fd.ParseBlock(offset)
 		if err != nil {
 			return nil, err
 		}
 
-		// fmt.Println("BLOCK:", block.BlockTypeID(), block.BlockSize(), block.BlockData())
-
 		offset += int(block.Size) + 2
-		var item Block
+		var item blocks.Block
 
 		// type 8
-		if block.Type == FileHeaderBlockType {
-			header, err := NewFileHeader(*block)
+		if block.Type == blocks.FileHeaderBlockType {
+			header, err := blocks.NewFileHeader(*block)
 			if err != nil {
 				return nil, err
 			}
@@ -102,14 +98,13 @@ func (fd FileData) BlockList() ([]Block, error) {
 			}
 			decryptor.InitDecryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), sw)
 			item = *header
-			// fmt.Printf("%+v\n", item)
 		} else {
 			block.Decrypted = decryptor.DecryptBytes(block.Data)
 
-			if block.Type == PlanetsBlockType {
+			if block.Type == blocks.PlanetsBlockType {
 				// if type = 7
 				// PlanetsBlock is an exception in that it has more data tacked onto the end
-				planetBlock := NewPlanetsBlock(*block)
+				planetBlock := blocks.NewPlanetsBlock(*block)
 
 				// A bunch of planets data is tacked onto the end of this block
 				// We need to determine how much and parse it
@@ -119,9 +114,9 @@ func (fd FileData) BlockList() ([]Block, error) {
 				// Adjust our offset to after the planet data
 				offset += length
 				item = *planetBlock
-			} else if block.Type == PlayerBlockType {
+			} else if block.Type == blocks.PlayerBlockType {
 				// if type == 6
-				playerBlock, err := NewPlayerBlock(*block)
+				playerBlock, err := blocks.NewPlayerBlock(*block)
 				if err != nil {
 					return nil, err
 				}

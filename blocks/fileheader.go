@@ -1,8 +1,10 @@
-package houston
+package blocks
 
 import (
 	"errors"
 	"fmt"
+
+	"github.com/neper-stars/houston/encoding"
 )
 
 var ErrInvalidFileHeaderBlock = errors.New("invalid file header")
@@ -29,12 +31,12 @@ func NewFileHeader(b GenericBlock) (*FileHeader, error) {
 	}
 	fh := FileHeader{
 		GenericBlock: b,
-		magic:        [4]byte(data[0:4]), // +4
-		GameID:       read32(data, 4),    // +4
-		VersionData:  read16(data, 8),    // +2
-		Turn:         read16(data, 10),   // +2
-		PlayerData:   read16(data, 12),   // +2
-		Flags:        data[15],           // +1
+		magic:        [4]byte(data[0:4]),          // +4
+		GameID:       encoding.Read32(data, 4),    // +4
+		VersionData:  encoding.Read16(data, 8),    // +2
+		Turn:         encoding.Read16(data, 10),   // +2
+		PlayerData:   encoding.Read16(data, 12),   // +2
+		Flags:        data[15],                    // +1
 	}
 	return &fh, nil
 }

@@ -1,16 +1,4 @@
-package houston
-
-type Block interface {
-	BlockTypeID() BlockTypeID
-	BlockSize() BlockSize
-	BlockData() BlockData
-	DecryptedData() DecryptedData
-}
-
-type BlockTypeID uint16
-type BlockSize uint16
-type BlockData []byte
-type DecryptedData []byte
+package blocks
 
 // GenericBlock is the most basic implementation
 // of the Block interface

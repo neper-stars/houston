@@ -1,8 +1,10 @@
-package houston
+package blocks
 
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/neper-stars/houston/data"
 )
 
 // Planet is a struct holding the planet
@@ -76,11 +78,11 @@ func NewPlanetsBlock(b GenericBlock) *PlanetsBlock {
 	return &block
 }
 
-func (p *PlanetsBlock) ParsePlanetsData(data []byte) {
+func (p *PlanetsBlock) ParsePlanetsData(d []byte) {
 	x := uint32(1000)
 
 	for i := 0; i < int(p.PlanetCount); i++ {
-		planetData := binary.LittleEndian.Uint32(data[i*4 : (i+1)*4])
+		planetData := binary.LittleEndian.Uint32(d[i*4 : (i+1)*4])
 
 		nameID := planetData >> 22      // First 10 bits
 		y := (planetData >> 10) & 0xFFF // Middle 12 bits
@@ -91,7 +93,7 @@ func (p *PlanetsBlock) ParsePlanetsData(data []byte) {
 			ID:        i,
 			DisplayId: i + 1,
 			NameID:    nameID,
-			Name:      PlanetNames[nameID],
+			Name:      data.PlanetNames[nameID],
 			Y:         y,
 			X:         x,
 		}

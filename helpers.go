@@ -2,6 +2,9 @@ package houston
 
 import (
 	"errors"
+
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/parser"
 )
 
 // Order represents a file submitted by a player with
@@ -10,11 +13,11 @@ import (
 // full "submitted" file.
 // stars will only process submitted files
 type Order struct {
-	fd     *FileData
-	Header *FileHeader
+	fd     *parser.FileData
+	Header *blocks.FileHeader
 }
 
-func NewOrder(fd *FileData) (*Order, error) {
+func NewOrder(fd *parser.FileData) (*Order, error) {
 	if fd == nil {
 		return nil, errors.New("file data is required")
 	}
@@ -32,8 +35,8 @@ func NewOrder(fd *FileData) (*Order, error) {
 }
 
 func NewOrderFromFile(fName string) (*Order, error) {
-	var fd FileData
-	if err := ReadRawFile(fName, &fd); err != nil {
+	var fd parser.FileData
+	if err := parser.ReadRawFile(fName, &fd); err != nil {
 		return nil, err
 	}
 
@@ -41,7 +44,7 @@ func NewOrderFromFile(fName string) (*Order, error) {
 }
 
 func NewOrderFromBytes(data []byte) (*Order, error) {
-	var fd FileData
+	var fd parser.FileData
 	fd = data
 	return NewOrder(&fd)
 }

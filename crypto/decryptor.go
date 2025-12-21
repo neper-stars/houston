@@ -1,40 +1,19 @@
-package houston
+package crypto
 
-/*
-* The first 64 prime numbers, after '2' (so all are odd). These are used
-* as starting seeds to the random number generator.
-*
-* IMPORTANT:  One number here is not prime (279).  I thought it should be
-* replaced with 269, which is prime.  StarsHostEditor 0.3 decompiled source
-* uses 279, and it turns out that an analysis of the stars EXE with a hex editor
-* also shows a primes table with 279.  Fun!
- */
-var primes = []int{
-	3, 5, 7, 11, 13, 17, 19, 23,
-	29, 31, 37, 41, 43, 47, 53, 59,
-	61, 67, 71, 73, 79, 83, 89, 97,
-	101, 103, 107, 109, 113, 127, 131, 137,
-	139, 149, 151, 157, 163, 167, 173, 179,
-	181, 191, 193, 197, 199, 211, 223, 227,
-	229, 233, 239, 241, 251, 257, 263, 279,
-	271, 277, 281, 283, 293, 307, 311, 313,
-}
-
+// StarsRandom is a pseudo-random number generator used by Stars!
 type StarsRandom struct {
 	seedA  int
 	seedB  int
 	rounds int
 }
 
+// NewStarsRandom creates a new StarsRandom with the given seeds and initial rounds
 func NewStarsRandom(seed1, seed2, initRounds int) *StarsRandom {
 	random := &StarsRandom{
 		seedA:  seed1,
 		seedB:  seed2,
 		rounds: initRounds,
 	}
-
-	// log.Printf("seed1: %d; seed2: %d\n", random.seedA, random.seedB)
-	// log.Printf("rounds: %d\n", random.rounds)
 
 	for i := 0; i < initRounds; i++ {
 		random.NextRandom()
@@ -43,6 +22,7 @@ func NewStarsRandom(seed1, seed2, initRounds int) *StarsRandom {
 	return random
 }
 
+// NextRandom generates the next random number in the sequence
 func (r *StarsRandom) NextRandom() int {
 	seedApartA := (r.seedA % 53668) * 40014
 	seedApartB := (r.seedA / 53668) * 12211
@@ -71,14 +51,17 @@ func (r *StarsRandom) NextRandom() int {
 	return randomNumber
 }
 
+// Decryptor handles decryption of Stars! file data
 type Decryptor struct {
 	random *StarsRandom
 }
 
+// NewDecryptor creates a new Decryptor instance
 func NewDecryptor() *Decryptor {
 	return &Decryptor{}
 }
 
+// InitDecryption initializes the decryptor with game parameters
 func (d *Decryptor) InitDecryption(salt, gameId, turn, playerIndex, shareware int) {
 	// Use two prime numbers as random seeds.
 	// First one comes from the lower 5 bits of the salt
@@ -116,6 +99,7 @@ func (d *Decryptor) InitDecryption(salt, gameId, turn, playerIndex, shareware in
 	d.random = NewStarsRandom(seed1, seed2, rounds)
 }
 
+// DecryptBytes decrypts a byte slice using the initialized random generator
 func (d *Decryptor) DecryptBytes(b []byte) []byte {
 	byteArray := make([]byte, len(b))
 	copy(byteArray, b)
