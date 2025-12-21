@@ -1,0 +1,45 @@
+[tools]
+go = "1.25"
+
+[tasks.deps]
+description = "Download and tidy dependencies"
+run = "go mod download && go mod tidy"
+
+[tasks.build]
+description = "Build houston binary for development"
+run = "mkdir -p build && go build -o build/houston ./cmd/houston"
+
+[tasks.build-static]
+description = "Build static houston binary for distribution"
+run = """
+mkdir -p build
+CGO_ENABLED=0 go build -ldflags='-s -w -extldflags "-static"' -o build/houston ./cmd/houston
+"""
+
+[tasks.test]
+description = "Run all tests"
+run = "go test ./..."
+
+[tasks.test-v]
+description = "Run all tests with verbose output"
+run = "go test -v ./..."
+
+[tasks.test-cover]
+description = "Run tests with coverage report"
+run = "go test -coverprofile=build/coverage.out ./... && go tool cover -html=build/coverage.out -o build/coverage.html"
+
+[tasks.lint]
+description = "Run go vet"
+run = "go vet ./..."
+
+[tasks.fmt]
+description = "Format all Go files"
+run = "go fmt ./..."
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf build/"
+
+[tasks.all]
+description = "Run deps, fmt, lint, test, and build"
+depends = ["deps", "fmt", "lint", "test", "build"]

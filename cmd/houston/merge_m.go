@@ -1,11 +1,3 @@
-// Command mfilemerger merges data between allied players' M files.
-//
-// Usage:
-//
-//	mfilemerger <file1.m1> <file2.m2> [...]
-//
-// This tool takes multiple M files from allied players and augments each file
-// with planet, fleet, design, and object data from the other files.
 package main
 
 import (
@@ -20,74 +12,50 @@ import (
 	"github.com/neper-stars/houston/tools/mfilemerger"
 )
 
-type options struct {
+type mergeMCommand struct {
 	NoBackup bool `short:"n" long:"no-backup" description:"Don't create backup files"`
 	Args     struct {
 		Files []string `positional-arg-name:"file" description:"M files to merge" required:"true"`
 	} `positional-args:"yes"`
 }
 
-var description = `All M files supplied on the command line will have their data augmented
-with the data on each planet, player, design, fleet, minefield, packet,
-salvage, or wormhole from any of the files.
-
-Backups of each input M file will be retained with suffix .backup-m#.`
-
-func main() {
-	var opts options
-	parser := flags.NewParser(&opts, flags.Default)
-	parser.Name = "mfilemerger"
-	parser.LongDescription = description
-
-	_, err := parser.Parse()
-	if err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		}
-		os.Exit(1)
-	}
-
+func (c *mergeMCommand) Execute(args []string) error {
 	// Validate file extensions
-	for _, filename := range opts.Args.Files {
+	for _, filename := range c.Args.Files {
 		ext := strings.ToLower(filepath.Ext(filename))
 		if len(ext) < 2 || ext[1] != 'm' {
-			fmt.Fprintf(os.Stderr, "Error: %s does not appear to be an M file\n", filename)
-			os.Exit(1)
+			return fmt.Errorf("%s does not appear to be an M file", filename)
 		}
 	}
 
 	merger := mfilemerger.New()
 
 	// Read all files into memory
-	for _, filename := range opts.Args.Files {
+	for _, filename := range c.Args.Files {
 		data, err := os.ReadFile(filename)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filename, err)
-			os.Exit(1)
+			return fmt.Errorf("error reading %s: %w", filename, err)
 		}
 
 		if err := merger.Add(filename, data); err != nil {
-			fmt.Fprintf(os.Stderr, "Error adding %s: %v\n", filename, err)
-			os.Exit(1)
+			return fmt.Errorf("error adding %s: %w", filename, err)
 		}
 	}
 
 	// Perform merge
 	result, err := merger.Merge()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error merging files: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error merging files: %w", err)
 	}
 
 	// Write back merged files
 	var backupFiles []string
-	for _, filename := range opts.Args.Files {
+	for _, filename := range c.Args.Files {
 		// Create backup if requested
-		if !opts.NoBackup {
-			backupName := backupFilename(filename)
-			if err := copyFile(filename, backupName); err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating backup for %s: %v\n", filename, err)
-				os.Exit(1)
+		if !c.NoBackup {
+			backupName := backupFilenameMergeM(filename)
+			if err := copyFileMergeM(filename, backupName); err != nil {
+				return fmt.Errorf("error creating backup for %s: %w", filename, err)
 			}
 			backupFiles = append(backupFiles, backupName)
 		}
@@ -95,13 +63,11 @@ func main() {
 		// Get merged data and write it
 		mergedData, err := merger.GetMergedData(filename)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting merged data for %s: %v\n", filename, err)
-			os.Exit(1)
+			return fmt.Errorf("error getting merged data for %s: %w", filename, err)
 		}
 
 		if err := os.WriteFile(filename, mergedData, 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", filename, err)
-			os.Exit(1)
+			return fmt.Errorf("error writing %s: %w", filename, err)
 		}
 	}
 
@@ -125,9 +91,11 @@ func main() {
 			fmt.Printf("  %s\n", warning)
 		}
 	}
+
+	return nil
 }
 
-func backupFilename(filename string) string {
+func backupFilenameMergeM(filename string) string {
 	ext := filepath.Ext(filename)
 	if len(ext) >= 2 && (ext[1] == 'm' || ext[1] == 'M') {
 		return strings.TrimSuffix(filename, ext) + ".backup-" + ext[1:]
@@ -135,7 +103,7 @@ func backupFilename(filename string) string {
 	return filename + ".backup-m"
 }
 
-func copyFile(src, dst string) error {
+func copyFileMergeM(src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
 		return err
@@ -150,4 +118,17 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dest, source)
 	return err
+}
+
+func addMergeMCommand(parser *flags.Parser) {
+	_, err := parser.AddCommand("merge-m",
+		"Merge M files between allied players",
+		"All M files supplied on the command line will have their data augmented\n"+
+			"with the data on each planet, player, design, fleet, minefield, packet,\n"+
+			"salvage, or wormhole from any of the files.\n\n"+
+			"Backups of each input M file will be retained with suffix .backup-m#.",
+		&mergeMCommand{})
+	if err != nil {
+		panic(err)
+	}
 }

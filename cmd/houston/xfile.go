@@ -1,59 +1,31 @@
-// Command xfilereader validates and displays X (turn order) file contents.
-//
-// Usage:
-//
-//	xfilereader <file.x1>
-//
-// This tool reads a Stars! X file (player turn orders) and displays its contents.
-// It can be used to validate X files before submitting them to the host.
 package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jessevdk/go-flags"
 
 	"github.com/neper-stars/houston/tools/xfilereader"
 )
 
-type options struct {
+type xfileCommand struct {
 	Args struct {
 		File string `positional-arg-name:"file" description:"X file to read" required:"true"`
 	} `positional-args:"yes"`
 }
 
-var description = `Reads and validates a Stars! X file (turn order file).
-Displays the orders contained in the file.`
-
-func main() {
-	var opts options
-	parser := flags.NewParser(&opts, flags.Default)
-	parser.Name = "xfilereader"
-	parser.LongDescription = description
-
-	_, err := parser.Parse()
+func (c *xfileCommand) Execute(args []string) error {
+	info, err := xfilereader.ReadFile(c.Args.File)
 	if err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		}
-		os.Exit(1)
+		return err
 	}
 
-	info, err := xfilereader.ReadFile(opts.Args.File)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Print file info
 	fmt.Printf("File: %s\n", info.Filename)
 	fmt.Printf("Game ID: %d\n", info.GameID)
 	fmt.Printf("Turn: %d (Year %d)\n", info.Turn, info.Year)
 	fmt.Printf("Player: %d\n", info.PlayerIndex)
 	fmt.Println()
 
-	// Print orders
 	if len(info.Orders) > 0 {
 		fmt.Println("Orders:")
 		for _, order := range info.Orders {
@@ -62,7 +34,6 @@ func main() {
 		fmt.Println()
 	}
 
-	// Print block summary
 	fmt.Println("Block Summary:")
 	for blockType, count := range info.BlockCounts {
 		fmt.Printf("  %s: %d\n", blockType, count)
@@ -77,4 +48,16 @@ func main() {
 	}
 
 	fmt.Println("\nX file is valid.")
+	return nil
+}
+
+func addXFileCommand(parser *flags.Parser) {
+	_, err := parser.AddCommand("xfile",
+		"Read and validate X (turn order) files",
+		"Reads a Stars! X file (player turn orders) and displays its contents.\n"+
+			"Can be used to validate X files before submitting them to the host.",
+		&xfileCommand{})
+	if err != nil {
+		panic(err)
+	}
 }

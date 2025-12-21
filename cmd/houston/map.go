@@ -1,15 +1,3 @@
-// Command maprenderer renders Stars! galaxy maps as PNG or animated GIF images.
-//
-// Usage:
-//
-//	maprenderer [OPTIONS] <file>...
-//
-// Examples:
-//
-//	maprenderer game.m1                    # Render single file to PNG
-//	maprenderer -o galaxy.png game.m1      # Specify output filename
-//	maprenderer --gif -o anim.gif *.m1     # Create animated GIF from multiple files
-//	maprenderer --dir ./backups -o anim.gif # Create GIF from directory
 package main
 
 import (
@@ -23,7 +11,7 @@ import (
 	"github.com/neper-stars/houston/tools/maprenderer"
 )
 
-type options struct {
+type mapCommand struct {
 	Output     string `short:"o" long:"output" description:"Output filename (default: input.png or animation.gif)"`
 	Width      int    `short:"W" long:"width" description:"Image width in pixels" default:"800"`
 	Height     int    `short:"H" long:"height" description:"Image height in pixels" default:"600"`
@@ -40,89 +28,57 @@ type options struct {
 	} `positional-args:"yes"`
 }
 
-var description = `Renders Stars! galaxy maps as PNG images or animated GIFs.
-
-For single files, creates a PNG image showing planets, fleets, and other objects.
-For multiple files or with --gif, creates an animated GIF showing the galaxy
-over multiple turns.
-
-Player colors are automatically assigned. Owned planets are shown in player colors,
-while unowned planets are gray. Fleets are shown as directional triangles.`
-
-func main() {
-	var opts options
-	parser := flags.NewParser(&opts, flags.Default)
-	parser.Name = "maprenderer"
-	parser.LongDescription = description
-
-	_, err := parser.Parse()
-	if err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		}
-		os.Exit(1)
-	}
-
+func (c *mapCommand) Execute(args []string) error {
 	// Check we have input
-	if len(opts.Args.Files) == 0 && opts.Dir == "" {
-		fmt.Fprintln(os.Stderr, "Error: no input files specified")
-		fmt.Fprintln(os.Stderr, "Use --help for usage information")
-		os.Exit(1)
+	if len(c.Args.Files) == 0 && c.Dir == "" {
+		return fmt.Errorf("no input files specified")
 	}
 
 	// Set defaults for boolean options not explicitly set
-	showFleets := opts.ShowFleets
-	showWH := opts.ShowWH
-	showLegend := opts.ShowLegend
+	showFleets := c.ShowFleets
+	showWH := c.ShowWH
+	showLegend := c.ShowLegend
 	// If none of the display options are set, use sensible defaults
-	if !opts.ShowFleets && !opts.ShowMines && !opts.ShowWH && !opts.ShowLegend && !opts.ShowNames {
+	if !c.ShowFleets && !c.ShowMines && !c.ShowWH && !c.ShowLegend && !c.ShowNames {
 		showFleets = true
 		showWH = true
 		showLegend = true
 	}
 
 	renderOpts := &maprenderer.RenderOptions{
-		Width:         opts.Width,
-		Height:        opts.Height,
-		ShowNames:     opts.ShowNames,
+		Width:         c.Width,
+		Height:        c.Height,
+		ShowNames:     c.ShowNames,
 		ShowFleets:    showFleets,
-		ShowMines:     opts.ShowMines,
+		ShowMines:     c.ShowMines,
 		ShowWormholes: showWH,
 		ShowLegend:    showLegend,
 		Padding:       20,
 	}
 
 	// Determine if we're creating a GIF
-	createGIF := opts.GIF || opts.Dir != "" || len(opts.Args.Files) > 1
+	createGIF := c.GIF || c.Dir != "" || len(c.Args.Files) > 1
 
 	if createGIF {
-		if err := createAnimation(&opts, renderOpts); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		if err := createSingleImage(&opts, renderOpts); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		return c.createAnimation(renderOpts)
 	}
+	return c.createSingleImage(renderOpts)
 }
 
-func createSingleImage(opts *options, renderOpts *maprenderer.RenderOptions) error {
-	if len(opts.Args.Files) == 0 {
+func (c *mapCommand) createSingleImage(renderOpts *maprenderer.RenderOptions) error {
+	if len(c.Args.Files) == 0 {
 		return fmt.Errorf("no input file specified")
 	}
 
-	filename := opts.Args.Files[0]
+	filename := c.Args.Files[0]
 	renderer := maprenderer.New()
 
 	if err := renderer.LoadFile(filename); err != nil {
 		return fmt.Errorf("failed to load %s: %w", filename, err)
 	}
 
-	output := opts.Output
+	output := c.Output
 	if output == "" {
-		// Default to input filename with .png extension
 		output = filename + ".png"
 	}
 
@@ -139,14 +95,14 @@ func createSingleImage(opts *options, renderOpts *maprenderer.RenderOptions) err
 	return nil
 }
 
-func createAnimation(opts *options, renderOpts *maprenderer.RenderOptions) error {
+func (c *mapCommand) createAnimation(renderOpts *maprenderer.RenderOptions) error {
 	animator := maprenderer.NewAnimator()
 	animator.SetOptions(renderOpts)
 
 	// Load files from directory if specified
-	if opts.Dir != "" {
-		fmt.Printf("Loading M files from %s...\n", opts.Dir)
-		files, err := findMFiles(opts.Dir)
+	if c.Dir != "" {
+		fmt.Printf("Loading M files from %s...\n", c.Dir)
+		files, err := findMFilesMap(c.Dir)
 		if err != nil {
 			return fmt.Errorf("failed to scan directory: %w", err)
 		}
@@ -159,7 +115,7 @@ func createAnimation(opts *options, renderOpts *maprenderer.RenderOptions) error
 	}
 
 	// Load explicitly specified files
-	for _, file := range opts.Args.Files {
+	for _, file := range c.Args.Files {
 		fmt.Printf("Loading %s...\n", file)
 		if err := animator.AddFile(file); err != nil {
 			return fmt.Errorf("failed to load %s: %w", file, err)
@@ -173,26 +129,25 @@ func createAnimation(opts *options, renderOpts *maprenderer.RenderOptions) error
 	// Sort frames by year
 	animator.SortByYear()
 
-	output := opts.Output
+	output := c.Output
 	if output == "" {
 		output = "animation.gif"
 	}
 
 	fmt.Printf("Creating animation with %d frames...\n", animator.FrameCount())
 
-	if err := animator.SaveGIF(output, opts.Delay); err != nil {
+	if err := animator.SaveGIF(output, c.Delay); err != nil {
 		return fmt.Errorf("failed to save GIF: %w", err)
 	}
 
 	fmt.Printf("Created %s\n", output)
 	fmt.Printf("  Frames: %d\n", animator.FrameCount())
-	fmt.Printf("  Delay: %d ms\n", opts.Delay)
+	fmt.Printf("  Delay: %d ms\n", c.Delay)
 
 	return nil
 }
 
-// findMFiles finds all M files in a directory.
-func findMFiles(dir string) ([]string, error) {
+func findMFilesMap(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -211,4 +166,19 @@ func findMFiles(dir string) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+func addMapCommand(parser *flags.Parser) {
+	_, err := parser.AddCommand("map",
+		"Render galaxy maps as PNG or animated GIF",
+		"Renders Stars! galaxy maps as PNG images or animated GIFs.\n\n"+
+			"For single files, creates a PNG image showing planets, fleets, and other objects.\n"+
+			"For multiple files or with --gif, creates an animated GIF showing the galaxy\n"+
+			"over multiple turns.\n\n"+
+			"Player colors are automatically assigned. Owned planets are shown in player colors,\n"+
+			"while unowned planets are gray. Fleets are shown as directional triangles.",
+		&mapCommand{})
+	if err != nil {
+		panic(err)
+	}
 }

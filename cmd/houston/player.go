@@ -1,15 +1,3 @@
-// Command playerchanger modifies player attributes in Stars! game files.
-//
-// Usage:
-//
-//	playerchanger <file> [options]
-//
-// Options:
-//
-//	-p, --player <n>  Player number to modify (0-15)
-//	-a, --ai          Change player to AI
-//	-u, --human       Change player to human
-//	-i, --info        Display player information only (no changes)
 package main
 
 import (
@@ -22,7 +10,7 @@ import (
 	"github.com/neper-stars/houston/tools/playerchanger"
 )
 
-type options struct {
+type playerCommand struct {
 	Player   int  `short:"p" long:"player" description:"Player number to modify (0-15)" default:"-1"`
 	AI       bool `short:"a" long:"ai" description:"Change player to AI"`
 	Human    bool `short:"u" long:"human" description:"Change player to human"`
@@ -33,37 +21,19 @@ type options struct {
 	} `positional-args:"yes"`
 }
 
-var description = `Modifies player attributes in Stars! game files.
-A backup of the original file will be created when making changes unless --no-backup is specified.`
-
-func main() {
-	var opts options
-	parser := flags.NewParser(&opts, flags.Default)
-	parser.Name = "playerchanger"
-	parser.LongDescription = description
-
-	_, err := parser.Parse()
-	if err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		}
-		os.Exit(1)
-	}
-
-	filename := opts.Args.File
+func (c *playerCommand) Execute(args []string) error {
+	filename := c.Args.File
 
 	// Read file
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	// Read player information
 	info, err := playerchanger.ReadPlayersFromBytes(filename, data)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Printf("File: %s (%d bytes, %d blocks)\n", info.Filename, info.Size, info.BlockCount)
@@ -71,8 +41,7 @@ func main() {
 
 	// Display players
 	if len(info.Players) == 0 {
-		fmt.Println("No player blocks found")
-		os.Exit(1)
+		return fmt.Errorf("no player blocks found")
 	}
 
 	fmt.Println("Players found:")
@@ -83,32 +52,29 @@ func main() {
 		fmt.Printf("    Planets: %d, Fleets: %d\n", p.Planets, p.Fleets)
 	}
 
-	if opts.Info {
-		return
+	if c.Info {
+		return nil
 	}
 
 	// Validate options
-	if opts.AI && opts.Human {
-		fmt.Fprintln(os.Stderr, "Error: cannot specify both --ai and --human")
-		os.Exit(1)
+	if c.AI && c.Human {
+		return fmt.Errorf("cannot specify both --ai and --human")
 	}
 
-	if !opts.AI && !opts.Human {
+	if !c.AI && !c.Human {
 		fmt.Println("\nNo changes requested. Use --ai or --human to modify.")
-		return
+		return nil
 	}
 
-	if opts.Player < 0 || opts.Player > 15 {
-		fmt.Fprintf(os.Stderr, "Error: invalid player number: %d (must be 0-15)\n", opts.Player)
-		os.Exit(1)
+	if c.Player < 0 || c.Player > 15 {
+		return fmt.Errorf("invalid player number: %d (must be 0-15)", c.Player)
 	}
 
 	// Create backup before making changes
-	if !opts.NoBackup {
+	if !c.NoBackup {
 		backupFile := filename + ".backup"
-		if err := copyFile(filename, backupFile); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating backup: %v\n", err)
-			os.Exit(1)
+		if err := copyFilePlayer(filename, backupFile); err != nil {
+			return fmt.Errorf("error creating backup: %w", err)
 		}
 		fmt.Printf("\nCreated backup: %s\n", backupFile)
 	}
@@ -116,35 +82,35 @@ func main() {
 	// Perform change
 	var modified []byte
 	var result *playerchanger.ChangeResult
-	if opts.AI {
-		modified, result, err = playerchanger.ChangeToAIBytes(data, opts.Player)
+	if c.AI {
+		modified, result, err = playerchanger.ChangeToAIBytes(data, c.Player)
 	} else {
-		modified, result, err = playerchanger.ChangeToHumanBytes(data, opts.Player)
+		modified, result, err = playerchanger.ChangeToHumanBytes(data, c.Player)
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	action := "AI"
-	if opts.Human {
+	if c.Human {
 		action = "human"
 	}
-	fmt.Printf("Would change player %d to %s.\n", opts.Player, action)
+	fmt.Printf("Changed player %d to %s.\n", c.Player, action)
 	fmt.Printf("Note: %s\n", result.Message)
 
 	// Write modified data if successful
 	if modified != nil && result.Success {
 		if err := os.WriteFile(filename, modified, 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error writing file: %w", err)
 		}
 		fmt.Println("File updated successfully")
 	}
+
+	return nil
 }
 
-func copyFile(src, dst string) error {
+func copyFilePlayer(src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
 		return err
@@ -159,4 +125,18 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dest, source)
 	return err
+}
+
+func addPlayerCommand(parser *flags.Parser) {
+	_, err := parser.AddCommand("player",
+		"View and modify player attributes",
+		"Modifies player attributes in Stars! game files.\n\n"+
+			"Use --info to view player information without making changes.\n"+
+			"Use --ai or --human with --player to change a player's type.\n\n"+
+			"A backup of the original file will be created when making changes\n"+
+			"unless --no-backup is specified.",
+		&playerCommand{})
+	if err != nil {
+		panic(err)
+	}
 }
