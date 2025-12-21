@@ -12,21 +12,41 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/neper-stars/houston/tools/mfilemerger"
 )
 
-func main() {
-	if len(os.Args) < 2 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		printUsage()
-		os.Exit(0)
-	}
+type options struct {
+	Args struct {
+		Files []string `positional-arg-name:"file" description:"M files to merge" required:"true"`
+	} `positional-args:"yes"`
+}
 
-	filenames := os.Args[1:]
+var description = `All M files supplied on the command line will have their data augmented
+with the data on each planet, player, design, fleet, minefield, packet,
+salvage, or wormhole from any of the files.
+
+Backups of each input M file will be retained with suffix .backup-m#.`
+
+func main() {
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "mfilemerger"
+	parser.LongDescription = description
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
+	}
 
 	merger := mfilemerger.New()
 
 	// Add all files
-	for _, filename := range filenames {
+	for _, filename := range opts.Args.Files {
 		if err := merger.AddFile(filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Error adding file %s: %v\n", filename, err)
 			os.Exit(1)
@@ -60,14 +80,4 @@ func main() {
 			fmt.Printf("  %s\n", warning)
 		}
 	}
-}
-
-func printUsage() {
-	fmt.Println("Usage: mfilemerger file...")
-	fmt.Println()
-	fmt.Println("All M files supplied on the command line will have their data augmented")
-	fmt.Println("with the data on each planet, player, design, fleet, minefield, packet,")
-	fmt.Println("salvage, or wormhole from any of the files.")
-	fmt.Println()
-	fmt.Println("Backups of each input M file will be retained with suffix .backup-m#.")
 }

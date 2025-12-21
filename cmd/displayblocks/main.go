@@ -14,20 +14,31 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/neper-stars/houston/tools/displayblocks"
 )
 
+type options struct {
+	Args struct {
+		File string `positional-arg-name:"file" description:"Stars! game file to read" required:"true"`
+	} `positional-args:"yes"`
+}
+
 func main() {
-	if len(os.Args) != 2 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		fmt.Println("Usage: displayblocks <file>")
-		fmt.Println()
-		fmt.Println("Displays the decrypted blocks of a Stars! game file.")
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "displayblocks"
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
 		os.Exit(1)
 	}
 
-	filename := os.Args[1]
-
-	info, err := displayblocks.ReadFile(filename)
+	info, err := displayblocks.ReadFile(opts.Args.File)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

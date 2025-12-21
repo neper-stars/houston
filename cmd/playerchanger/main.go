@@ -6,36 +6,50 @@
 //
 // Options:
 //
-//	-player <n>     Player number to modify (0-15)
-//	-ai             Change player to AI
-//	-human          Change player to human
-//	-info           Display player information only (no changes)
+//	-p, --player <n>  Player number to modify (0-15)
+//	-a, --ai          Change player to AI
+//	-u, --human       Change player to human
+//	-i, --info        Display player information only (no changes)
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
+
+	"github.com/jessevdk/go-flags"
 
 	"github.com/neper-stars/houston/tools/playerchanger"
 )
 
-func main() {
-	playerNum := flag.Int("player", -1, "Player number to modify (0-15)")
-	toAI := flag.Bool("ai", false, "Change player to AI")
-	toHuman := flag.Bool("human", false, "Change player to human")
-	infoOnly := flag.Bool("info", false, "Display player information only")
-	flag.Parse()
+type options struct {
+	Player int  `short:"p" long:"player" description:"Player number to modify (0-15)" default:"-1"`
+	AI     bool `short:"a" long:"ai" description:"Change player to AI"`
+	Human  bool `short:"u" long:"human" description:"Change player to human"`
+	Info   bool `short:"i" long:"info" description:"Display player information only (no changes)"`
+	Args   struct {
+		File string `positional-arg-name:"file" description:"Stars! game file" required:"true"`
+	} `positional-args:"yes"`
+}
 
-	if flag.NArg() != 1 {
-		printUsage()
-		os.Exit(0)
+var description = `Modifies player attributes in Stars! game files.
+A backup of the original file will be created when making changes.`
+
+func main() {
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "playerchanger"
+	parser.LongDescription = description
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
 	}
 
-	filename := flag.Arg(0)
-
 	// Read player information
-	info, err := playerchanger.ReadPlayers(filename)
+	info, err := playerchanger.ReadPlayers(opts.Args.File)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -58,32 +72,32 @@ func main() {
 		fmt.Printf("    Planets: %d, Fleets: %d\n", p.Planets, p.Fleets)
 	}
 
-	if *infoOnly {
+	if opts.Info {
 		return
 	}
 
 	// Validate options
-	if *toAI && *toHuman {
-		fmt.Fprintln(os.Stderr, "Error: cannot specify both -ai and -human")
+	if opts.AI && opts.Human {
+		fmt.Fprintln(os.Stderr, "Error: cannot specify both --ai and --human")
 		os.Exit(1)
 	}
 
-	if !*toAI && !*toHuman {
-		fmt.Println("\nNo changes requested. Use -ai or -human to modify.")
+	if !opts.AI && !opts.Human {
+		fmt.Println("\nNo changes requested. Use --ai or --human to modify.")
 		return
 	}
 
-	if *playerNum < 0 || *playerNum > 15 {
-		fmt.Fprintf(os.Stderr, "Error: invalid player number: %d (must be 0-15)\n", *playerNum)
+	if opts.Player < 0 || opts.Player > 15 {
+		fmt.Fprintf(os.Stderr, "Error: invalid player number: %d (must be 0-15)\n", opts.Player)
 		os.Exit(1)
 	}
 
 	// Perform change
 	var result *playerchanger.ChangeResult
-	if *toAI {
-		result, err = playerchanger.ChangeToAI(filename, *playerNum)
+	if opts.AI {
+		result, err = playerchanger.ChangeToAI(opts.Args.File, opts.Player)
 	} else {
-		result, err = playerchanger.ChangeToHuman(filename, *playerNum)
+		result, err = playerchanger.ChangeToHuman(opts.Args.File, opts.Player)
 	}
 
 	if err != nil {
@@ -96,22 +110,9 @@ func main() {
 	}
 
 	action := "AI"
-	if *toHuman {
+	if opts.Human {
 		action = "human"
 	}
-	fmt.Printf("Would change player %d to %s.\n", *playerNum, action)
+	fmt.Printf("Would change player %d to %s.\n", opts.Player, action)
 	fmt.Printf("Note: %s\n", result.Message)
-}
-
-func printUsage() {
-	fmt.Println("Usage: playerchanger <file> [options]")
-	fmt.Println()
-	fmt.Println("Options:")
-	fmt.Println("  -player <n>   Player number to modify (0-15)")
-	fmt.Println("  -ai           Change player to AI")
-	fmt.Println("  -human        Change player to human")
-	fmt.Println("  -info         Display player information only (no changes)")
-	fmt.Println()
-	fmt.Println("Modifies player attributes in Stars! game files.")
-	fmt.Println("A backup of the original file will be created when making changes.")
 }

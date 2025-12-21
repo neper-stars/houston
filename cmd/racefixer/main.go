@@ -12,19 +12,36 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/neper-stars/houston/tools/racefixer"
 )
 
+type options struct {
+	Args struct {
+		File string `positional-arg-name:"file" description:"Race file to fix" required:"true"`
+	} `positional-args:"yes"`
+}
+
+var description = `Fixes corrupted Stars! race files by recalculating checksums.
+A backup of the original file will be created.`
+
 func main() {
-	if len(os.Args) != 2 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		printUsage()
-		os.Exit(0)
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "racefixer"
+	parser.LongDescription = description
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
 	}
 
-	filename := os.Args[1]
-
 	// Analyze the file
-	info, err := racefixer.Analyze(filename)
+	info, err := racefixer.Analyze(opts.Args.File)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -40,7 +57,7 @@ func main() {
 	}
 
 	// Attempt repair
-	result, err := racefixer.RepairWithResult(filename)
+	result, err := racefixer.RepairWithResult(opts.Args.File)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error during repair: %v\n", err)
 		os.Exit(1)
@@ -51,11 +68,4 @@ func main() {
 	}
 
 	fmt.Printf("Result: %s\n", result.Message)
-}
-
-func printUsage() {
-	fmt.Println("Usage: racefixer <file>")
-	fmt.Println()
-	fmt.Println("Fixes corrupted Stars! race files by recalculating checksums.")
-	fmt.Println("A backup of the original file will be created.")
 }

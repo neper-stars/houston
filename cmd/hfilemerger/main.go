@@ -15,19 +15,44 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/neper-stars/houston/tools/hfilemerger"
 )
 
+type options struct {
+	Args struct {
+		Files []string `positional-arg-name:"file" description:"H and M files to process" required:"true"`
+	} `positional-args:"yes"`
+}
+
+var description = `All H files supplied on the command line will have their data replaced
+with the newest data on each planet, player, and design from any of the files.
+
+M files supplied on the command line will have their data incorporated
+but will not be changed. M files are needed for accurately determining
+the latest ship designs.
+
+Backups of each input H file will be retained with suffix .backup-h#.`
+
 func main() {
-	if len(os.Args) < 2 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		printUsage()
-		os.Exit(0)
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "hfilemerger"
+	parser.LongDescription = description
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
 	}
 
 	merger := hfilemerger.New()
 
 	// Add files based on extension
-	for _, filename := range os.Args[1:] {
+	for _, filename := range opts.Args.Files {
 		ext := strings.ToLower(filepath.Ext(filename))
 		if len(ext) >= 2 && ext[1] == 'h' {
 			if err := merger.AddHFile(filename); err != nil {
@@ -71,17 +96,4 @@ func main() {
 			fmt.Printf("  %s\n", warning)
 		}
 	}
-}
-
-func printUsage() {
-	fmt.Println("Usage: hfilemerger file...")
-	fmt.Println()
-	fmt.Println("All H files supplied on the command line will have their data replaced")
-	fmt.Println("with the newest data on each planet, player, and design from any of the files.")
-	fmt.Println()
-	fmt.Println("M files supplied on the command line will have their data incorporated")
-	fmt.Println("but will not be changed. M files are needed for accurately determining")
-	fmt.Println("the latest ship designs.")
-	fmt.Println()
-	fmt.Println("Backups of each input H file will be retained with suffix .backup-h#.")
 }

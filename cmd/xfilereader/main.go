@@ -12,18 +12,35 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/neper-stars/houston/tools/xfilereader"
 )
 
+type options struct {
+	Args struct {
+		File string `positional-arg-name:"file" description:"X file to read" required:"true"`
+	} `positional-args:"yes"`
+}
+
+var description = `Reads and validates a Stars! X file (turn order file).
+Displays the orders contained in the file.`
+
 func main() {
-	if len(os.Args) != 2 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		printUsage()
-		os.Exit(0)
+	var opts options
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "xfilereader"
+	parser.LongDescription = description
+
+	_, err := parser.Parse()
+	if err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
 	}
 
-	filename := os.Args[1]
-
-	info, err := xfilereader.ReadFile(filename)
+	info, err := xfilereader.ReadFile(opts.Args.File)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -60,11 +77,4 @@ func main() {
 	}
 
 	fmt.Println("\nX file is valid.")
-}
-
-func printUsage() {
-	fmt.Println("Usage: xfilereader <file>")
-	fmt.Println()
-	fmt.Println("Reads and validates a Stars! X file (turn order file).")
-	fmt.Println("Displays the orders contained in the file.")
 }
