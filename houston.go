@@ -23,6 +23,70 @@ type (
 	PlanetsBlock  = blocks.PlanetsBlock
 	Planet        = blocks.Planet
 	HashedPass    = blocks.HashedPass
+
+	// New block types
+	FileFooterBlock    = blocks.FileFooterBlock
+	PartialPlanetBlock = blocks.PartialPlanetBlock
+	PlanetBlock        = blocks.PlanetBlock
+	PartialFleetBlock  = blocks.PartialFleetBlock
+	FleetBlock         = blocks.FleetBlock
+	DesignBlock        = blocks.DesignBlock
+	DesignSlot         = blocks.DesignSlot
+
+	// Waypoint blocks
+	WaypointBlock           = blocks.WaypointBlock
+	WaypointTaskBlock       = blocks.WaypointTaskBlock
+	WaypointChangeTaskBlock = blocks.WaypointChangeTaskBlock
+	WaypointAddBlock        = blocks.WaypointAddBlock
+	WaypointDeleteBlock     = blocks.WaypointDeleteBlock
+
+	// Production & battle blocks
+	ProductionQueueBlock = blocks.ProductionQueueBlock
+	QueueItem            = blocks.QueueItem
+	BattlePlanBlock      = blocks.BattlePlanBlock
+
+	// Object & message blocks
+	ObjectBlock  = blocks.ObjectBlock
+	MessageBlock = blocks.MessageBlock
+
+	// Fleet operation blocks
+	FleetSplitBlock  = blocks.FleetSplitBlock
+	FleetsMergeBlock = blocks.FleetsMergeBlock
+
+	// Change blocks
+	DesignChangeBlock          = blocks.DesignChangeBlock
+	ProductionQueueChangeBlock = blocks.ProductionQueueChangeBlock
+
+	// Info blocks
+	CountersBlock = blocks.CountersBlock
+
+	// Fleet stub blocks
+	FleetNameBlock  = blocks.FleetNameBlock
+	MoveShipsBlock  = blocks.MoveShipsBlock
+	RenameFleetBlock = blocks.RenameFleetBlock
+
+	// Battle stub blocks
+	BattleBlock             = blocks.BattleBlock
+	BattleContinuationBlock = blocks.BattleContinuationBlock
+	SetFleetBattlePlanBlock = blocks.SetFleetBattlePlanBlock
+
+	// Change stub blocks
+	ResearchChangeBlock        = blocks.ResearchChangeBlock
+	PlanetChangeBlock          = blocks.PlanetChangeBlock
+	ChangePasswordBlock        = blocks.ChangePasswordBlock
+	PlayersRelationChangeBlock = blocks.PlayersRelationChangeBlock
+
+	// Misc stub blocks
+	PlayerScoresBlock            = blocks.PlayerScoresBlock
+	SaveAndSubmitBlock           = blocks.SaveAndSubmitBlock
+	FileHashBlock                = blocks.FileHashBlock
+	WaypointRepeatOrdersBlock    = blocks.WaypointRepeatOrdersBlock
+	EventsBlock                  = blocks.EventsBlock
+	MessagesFilterBlock          = blocks.MessagesFilterBlock
+	AiHFileRecordBlock           = blocks.AiHFileRecordBlock
+	ManualSmallLoadUnloadTaskBlock  = blocks.ManualSmallLoadUnloadTaskBlock
+	ManualMediumLoadUnloadTaskBlock = blocks.ManualMediumLoadUnloadTaskBlock
+	ManualLargeLoadUnloadTaskBlock  = blocks.ManualLargeLoadUnloadTaskBlock
 )
 
 // Parser type aliases
@@ -77,6 +141,46 @@ const (
 	RenameFleetBlockType                = blocks.RenameFleetBlockType
 	PlayerScoresBlockType               = blocks.PlayerScoresBlockType
 	SaveAndSubmitBlockType              = blocks.SaveAndSubmitBlockType
+)
+
+// Fleet kind constants
+const (
+	FleetKindPartial    = blocks.FleetKindPartial
+	FleetKindPickPocket = blocks.FleetKindPickPocket
+	FleetKindFull       = blocks.FleetKindFull
+)
+
+// Game settings flags (used in PlanetsBlock.GameSettings bitmask)
+const (
+	GameSettingMaxMinerals       = data.GameSettingMaxMinerals
+	GameSettingSlowTech          = data.GameSettingSlowTech
+	GameSettingSinglePlayer      = data.GameSettingSinglePlayer
+	GameSettingComputerAlliances = data.GameSettingComputerAlliances
+	GameSettingPublicScores      = data.GameSettingPublicScores
+	GameSettingAcceleratedBBS    = data.GameSettingAcceleratedBBS
+	GameSettingNoRandomEvents    = data.GameSettingNoRandomEvents
+	GameSettingGalaxyClumping    = data.GameSettingGalaxyClumping
+)
+
+// Universe size constants
+type UniverseSize = data.UniverseSize
+
+const (
+	UniverseSizeTiny   = data.UniverseSizeTiny
+	UniverseSizeSmall  = data.UniverseSizeSmall
+	UniverseSizeMedium = data.UniverseSizeMedium
+	UniverseSizeLarge  = data.UniverseSizeLarge
+	UniverseSizeHuge   = data.UniverseSizeHuge
+)
+
+// Universe density constants
+type UniverseDensity = data.UniverseDensity
+
+const (
+	UniverseDensitySparse = data.UniverseDensitySparse
+	UniverseDensityNormal = data.UniverseDensityNormal
+	UniverseDensityDense  = data.UniverseDensityDense
+	UniverseDensityPacked = data.UniverseDensityPacked
 )
 
 // Re-exported error variables

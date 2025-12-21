@@ -1,0 +1,214 @@
+package blocks
+
+import (
+	"github.com/neper-stars/houston/encoding"
+)
+
+// Object types
+const (
+	ObjectTypeMinefield     = 0
+	ObjectTypePacketSalvage = 1
+	ObjectTypeWormhole      = 2
+	ObjectTypeMysteryTrader = 3
+)
+
+// Minefield types
+const (
+	MinefieldTypeStandard  = 0
+	MinefieldTypeHeavy     = 1
+	MinefieldTypeSpeedBump = 2
+)
+
+// Mystery trader item bits
+const (
+	TraderItemMultiCargoPod    = 1 << 0
+	TraderItemMultiFunctionPod = 1 << 1
+	TraderItemLangstonShield   = 1 << 2
+	TraderItemMegaPolyShell    = 1 << 3
+	TraderItemAlienMiner       = 1 << 4
+	TraderItemHushABoom        = 1 << 5
+	TraderItemAntiMatterTorpedo = 1 << 6
+	TraderItemMultiContainedMunition = 1 << 7
+	TraderItemMiniMorph        = 1 << 8
+	TraderItemEnigmaPulsar     = 1 << 9
+	TraderItemGenesisDevice    = 1 << 10
+	TraderItemJumpGate         = 1 << 11
+	TraderItemShip             = 1 << 12
+)
+
+// ObjectBlock represents various game objects (Type 43)
+// This is a multipurpose block with different subtypes
+type ObjectBlock struct {
+	GenericBlock
+
+	// Common fields
+	IsCountObject bool // True if this is a count object (2 bytes)
+	Count         int  // Count value (for count objects only)
+
+	// Map object fields (when not count object)
+	Number     int // Object number (9 bits)
+	Owner      int // Owner player (5 bits)
+	ObjectType int // Object type (3 bits): 0=minefield, 1=packet, 2=wormhole, 3=trader
+	X          int // X coordinate
+	Y          int // Y coordinate
+
+	// Minefield-specific fields (ObjectType == 0)
+	MineCount      int64  // Number of mines
+	MinefieldType  int    // 0=standard, 1=heavy, 2=speed bump
+	Detonating     bool   // True if detonating
+
+	// Wormhole-specific fields (ObjectType == 2)
+	WormholeId      int    // Wormhole ID
+	TargetId        int    // Target wormhole ID
+	BeenThroughBits uint16 // Player mask: who has been through
+	CanSeeBits      uint16 // Player mask: who can see it
+
+	// Mystery trader-specific fields (ObjectType == 3)
+	XDest    int    // Destination X
+	YDest    int    // Destination Y
+	Warp     int    // Warp factor
+	MetBits  uint16 // Player mask: who trader has met
+	ItemBits uint16 // Items the trader is carrying
+	TurnNo   int    // Turn number
+}
+
+// NewObjectBlock creates an ObjectBlock from a GenericBlock
+func NewObjectBlock(b GenericBlock) *ObjectBlock {
+	ob := &ObjectBlock{
+		GenericBlock: b,
+	}
+	ob.decode()
+	return ob
+}
+
+func (ob *ObjectBlock) decode() {
+	data := ob.Decrypted
+
+	// Count object (2 bytes)
+	if len(data) == 2 {
+		ob.IsCountObject = true
+		ob.Count = int(encoding.Read16(data, 0))
+		return
+	}
+
+	if len(data) < 6 {
+		return
+	}
+
+	// Map object - parse common fields
+	objectId := encoding.Read16(data, 0)
+	ob.Number = int(objectId & 0x01FF)         // Bits 0-8 (9 bits)
+	ob.Owner = int((objectId >> 9) & 0x1F)     // Bits 9-13 (5 bits)
+
+	// Object type is encoded in bits 16-18 of the extended objectId
+	// These bits are in the high bytes if present
+	ob.X = int(encoding.Read16(data, 2))
+	ob.Y = int(encoding.Read16(data, 4))
+
+	// Determine object type based on size and decode specific fields
+	switch {
+	case len(data) >= 16 && ob.isMinefield(data):
+		ob.ObjectType = ObjectTypeMinefield
+		ob.decodeMinefield(data)
+	case len(data) >= 16 && ob.isWormhole(data):
+		ob.ObjectType = ObjectTypeWormhole
+		ob.decodeWormhole(data)
+	case len(data) >= 20:
+		ob.ObjectType = ObjectTypeMysteryTrader
+		ob.decodeMysteryTrader(data)
+	default:
+		ob.ObjectType = ObjectTypePacketSalvage
+	}
+}
+
+func (ob *ObjectBlock) isMinefield(data []byte) bool {
+	// Minefields have specific patterns - check for mine count presence
+	// This is a heuristic based on typical minefield data
+	return len(data) == 16
+}
+
+func (ob *ObjectBlock) isWormhole(data []byte) bool {
+	// Wormholes have specific patterns
+	return len(data) == 16
+}
+
+func (ob *ObjectBlock) decodeMinefield(data []byte) {
+	if len(data) < 16 {
+		return
+	}
+
+	ob.MineCount = int64(encoding.Read32(data, 6))
+	// Bytes 10-11: unknown
+	ob.MinefieldType = int(data[12] & 0xFF)
+	ob.Detonating = data[13] != 0
+	// Bytes 14-15: player visibility mask
+}
+
+func (ob *ObjectBlock) decodeWormhole(data []byte) {
+	if len(data) < 16 {
+		return
+	}
+
+	ob.WormholeId = int(encoding.Read16(data, 0) & 0x0FFF) // Lower 12 bits
+	// Bytes 6-7: unknown
+	ob.BeenThroughBits = encoding.Read16(data, 8)
+	ob.CanSeeBits = encoding.Read16(data, 10)
+	ob.TargetId = int(encoding.Read16(data, 12) & 0x0FFF) // Lower 12 bits
+}
+
+func (ob *ObjectBlock) decodeMysteryTrader(data []byte) {
+	if len(data) < 20 {
+		return
+	}
+
+	ob.XDest = int(encoding.Read16(data, 6))
+	ob.YDest = int(encoding.Read16(data, 8))
+	ob.Warp = int(data[10] & 0x0F) // Lower 4 bits
+	ob.MetBits = encoding.Read16(data, 12)
+	ob.ItemBits = encoding.Read16(data, 14)
+	ob.TurnNo = int(encoding.Read16(data, 16))
+}
+
+// IsMinefield returns true if this is a minefield object
+func (ob *ObjectBlock) IsMinefield() bool {
+	return !ob.IsCountObject && ob.ObjectType == ObjectTypeMinefield
+}
+
+// IsWormhole returns true if this is a wormhole object
+func (ob *ObjectBlock) IsWormhole() bool {
+	return !ob.IsCountObject && ob.ObjectType == ObjectTypeWormhole
+}
+
+// IsMysteryTrader returns true if this is a mystery trader object
+func (ob *ObjectBlock) IsMysteryTrader() bool {
+	return !ob.IsCountObject && ob.ObjectType == ObjectTypeMysteryTrader
+}
+
+// PlayerCanSee returns true if the given player can see this wormhole
+func (ob *ObjectBlock) PlayerCanSee(playerIndex int) bool {
+	if playerIndex < 0 || playerIndex >= 16 {
+		return false
+	}
+	return (ob.CanSeeBits & (1 << playerIndex)) != 0
+}
+
+// PlayerBeenThrough returns true if the given player has been through this wormhole
+func (ob *ObjectBlock) PlayerBeenThrough(playerIndex int) bool {
+	if playerIndex < 0 || playerIndex >= 16 {
+		return false
+	}
+	return (ob.BeenThroughBits & (1 << playerIndex)) != 0
+}
+
+// TraderHasMet returns true if the trader has met the given player
+func (ob *ObjectBlock) TraderHasMet(playerIndex int) bool {
+	if playerIndex < 0 || playerIndex >= 16 {
+		return false
+	}
+	return (ob.MetBits & (1 << playerIndex)) != 0
+}
+
+// TraderHasItem returns true if the trader has the given item
+func (ob *ObjectBlock) TraderHasItem(itemBit uint16) bool {
+	return (ob.ItemBits & itemBit) != 0
+}

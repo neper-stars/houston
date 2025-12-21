@@ -145,5 +145,86 @@ func charToNibble(ch byte) byte {
 	if ch >= 'A' && ch <= 'F' {
 		return ch - 'A' + 10
 	}
+	if ch >= 'a' && ch <= 'f' {
+		return ch - 'a' + 10
+	}
 	panic("Invalid hex character")
+}
+
+// hexDigits for encoding
+const hexDigits = "0123456789ABCDEF"
+
+// EncodeHexStarsString encodes a string using Stars! text encoding and returns the hex-encoded string
+func EncodeHexStarsString(text string) string {
+	var hexChars strings.Builder
+
+	for i := 0; i < len(text); i++ {
+		thisChar := text[i]
+
+		// Check for bad value (> 255)
+		if thisChar > 255 {
+			thisChar = '?'
+		}
+
+		// Check if this character is one that will be encoded with 1 nibble
+		index := strings.IndexByte(encodesOneNibble, thisChar)
+		if index >= 0 {
+			hexChars.WriteByte(hexDigits[index])
+			continue
+		}
+
+		// Check 2-nibble encodings
+		index = strings.IndexByte(encodesB, thisChar)
+		if index >= 0 {
+			hexChars.WriteByte('B')
+			hexChars.WriteByte(hexDigits[index])
+			continue
+		}
+
+		index = strings.IndexByte(encodesC, thisChar)
+		if index >= 0 {
+			hexChars.WriteByte('C')
+			hexChars.WriteByte(hexDigits[index])
+			continue
+		}
+
+		index = strings.IndexByte(encodesD, thisChar)
+		if index >= 0 {
+			hexChars.WriteByte('D')
+			hexChars.WriteByte(hexDigits[index])
+			continue
+		}
+
+		index = strings.IndexByte(encodesE, thisChar)
+		if index >= 0 {
+			hexChars.WriteByte('E')
+			hexChars.WriteByte(hexDigits[index])
+			continue
+		}
+
+		// Otherwise, 3-nibble encoded (direct ASCII with swapped nibbles)
+		hexChars.WriteByte('F')
+		hexChars.WriteByte(hexDigits[thisChar&0x0F])
+		hexChars.WriteByte(hexDigits[(thisChar&0xF0)>>4])
+	}
+
+	return hexChars.String()
+}
+
+// EncodeStarsString encodes a string using Stars! encoding and returns the byte array
+func EncodeStarsString(s string) []byte {
+	hexChars := EncodeHexStarsString(s)
+
+	// Require multiple of 2 bytes and append an 'F' to make it so
+	if len(hexChars)%2 != 0 {
+		hexChars = hexChars + "F"
+	}
+
+	// Convert byte size to a hex string
+	byteSizeHex := ByteToHex(byte(len(hexChars) / 2))
+
+	// Add the byte size as a header to the data
+	hexChars = byteSizeHex + hexChars
+
+	return HexToByteArray(hexChars)
 }
