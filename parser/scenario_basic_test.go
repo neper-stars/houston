@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/data"
 )
 
 // Expected data structures for JSON parsing
@@ -18,13 +19,20 @@ type ExpectedFleet struct {
 	ShipCount int    `json:"shipCount"`
 }
 
+type ExpectedDesign struct {
+	Name      string `json:"name"`
+	Hull      string `json:"hull"`
+	SlotCount int    `json:"slotCount"`
+}
+
 type ExpectedPlayer struct {
 	RaceName       string `json:"raceName"`
 	RacePluralName string `json:"racePluralName"`
 	Homeworld      struct {
 		Name string `json:"name"`
 	} `json:"homeworld"`
-	Fleets []ExpectedFleet `json:"fleets"`
+	Fleets  []ExpectedFleet  `json:"fleets"`
+	Designs []ExpectedDesign `json:"designs"`
 }
 
 type ExpectedData struct {
@@ -224,26 +232,33 @@ func TestScenarioBasic_Designs(t *testing.T) {
 		}
 	}
 
-	// Expected design names from the game
-	expectedNames := []string{
-		"Armed Probe",
-		"Long Range Scout",
-		"Santa Maria",
-		"Teamster",
-		"Stalwart Defender",
-		"Cotton Picker",
+	// Build a map for easy lookup
+	designByName := make(map[string]*blocks.DesignBlock)
+	for i := range designs {
+		designByName[designs[i].Name] = &designs[i]
 	}
 
-	require.GreaterOrEqual(t, len(designs), len(expectedNames), "Should have at least %d ship designs", len(expectedNames))
+	require.GreaterOrEqual(t, len(designs), len(h.Expected.Player1.Designs),
+		"Should have at least %d ship designs", len(h.Expected.Player1.Designs))
 
-	// Validate each expected design exists
-	designNames := make(map[string]bool)
-	for _, d := range designs {
-		designNames[d.Name] = true
-	}
+	// Validate each expected design
+	for _, expected := range h.Expected.Player1.Designs {
+		t.Run(expected.Name, func(t *testing.T) {
+			design, found := designByName[expected.Name]
+			require.True(t, found, "Design '%s' should exist", expected.Name)
 
-	for _, name := range expectedNames {
-		assert.True(t, designNames[name], "Design '%s' should exist", name)
+			// Validate hull using data package mapping
+			expectedHullID, hullFound := data.HullNameToID[expected.Hull]
+			require.True(t, hullFound, "Hull '%s' should be a valid hull name", expected.Hull)
+			assert.Equal(t, expectedHullID, design.HullId,
+				"Design '%s' should have hull '%s' (ID %d), got ID %d",
+				expected.Name, expected.Hull, expectedHullID, design.HullId)
+
+			// Validate slot count
+			assert.Equal(t, expected.SlotCount, design.SlotCount,
+				"Design '%s' should have %d slots, got %d",
+				expected.Name, expected.SlotCount, design.SlotCount)
+		})
 	}
 }
 
