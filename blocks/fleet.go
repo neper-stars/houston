@@ -289,24 +289,32 @@ func NewFleetNameBlock(b GenericBlock) *FleetNameBlock {
 	return &FleetNameBlock{GenericBlock: b}
 }
 
+// ShipTransfer represents a single design's ship transfer in a merge operation
+type ShipTransfer struct {
+	DesignSlot int // Design slot number (0-15)
+	Count      int // Signed count: positive = ships arriving at dest, negative = ships leaving dest
+}
+
 // MoveShipsBlock represents ship movement between fleets (Type 23)
 // Used when transferring ships from one fleet to another (merge operation)
 //
-// TransferInfo structure (partial decoding):
-//   - Byte 0: Flags/control byte
-//   - Byte 1: Ship types bitmask (low byte) - bit N set means design slot N
-//   - Byte 2: Ship types bitmask (high byte) or padding
-//   - Byte 3: Ship count for first design in bitmask
-//   - Byte 4+: Additional ship counts for other designs (if multiple)
+// TransferInfo structure:
+//   - Byte 0: Flags (typically 0x22)
+//   - Byte 1: Ship types bitmask (low byte) - bit N set means design slot N is involved
+//   - Byte 2: Ship types bitmask (high byte) - for design slots 8-15
+//   - Bytes 3+: Signed int16 counts for each design slot with bit set
 //
-// Note: Full TransferInfo structure needs more test samples to decode completely.
+// Counts are from dest fleet's perspective:
+//   - Positive count = ships arriving at dest fleet (from source)
+//   - Negative count = ships leaving dest fleet (to source)
 type MoveShipsBlock struct {
 	GenericBlock
 
-	DestFleetNumber   int    // Destination fleet number (0-indexed)
-	SourceFleetNumber int    // Source fleet number (0-indexed)
-	ShipCount         int    // Number of ships transferred (from TransferInfo byte 3)
-	TransferInfo      []byte // Raw transfer data (preserved for analysis)
+	DestFleetNumber   int            // Destination fleet number (0-indexed)
+	SourceFleetNumber int            // Source fleet number (0-indexed)
+	ShipTypeMask      uint16         // Bitmask of design slots involved in transfer
+	ShipTransfers     []ShipTransfer // List of transfers per design slot
+	TransferInfo      []byte         // Raw transfer data (preserved for analysis)
 }
 
 // NewMoveShipsBlock creates a MoveShipsBlock from a GenericBlock
@@ -333,9 +341,26 @@ func (b *MoveShipsBlock) decode() {
 		b.TransferInfo = make([]byte, len(data)-4)
 		copy(b.TransferInfo, data[4:])
 
-		// Extract ship count from byte 3 of TransferInfo
-		if len(b.TransferInfo) > 3 {
-			b.ShipCount = int(b.TransferInfo[3])
+		if len(b.TransferInfo) >= 3 {
+			// Byte 0: flags (typically 0x22)
+			// Bytes 1-2: ship types bitmask (16-bit, little-endian)
+			b.ShipTypeMask = uint16(b.TransferInfo[1]) | (uint16(b.TransferInfo[2]) << 8)
+
+			// Parse ship counts for each design slot with bit set
+			idx := 3
+			for slot := 0; slot < 16; slot++ {
+				if b.ShipTypeMask&(1<<slot) != 0 {
+					if idx+1 < len(b.TransferInfo) {
+						// Signed 16-bit count (little-endian)
+						count := int(int16(b.TransferInfo[idx]) | (int16(b.TransferInfo[idx+1]) << 8))
+						b.ShipTransfers = append(b.ShipTransfers, ShipTransfer{
+							DesignSlot: slot,
+							Count:      count,
+						})
+						idx += 2
+					}
+				}
+			}
 		}
 	}
 }

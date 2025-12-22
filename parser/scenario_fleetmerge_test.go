@@ -83,9 +83,14 @@ func TestScenarioFleetMerge_MoveShipsBlock(t *testing.T) {
 			assert.Equal(t, exp.SourceFleetNumber, mb.SourceFleetNumber,
 				"Source fleet number should match")
 
-			// Ship count should match
-			assert.Equal(t, exp.ShipsTransferred[0].Count, mb.ShipCount,
-				"Ship count should match")
+			// Ship transfers should match
+			require.Equal(t, len(exp.ShipsTransferred), len(mb.ShipTransfers),
+				"Number of ship transfers should match")
+
+			for j, expTransfer := range exp.ShipsTransferred {
+				assert.Equal(t, expTransfer.Count, mb.ShipTransfers[j].Count,
+					"Ship count for transfer %d should match", j)
+			}
 		})
 	}
 }

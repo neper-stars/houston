@@ -1,0 +1,22 @@
+{
+  "scenario": "fleetmerge-complex",
+  "description": "Complex bidirectional ship transfer between fleets (multiple designs, varying quantities)",
+  "shipTransfers": [
+    {
+      "destFleetNumber": 9,
+      "destFleetDisplayId": 10,
+      "destFleetName": "Fleet 2",
+      "sourceFleetNumber": 0,
+      "sourceFleetDisplayId": 1,
+      "sourceFleetName": "Fleet 1",
+      "transfers": [
+        {"designName": "Armed Probe", "count": -3},
+        {"designName": "Long Range Scout", "count": 2},
+        {"designName": "Santa Maria", "count": -4},
+        {"designName": "Teamster", "count": -1},
+        {"designName": "Stealth Scout", "count": -5},
+        {"designName": "Armed Probe v2", "count": -3}
+      ]
+    }
+  ]
+}
