@@ -1,0 +1,14 @@
+{
+  "scenario": "mysterytrader",
+  "mysteryTraders": [
+    {
+      "number": 0,
+      "x": 1182,
+      "y": 1127,
+      "destX": 1380,
+      "destY": 1136,
+      "warp": 9,
+      "item": "Langston Shield"
+    }
+  ]
+}

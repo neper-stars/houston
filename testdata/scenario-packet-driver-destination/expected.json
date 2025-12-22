@@ -1,0 +1,12 @@
+{
+  "scenario": "packet-driver-destination",
+  "massDriverDestinations": [
+    {
+      "planetName": "Hurl",
+      "planetNumber": 105,
+      "starbaseDesign": "Starbase MD",
+      "destinationName": "Purgatory",
+      "destinationNumber": 109
+    }
+  ]
+}

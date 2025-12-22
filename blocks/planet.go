@@ -59,8 +59,10 @@ type PartialPlanetBlock struct {
 	HasScanner                                bool
 
 	// Starbase (if HasStarbase)
-	StarbaseDesign int    // Design number 0-15
-	StarbaseBytes  []byte // Full starbase data (4 bytes for full planet)
+	StarbaseDesign     int    // Design number 0-15
+	StarbaseBytes      []byte // Full starbase data (4 bytes for full planet)
+	MassDriverDest     int    // Mass driver destination planet (display ID, 0 = none)
+	MassDriverDestZero bool   // True if destination is explicitly planet 0 vs no destination
 
 	// Route (if HasRoute)
 	RouteTarget int // Route destination
@@ -209,6 +211,9 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 			pb.StarbaseBytes = make([]byte, 4)
 			copy(pb.StarbaseBytes, data[index:index+4])
 			pb.StarbaseDesign = int(data[index] & 0x0F)
+			// Byte 2 contains mass driver destination (display ID)
+			pb.MassDriverDest = int(data[index+2])
+			pb.MassDriverDestZero = pb.MassDriverDest == 0 && data[index+2] == 0
 			index += 4
 		} else {
 			// Partial planet has 1 byte with design number

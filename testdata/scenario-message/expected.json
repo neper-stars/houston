@@ -1,0 +1,11 @@
+{
+  "scenario": "message",
+  "messages": [
+    {
+      "sender": "Halflings",
+      "recipient": "Hobbits",
+      "message": "All your bases are belong to us!",
+      "isBroadcast": false
+    }
+  ]
+}

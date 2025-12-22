@@ -1,0 +1,19 @@
+{
+  "scenario": "wormhole",
+  "wormholes": [
+    {
+      "number": 6,
+      "x": 1851,
+      "y": 1553,
+      "targetId": 7,
+      "stability": "Rock Solid"
+    },
+    {
+      "number": 7,
+      "x": 1616,
+      "y": 1538,
+      "targetId": 6,
+      "stability": "Extremely Volatile"
+    }
+  ]
+}

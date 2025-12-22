@@ -19,6 +19,18 @@ const (
 	MinefieldTypeSpeedBump = 2
 )
 
+// Wormhole stability thresholds (raw byte values)
+// Stability decreases as the value increases
+const (
+	WormholeStabilityRockSolid         = 32  // Most stable
+	WormholeStabilityStable            = 40
+	WormholeStabilityMostlyStable      = 60
+	WormholeStabilityAverage           = 80
+	WormholeStabilitySlightlyVolatile  = 100
+	WormholeStabilityVolatile          = 120
+	WormholeStabilityExtremelyVolatile = 196 // Least stable
+)
+
 // Mystery trader item bits
 const (
 	TraderItemMultiCargoPod    = 1 << 0
@@ -62,6 +74,7 @@ type ObjectBlock struct {
 	TargetId        int    // Target wormhole ID
 	BeenThroughBits uint16 // Player mask: who has been through
 	CanSeeBits      uint16 // Player mask: who can see it
+	Stability       int    // Wormhole stability (raw byte value)
 
 	// Mystery trader-specific fields (ObjectType == 3)
 	XDest    int    // Destination X
@@ -138,14 +151,14 @@ func (ob *ObjectBlock) decodeWormhole(data []byte) {
 	}
 
 	ob.WormholeId = int(encoding.Read16(data, 0) & 0x0FFF) // Lower 12 bits
-	// Bytes 6-7: unknown
+	ob.Stability = int(data[6])                            // Stability byte
 	ob.BeenThroughBits = encoding.Read16(data, 8)
 	ob.CanSeeBits = encoding.Read16(data, 10)
 	ob.TargetId = int(encoding.Read16(data, 12) & 0x0FFF) // Lower 12 bits
 }
 
 func (ob *ObjectBlock) decodeMysteryTrader(data []byte) {
-	if len(data) < 20 {
+	if len(data) < 18 {
 		return
 	}
 
@@ -199,4 +212,22 @@ func (ob *ObjectBlock) TraderHasMet(playerIndex int) bool {
 // TraderHasItem returns true if the trader has the given item
 func (ob *ObjectBlock) TraderHasItem(itemBit uint16) bool {
 	return (ob.ItemBits & itemBit) != 0
+}
+
+// StabilityName returns the human-readable stability name for a wormhole
+func (ob *ObjectBlock) StabilityName() string {
+	if ob.Stability <= WormholeStabilityRockSolid {
+		return "Rock Solid"
+	} else if ob.Stability <= WormholeStabilityStable {
+		return "Stable"
+	} else if ob.Stability <= WormholeStabilityMostlyStable {
+		return "Mostly Stable"
+	} else if ob.Stability <= WormholeStabilityAverage {
+		return "Average"
+	} else if ob.Stability <= WormholeStabilitySlightlyVolatile {
+		return "Slightly Volatile"
+	} else if ob.Stability <= WormholeStabilityVolatile {
+		return "Volatile"
+	}
+	return "Extremely Volatile"
 }
