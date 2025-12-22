@@ -1,0 +1,21 @@
+{
+  "scenario": "cargo-transfer",
+  "description": "Manual cargo transfer - fleet loading from planet",
+  "cargoTransfers": [
+    {
+      "fleetNumber": 13,
+      "fleetDisplayId": 14,
+      "fleetName": "Santa Maria #14",
+      "targetNumber": 105,
+      "targetDisplayId": 106,
+      "targetName": "Hurl",
+      "direction": "load",
+      "cargo": {
+        "ironium": 3,
+        "boranium": 3,
+        "germanium": 2,
+        "colonists": 17
+      }
+    }
+  ]
+}

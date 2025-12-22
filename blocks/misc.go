@@ -226,15 +226,91 @@ func NewAiHFileRecordBlock(b GenericBlock) *AiHFileRecordBlock {
 	return &AiHFileRecordBlock{GenericBlock: b}
 }
 
+// Cargo transfer direction constants
+const (
+	CargoTransferLoad   = 0x10 // Load: from target to fleet
+	CargoTransferUnload = 0x00 // Unload: from fleet to target (hypothesis)
+)
+
 // ManualSmallLoadUnloadTaskBlock represents small load/unload task (Type 1)
-// Structure not fully documented - preserves raw data for analysis
+// Used for cargo transfers where amounts fit in single bytes (0-255 kT each)
+// Target can be a planet or another fleet
 type ManualSmallLoadUnloadTaskBlock struct {
 	GenericBlock
+
+	FleetNumber  int // Fleet performing the transfer (0-indexed)
+	TargetNumber int // Target planet or fleet number (0-indexed)
+	TaskByte     int // Raw task/flags byte for analysis
+	CargoMask    int // Bitmask of cargo types present (bit 0=Iron, 1=Bor, 2=Germ, 3=Colonists)
+
+	// Cargo amounts (single byte each, 0-255 kT)
+	Ironium   int
+	Boranium  int
+	Germanium int
+	Colonists int
 }
 
 // NewManualSmallLoadUnloadTaskBlock creates a ManualSmallLoadUnloadTaskBlock from a GenericBlock
 func NewManualSmallLoadUnloadTaskBlock(b GenericBlock) *ManualSmallLoadUnloadTaskBlock {
-	return &ManualSmallLoadUnloadTaskBlock{GenericBlock: b}
+	block := &ManualSmallLoadUnloadTaskBlock{GenericBlock: b}
+	block.decode()
+	return block
+}
+
+func (b *ManualSmallLoadUnloadTaskBlock) decode() {
+	data := b.Decrypted
+	if len(data) < 10 {
+		return
+	}
+
+	// Bytes 0-1: Fleet number (16-bit)
+	b.FleetNumber = int(encoding.Read16(data, 0))
+
+	// Bytes 2-3: Target number (planet or fleet, 16-bit)
+	b.TargetNumber = int(encoding.Read16(data, 2))
+
+	// Byte 4: Task/flags byte (direction and other flags)
+	b.TaskByte = int(data[4])
+
+	// Byte 5: Cargo type bitmask
+	b.CargoMask = int(data[5])
+
+	// Bytes 6-9: Cargo amounts (single bytes)
+	b.Ironium = int(data[6])
+	b.Boranium = int(data[7])
+	b.Germanium = int(data[8])
+	b.Colonists = int(data[9])
+}
+
+// IsLoad returns true if this is a load operation (target -> fleet)
+// Based on hypothesis: bit 4 (0x10) indicates load direction
+func (b *ManualSmallLoadUnloadTaskBlock) IsLoad() bool {
+	return (b.TaskByte & CargoTransferLoad) != 0
+}
+
+// IsUnload returns true if this is an unload operation (fleet -> target)
+func (b *ManualSmallLoadUnloadTaskBlock) IsUnload() bool {
+	return !b.IsLoad()
+}
+
+// HasIronium returns true if ironium is being transferred
+func (b *ManualSmallLoadUnloadTaskBlock) HasIronium() bool {
+	return (b.CargoMask & 0x01) != 0
+}
+
+// HasBoranium returns true if boranium is being transferred
+func (b *ManualSmallLoadUnloadTaskBlock) HasBoranium() bool {
+	return (b.CargoMask & 0x02) != 0
+}
+
+// HasGermanium returns true if germanium is being transferred
+func (b *ManualSmallLoadUnloadTaskBlock) HasGermanium() bool {
+	return (b.CargoMask & 0x04) != 0
+}
+
+// HasColonists returns true if colonists are being transferred
+func (b *ManualSmallLoadUnloadTaskBlock) HasColonists() bool {
+	return (b.CargoMask & 0x08) != 0
 }
 
 // ManualMediumLoadUnloadTaskBlock represents medium load/unload task (Type 2)

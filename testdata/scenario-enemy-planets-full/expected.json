@@ -1,0 +1,92 @@
+{
+  "scenario": "enemy-planets-full",
+  "description": "Enemy planet and designs scanned with penetrating scanner",
+  "enemyPlanets": [
+    {
+      "name": "Woody",
+      "displayId": 12,
+      "planetNumber": 11,
+      "owner": 1,
+      "ownerName": "Halflings",
+      "isHomeworld": true,
+      "hasEnvironmentInfo": true,
+      "hasStarbase": true,
+      "starbaseDesign": 0,
+      "environment": {
+        "gravityInternal": 60,
+        "temperatureInternal": 56,
+        "radiationInternal": 63,
+        "gravityDisplay": "1.40g",
+        "temperatureDisplay": "24C",
+        "radiationDisplay": "63mR"
+      },
+      "concentrations": {
+        "ironium": 85,
+        "boranium": 85,
+        "germanium": 85
+      },
+      "estimates": {
+        "population": 990400,
+        "defenses": 4
+      }
+    }
+  ],
+  "enemyDesigns": [
+    {
+      "designNumber": 0,
+      "name": "Scout",
+      "hullId": 4,
+      "hullName": "Scout",
+      "isStarbase": false,
+      "mass": 23
+    },
+    {
+      "designNumber": 1,
+      "name": "Scout",
+      "hullId": 4,
+      "hullName": "Scout",
+      "isStarbase": false,
+      "mass": 25
+    },
+    {
+      "designNumber": 2,
+      "name": "Colony Ship",
+      "hullId": 15,
+      "hullName": "Colony Ship",
+      "isStarbase": false,
+      "mass": 61
+    },
+    {
+      "designNumber": 3,
+      "name": "Medium Freighter",
+      "hullId": 1,
+      "hullName": "Medium Freighter",
+      "isStarbase": false,
+      "mass": 130
+    },
+    {
+      "designNumber": 4,
+      "name": "Destroyer",
+      "hullId": 6,
+      "hullName": "Destroyer",
+      "isStarbase": false,
+      "mass": 186
+    },
+    {
+      "designNumber": 5,
+      "name": "Mini-Miner",
+      "hullId": 21,
+      "hullName": "Mini-Miner",
+      "isStarbase": false,
+      "mass": 574
+    },
+    {
+      "designNumber": 0,
+      "name": "Space Station",
+      "hullId": 34,
+      "hullName": "Space Station",
+      "isStarbase": true,
+      "mass": 64
+    }
+  ]
+}

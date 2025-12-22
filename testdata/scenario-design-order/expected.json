@@ -1,0 +1,38 @@
+{
+  "scenario": "design-order",
+  "description": "Design creation and modification orders in X file",
+  "designChanges": [
+    {
+      "order": 1,
+      "isDelete": false,
+      "designNumber": 7,
+      "name": "Armed Probe (2)",
+      "hullId": 4,
+      "hullName": "Scout",
+      "isStarbase": false,
+      "armor": 20,
+      "slotCount": 3,
+      "slots": [
+        {"slotType": "Engine", "itemName": "Fuel Mizer", "itemId": 3, "count": 1},
+        {"slotType": "Scanner", "itemName": "Bat Scanner", "itemId": 1, "count": 1},
+        {"slotType": "General Purpose", "itemName": "Laser", "itemId": 1, "count": 1}
+      ]
+    },
+    {
+      "order": 2,
+      "isDelete": false,
+      "designNumber": 7,
+      "name": "Armed Probe v2",
+      "hullId": 4,
+      "hullName": "Scout",
+      "isStarbase": false,
+      "armor": 20,
+      "slotCount": 3,
+      "slots": [
+        {"slotType": "Engine", "itemName": "Daddy Long Legs 7", "itemId": 5, "count": 1},
+        {"slotType": "Scanner", "itemName": "Chameleon Scanner", "itemId": 7, "count": 1},
+        {"slotType": "General Purpose", "itemName": "Laser", "itemId": 1, "count": 1}
+      ]
+    }
+  ]
+}
