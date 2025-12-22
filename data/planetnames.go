@@ -1,5 +1,7 @@
 package data
 
+// PlanetNames are a mapping of NameIds (found in the XY file)
+// and real planet names.
 var PlanetNames = map[uint32]string{
 	0:   "007",
 	1:   "14 Coli",

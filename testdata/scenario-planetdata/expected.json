@@ -1,0 +1,57 @@
+{
+  "scenario": "planet-data",
+  "ownedPlanets": [
+    {
+      "planetId": 19,
+      "name": "Milky Way",
+      "owner": 1,
+      "isHomeworld": true,
+      "environment": {
+        "gravity": 50,
+        "temperature": 50,
+        "radiation": 85
+      },
+      "concentrations": {
+        "ironium": 30,
+        "boranium": 33,
+        "germanium": 103
+      },
+      "surfaceMinerals": {
+        "ironium": 330,
+        "boranium": 416,
+        "germanium": 480
+      },
+      "population": 1041,
+      "installations": {
+        "mines": 21,
+        "factories": 32,
+        "defenses": 10
+      },
+      "hasScanner": true,
+      "hasStarbase": true,
+      "starbaseDesign": 0
+    }
+  ],
+  "scannedPlanets": [
+    {
+      "planetId": 15,
+      "name": "Beautiful",
+      "owner": -1,
+      "environment": {
+        "gravity": 50,
+        "temperature": 19,
+        "radiation": 32
+      },
+      "concentrations": {
+        "ironium": 2,
+        "boranium": 30,
+        "germanium": 93
+      },
+      "surfaceMinerals": {
+        "ironium": 1,
+        "boranium": 5,
+        "germanium": 15
+      }
+    }
+  ]
+}

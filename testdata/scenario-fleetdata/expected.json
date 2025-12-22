@@ -1,0 +1,32 @@
+{
+  "scenario": "fleet-data",
+  "ownFleets": [
+    {
+      "name": "Colons #1",
+      "fleetId": 3,
+      "x": 1174,
+      "y": 1244,
+      "shipCount": 3,
+      "cargo": {
+        "ironium": 11,
+        "boranium": 9,
+        "germanium": 29,
+        "colonists": 23
+      },
+      "fuel": 645,
+      "waypointCount": 4
+    }
+  ],
+  "enemyFleets": [
+    {
+      "fleetId": 1,
+      "owner": "Halflings",
+      "hull": "Scout",
+      "shipCount": 1,
+      "x": 1136,
+      "y": 1187,
+      "warpSpeed": 1,
+      "estMass": 23
+    }
+  ]
+}

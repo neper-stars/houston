@@ -111,15 +111,21 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 	pb.HasInstallations = (flags & 0x0800) != 0
 	pb.IsTerraformed = (flags & 0x0400) != 0
 	pb.HasStarbase = (flags & 0x0200) != 0
-	pb.IsHomeworld = (flags & 0x0100) != 0
+	pb.IsHomeworld = (flags & 0x0080) != 0 // Bit 7 of low byte (flag1)
 
 	index := 4
 
 	// Variable-length environment section
 	if pb.CanSeeEnvironment() && index < len(data) {
-		// First byte contains fractional mineral concentrations
-		// We skip it for now but consume it
-		index++
+		// Byte 4 encodes the length of fractional mineral concentration bytes
+		// Length = 1 + (bits 0-1) + (bits 2-3) + (bits 4-5)
+		// Bits 6-7 must be 0
+		preEnvLengthByte := int(data[index] & 0xFF)
+		preEnvLength := 1
+		preEnvLength += preEnvLengthByte & 0x03
+		preEnvLength += (preEnvLengthByte & 0x0C) >> 2
+		preEnvLength += (preEnvLengthByte & 0x30) >> 4
+		index += preEnvLength
 
 		if index+3 <= len(data) {
 			// Mineral concentrations (3 bytes)
@@ -192,7 +198,7 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 		pb.UnknownInstallationsByte = data[index+5]
 		installFlags := data[index+6]
 		pb.ContributeOnlyLeftoverResourcesToResearch = (installFlags & 0x80) != 0
-		pb.HasScanner = (installFlags & 0x01) != 0
+		pb.HasScanner = (installFlags & 0x01) == 0 // Note: bit 0 = 0 means HAS scanner
 		index += 8
 	}
 
