@@ -233,8 +233,12 @@ const (
 )
 
 // ManualSmallLoadUnloadTaskBlock represents small load/unload task (Type 1)
-// Used for cargo transfers where amounts fit in single bytes (0-255 kT each)
+// Used for cargo transfers where amounts fit in single bytes (-128 to 127 kT each)
 // Target can be a planet or another fleet
+//
+// For fleet-to-fleet transfers, amounts are signed:
+//   - Positive = load (receive from target)
+//   - Negative = unload (give to target)
 type ManualSmallLoadUnloadTaskBlock struct {
 	GenericBlock
 
@@ -243,7 +247,8 @@ type ManualSmallLoadUnloadTaskBlock struct {
 	TaskByte     int // Raw task/flags byte for analysis
 	CargoMask    int // Bitmask of cargo types present (bit 0=Iron, 1=Bor, 2=Germ, 3=Colonists)
 
-	// Cargo amounts (single byte each, 0-255 kT)
+	// Cargo amounts (signed byte each, -128 to 127 kT)
+	// For fleet-to-fleet: positive = load, negative = unload
 	Ironium   int
 	Boranium  int
 	Germanium int
@@ -275,11 +280,11 @@ func (b *ManualSmallLoadUnloadTaskBlock) decode() {
 	// Byte 5: Cargo type bitmask
 	b.CargoMask = int(data[5])
 
-	// Bytes 6-9: Cargo amounts (single bytes)
-	b.Ironium = int(data[6])
-	b.Boranium = int(data[7])
-	b.Germanium = int(data[8])
-	b.Colonists = int(data[9])
+	// Bytes 6-9: Cargo amounts (signed bytes for fleet-to-fleet transfers)
+	b.Ironium = int(int8(data[6]))
+	b.Boranium = int(int8(data[7]))
+	b.Germanium = int(int8(data[8]))
+	b.Colonists = int(int8(data[9]))
 }
 
 // IsLoad returns true if this is a load operation (target -> fleet)

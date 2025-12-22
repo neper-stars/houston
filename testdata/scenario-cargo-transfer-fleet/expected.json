@@ -1,0 +1,22 @@
+{
+  "scenario": "cargo-transfer-fleet",
+  "description": "Bidirectional cargo transfer between two fleets",
+  "cargoTransfers": [
+    {
+      "fleetNumber": 0,
+      "fleetDisplayId": 1,
+      "fleetName": "Fleet 1",
+      "targetNumber": 2,
+      "targetDisplayId": 3,
+      "targetName": "Test Fleet 3",
+      "targetType": "fleet",
+      "cargo": {
+        "ironium": -2,
+        "boranium": 2,
+        "germanium": -4,
+        "colonists": 5
+      },
+      "note": "Negative = unload to target, Positive = load from target"
+    }
+  ]
+}
