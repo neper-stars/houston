@@ -1,0 +1,13 @@
+{
+  "scenario": "stargate",
+  "stargateOrders": [
+    {
+      "fleetNumber": 20,
+      "waypointNumber": 1,
+      "destinationX": 1249,
+      "destinationY": 1149,
+      "targetPlanet": 99,
+      "usesStargate": true
+    }
+  ]
+}

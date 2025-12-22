@@ -26,6 +26,11 @@ const (
 	WaypointTargetWormhole  = 8 // Also mystery trader, minefield
 )
 
+// Special warp values
+const (
+	WarpStargate = 11 // Use stargate for travel
+)
+
 // WaypointBlock represents a waypoint in a fleet's route (Type 20)
 type WaypointBlock struct {
 	GenericBlock
@@ -66,6 +71,11 @@ func (wb *WaypointBlock) decode() {
 		wb.AdditionalBytes = make([]byte, len(data)-8)
 		copy(wb.AdditionalBytes, data[8:])
 	}
+}
+
+// UsesStargate returns true if this waypoint uses stargate travel
+func (wb *WaypointBlock) UsesStargate() bool {
+	return wb.Warp == WarpStargate
 }
 
 // WaypointTaskBlock represents a waypoint with task information (Type 19)
@@ -130,6 +140,11 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 	if len(data) > 12 {
 		wctb.SubTaskIndex = int(data[12] & 0xFF)
 	}
+}
+
+// UsesStargate returns true if this waypoint uses stargate travel
+func (wctb *WaypointChangeTaskBlock) UsesStargate() bool {
+	return wctb.Warp == WarpStargate
 }
 
 // WaypointAddBlock represents adding a waypoint to a fleet (Type 4)
