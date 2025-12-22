@@ -366,12 +366,35 @@ func (b *MoveShipsBlock) decode() {
 }
 
 // RenameFleetBlock represents a fleet rename operation (Type 44)
-// Structure not fully documented - preserves raw data for analysis
 type RenameFleetBlock struct {
 	GenericBlock
+
+	FleetNumber int    // Fleet being renamed (0-indexed)
+	NewName     string // The new name for the fleet
 }
 
 // NewRenameFleetBlock creates a RenameFleetBlock from a GenericBlock
 func NewRenameFleetBlock(b GenericBlock) *RenameFleetBlock {
-	return &RenameFleetBlock{GenericBlock: b}
+	block := &RenameFleetBlock{GenericBlock: b}
+	block.decode()
+	return block
+}
+
+func (b *RenameFleetBlock) decode() {
+	data := b.Decrypted
+	if len(data) < 5 {
+		return
+	}
+
+	// Bytes 0-1: Fleet number (16-bit)
+	b.FleetNumber = int(encoding.Read16(data, 0))
+
+	// Bytes 2-3: Unknown (typically matches fleet number)
+	// Bytes 4+: Encoded name (Stars! string format)
+	if len(data) > 4 {
+		name, err := encoding.DecodeStarsString(data[4:])
+		if err == nil {
+			b.NewName = name
+		}
+	}
 }

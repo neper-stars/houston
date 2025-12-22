@@ -1,0 +1,31 @@
+{
+  "scenario": "fleetsplit",
+  "description": "Fleet split operation followed by fleet rename",
+  "fleetSplit": {
+    "fleetNumber": 0,
+    "fleetDisplayId": 1,
+    "fleetName": "Fleet 1"
+  },
+  "shipTransfer": {
+    "destFleetNumber": 0,
+    "destFleetDisplayId": 1,
+    "destFleetName": "Fleet 1",
+    "sourceFleetNumber": 2,
+    "sourceFleetDisplayId": 3,
+    "sourceFleetName": "Fleet #3",
+    "transfers": [
+      {"designName": "Armed Probe", "count": -3},
+      {"designName": "Long Range Scout", "count": -1},
+      {"designName": "Santa Maria", "count": -2},
+      {"designName": "Teamster", "count": -1},
+      {"designName": "Stealth Scout", "count": -4},
+      {"designName": "Armed Probe v2", "count": -2}
+    ]
+  },
+  "fleetRename": {
+    "fleetNumber": 2,
+    "fleetDisplayId": 3,
+    "oldFleetName": "Stealth Scout+ #3",
+    "newFleetName": "Test Fleet 3"
+  }
+}
