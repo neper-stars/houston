@@ -1,14 +1,70 @@
 package blocks
 
-// PlayerScoresBlock represents player score data (Type 45)
-// Structure not fully documented - preserves raw data for analysis
+import "github.com/neper-stars/houston/encoding"
+
+// PlayerScoresBlock represents player score history data (Type 45)
+// Found in H (history) files, one block per turn per player
 type PlayerScoresBlock struct {
 	GenericBlock
+
+	PlayerID     int   // Player ID (0-15)
+	Turn         int   // Turn number (1-based)
+	Score        int   // Player's score for this turn
+	Resources    int64 // Resources available
+	Planets      int   // Number of planets owned
+	Starbases    int   // Number of starbases
+	UnarmedShips int   // Number of unarmed ships
+	EscortShips  int   // Number of escort ships
+	CapitalShips int   // Number of capital ships
+	TechLevels   int   // Sum of tech levels
+	Rank         int   // Player's rank (derived from Score)
 }
 
 // NewPlayerScoresBlock creates a PlayerScoresBlock from a GenericBlock
 func NewPlayerScoresBlock(b GenericBlock) *PlayerScoresBlock {
-	return &PlayerScoresBlock{GenericBlock: b}
+	psb := &PlayerScoresBlock{GenericBlock: b}
+	psb.decode()
+	return psb
+}
+
+func (psb *PlayerScoresBlock) decode() {
+	data := psb.Decrypted
+	if len(data) < 24 {
+		return
+	}
+
+	// Bytes 0-1: Player ID and flags
+	word0 := encoding.Read16(data, 0)
+	psb.PlayerID = int(word0 & 0x0F)
+
+	// Bytes 2-3: Turn number
+	psb.Turn = int(encoding.Read16(data, 2))
+
+	// Bytes 4-5: Score
+	psb.Score = int(encoding.Read16(data, 4))
+
+	// Bytes 6-7: Padding (always 0)
+
+	// Bytes 8-11: Resources (32-bit)
+	psb.Resources = int64(encoding.Read32(data, 8))
+
+	// Bytes 12-13: Planets
+	psb.Planets = int(encoding.Read16(data, 12))
+
+	// Bytes 14-15: Starbases
+	psb.Starbases = int(encoding.Read16(data, 14))
+
+	// Bytes 16-17: Unarmed ships
+	psb.UnarmedShips = int(encoding.Read16(data, 16))
+
+	// Bytes 18-19: Escort ships
+	psb.EscortShips = int(encoding.Read16(data, 18))
+
+	// Bytes 20-21: Capital ships
+	psb.CapitalShips = int(encoding.Read16(data, 20))
+
+	// Bytes 22-23: Tech levels (sum)
+	psb.TechLevels = int(encoding.Read16(data, 22))
 }
 
 // SaveAndSubmitBlock represents save and submit action (Type 46)

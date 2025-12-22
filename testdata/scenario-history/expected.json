@@ -1,0 +1,89 @@
+{
+  "scenario": "history-file",
+  "playerScores": [
+    {
+      "turn": 1,
+      "player": "Hobbits",
+      "score": 25,
+      "resources": 42,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 4,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 2,
+      "player": "Hobbits",
+      "score": 25,
+      "resources": 48,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 4,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 3,
+      "player": "Hobbits",
+      "score": 26,
+      "resources": 60,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 4,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 4,
+      "player": "Hobbits",
+      "score": 26,
+      "resources": 75,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 4,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 5,
+      "player": "Hobbits",
+      "score": 26,
+      "resources": 86,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 4,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 6,
+      "player": "Hobbits",
+      "score": 27,
+      "resources": 98,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 5,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    },
+    {
+      "turn": 7,
+      "player": "Hobbits",
+      "score": 27,
+      "resources": 119,
+      "planets": 1,
+      "starbases": 1,
+      "unarmedShips": 5,
+      "escortShips": 2,
+      "capitalShips": 0,
+      "techLevels": 18
+    }
+  ]
+}

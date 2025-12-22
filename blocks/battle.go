@@ -120,6 +120,59 @@ func (bpb *BattlePlanBlock) TargetPlayer() int {
 	return -1
 }
 
+// PrimaryTargetName returns a human-readable name for the primary target
+func (bpb *BattlePlanBlock) PrimaryTargetName() string {
+	return targetName(bpb.PrimaryTarget)
+}
+
+// SecondaryTargetName returns a human-readable name for the secondary target
+func (bpb *BattlePlanBlock) SecondaryTargetName() string {
+	return targetName(bpb.SecondaryTarget)
+}
+
+// targetName returns a human-readable name for a target type
+func targetName(t int) string {
+	switch t {
+	case TargetNone:
+		return "None/Disengage"
+	case TargetAny:
+		return "Any"
+	case TargetStarbase:
+		return "Starbase"
+	case TargetArmedShips:
+		return "Armed Ships"
+	case TargetBombers:
+		return "Bombers/Freighters"
+	case TargetUnarmedShips:
+		return "Unarmed Ships"
+	case TargetFuelTransports:
+		return "Fuel Transports"
+	case TargetFreighters:
+		return "Freighters"
+	default:
+		return "Unknown"
+	}
+}
+
+// AttackWhoName returns a human-readable name for the attack policy
+func (bpb *BattlePlanBlock) AttackWhoName() string {
+	switch bpb.AttackWho {
+	case AttackNobody:
+		return "Nobody"
+	case AttackEnemies:
+		return "Enemies"
+	case AttackNeutralAndEnemies:
+		return "Neutrals & Enemies"
+	case AttackEveryone:
+		return "Everyone"
+	default:
+		if bpb.AttackWho >= AttackPlayerBase {
+			return "Specific Player"
+		}
+		return "Unknown"
+	}
+}
+
 // BattleBlock represents a battle record (Type 31)
 // Structure not fully documented - preserves raw data for analysis
 type BattleBlock struct {

@@ -1,0 +1,45 @@
+{
+  "scenario": "battle-plans",
+  "battlePlans": [
+    {
+      "name": "Default",
+      "primaryTarget": "Armed Ships",
+      "secondaryTarget": "Any",
+      "tactic": "Maximize Damage Ratio",
+      "attackWho": "Neutrals & Enemies",
+      "dumpCargo": false
+    },
+    {
+      "name": "Kill Starbase",
+      "primaryTarget": "Starbase",
+      "secondaryTarget": "Armed Ships",
+      "tactic": "Maximize Damage Ratio",
+      "attackWho": "Neutrals & Enemies",
+      "dumpCargo": false
+    },
+    {
+      "name": "Max-Defense",
+      "primaryTarget": "Armed Ships",
+      "secondaryTarget": "Bombers/Freighters",
+      "tactic": "Maximize Net Damage",
+      "attackWho": "Neutrals & Enemies",
+      "dumpCargo": false
+    },
+    {
+      "name": "Sniper",
+      "primaryTarget": "Unarmed Ships",
+      "secondaryTarget": "None/Disengage",
+      "tactic": "Disengage if Challenged",
+      "attackWho": "Neutrals & Enemies",
+      "dumpCargo": false
+    },
+    {
+      "name": "Chicken",
+      "primaryTarget": "Any",
+      "secondaryTarget": "None/Disengage",
+      "tactic": "Disengage",
+      "attackWho": "Neutrals & Enemies",
+      "dumpCargo": false
+    }
+  ]
+}
