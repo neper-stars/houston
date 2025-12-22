@@ -290,14 +290,54 @@ func NewFleetNameBlock(b GenericBlock) *FleetNameBlock {
 }
 
 // MoveShipsBlock represents ship movement between fleets (Type 23)
-// Structure not fully documented - preserves raw data for analysis
+// Used when transferring ships from one fleet to another (merge operation)
+//
+// TransferInfo structure (partial decoding):
+//   - Byte 0: Flags/control byte
+//   - Byte 1: Ship types bitmask (low byte) - bit N set means design slot N
+//   - Byte 2: Ship types bitmask (high byte) or padding
+//   - Byte 3: Ship count for first design in bitmask
+//   - Byte 4+: Additional ship counts for other designs (if multiple)
+//
+// Note: Full TransferInfo structure needs more test samples to decode completely.
 type MoveShipsBlock struct {
 	GenericBlock
+
+	DestFleetNumber   int    // Destination fleet number (0-indexed)
+	SourceFleetNumber int    // Source fleet number (0-indexed)
+	ShipCount         int    // Number of ships transferred (from TransferInfo byte 3)
+	TransferInfo      []byte // Raw transfer data (preserved for analysis)
 }
 
 // NewMoveShipsBlock creates a MoveShipsBlock from a GenericBlock
 func NewMoveShipsBlock(b GenericBlock) *MoveShipsBlock {
-	return &MoveShipsBlock{GenericBlock: b}
+	block := &MoveShipsBlock{GenericBlock: b}
+	block.decode()
+	return block
+}
+
+func (b *MoveShipsBlock) decode() {
+	data := b.Decrypted
+	if len(data) < 4 {
+		return
+	}
+
+	// Bytes 0-1: Destination fleet number (16-bit)
+	b.DestFleetNumber = int(encoding.Read16(data, 0))
+
+	// Bytes 2-3: Source fleet number (16-bit)
+	b.SourceFleetNumber = int(encoding.Read16(data, 2))
+
+	// Remaining bytes: Transfer info
+	if len(data) > 4 {
+		b.TransferInfo = make([]byte, len(data)-4)
+		copy(b.TransferInfo, data[4:])
+
+		// Extract ship count from byte 3 of TransferInfo
+		if len(b.TransferInfo) > 3 {
+			b.ShipCount = int(b.TransferInfo[3])
+		}
+	}
 }
 
 // RenameFleetBlock represents a fleet rename operation (Type 44)

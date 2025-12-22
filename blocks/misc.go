@@ -229,7 +229,7 @@ func NewAiHFileRecordBlock(b GenericBlock) *AiHFileRecordBlock {
 // Cargo transfer direction constants
 const (
 	CargoTransferLoad   = 0x10 // Load: from target to fleet
-	CargoTransferUnload = 0x00 // Unload: from fleet to target (hypothesis)
+	CargoTransferUnload = 0x00 // Unload: from fleet to target
 )
 
 // ManualSmallLoadUnloadTaskBlock represents small load/unload task (Type 1)
@@ -283,7 +283,7 @@ func (b *ManualSmallLoadUnloadTaskBlock) decode() {
 }
 
 // IsLoad returns true if this is a load operation (target -> fleet)
-// Based on hypothesis: bit 4 (0x10) indicates load direction
+// Bit 4 (0x10) of TaskByte indicates load direction
 func (b *ManualSmallLoadUnloadTaskBlock) IsLoad() bool {
 	return (b.TaskByte & CargoTransferLoad) != 0
 }

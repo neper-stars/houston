@@ -1,0 +1,20 @@
+{
+  "scenario": "fleetmerge",
+  "description": "Ship transfer between fleets (merge operation)",
+  "shipTransfers": [
+    {
+      "destFleetNumber": 19,
+      "destFleetDisplayId": 20,
+      "destFleetName": "Santa Maria #20",
+      "sourceFleetNumber": 15,
+      "sourceFleetDisplayId": 16,
+      "sourceFleetName": "Stealth Scout #16",
+      "shipsTransferred": [
+        {
+          "designName": "Stealth Scout",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
