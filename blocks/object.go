@@ -95,42 +95,30 @@ func (ob *ObjectBlock) decode() {
 		return
 	}
 
-	// Map object - parse common fields
+	// Map object - parse common fields from first 16-bit word
+	// Bits 0-8: object number (9 bits)
+	// Bits 9-12: owner (4 bits)
+	// Bits 13-15: object type (3 bits)
 	objectId := encoding.Read16(data, 0)
-	ob.Number = int(objectId & 0x01FF)         // Bits 0-8 (9 bits)
-	ob.Owner = int((objectId >> 9) & 0x1F)     // Bits 9-13 (5 bits)
+	ob.Number = int(objectId & 0x01FF)
+	ob.Owner = int((objectId >> 9) & 0x0F)
+	ob.ObjectType = int(objectId >> 13)
 
-	// Object type is encoded in bits 16-18 of the extended objectId
-	// These bits are in the high bytes if present
 	ob.X = int(encoding.Read16(data, 2))
 	ob.Y = int(encoding.Read16(data, 4))
 
-	// Determine object type based on size and decode specific fields
-	switch {
-	case len(data) >= 16 && ob.isMinefield(data):
-		ob.ObjectType = ObjectTypeMinefield
+	// Decode type-specific fields
+	switch ob.ObjectType {
+	case ObjectTypeMinefield:
 		ob.decodeMinefield(data)
-	case len(data) >= 16 && ob.isWormhole(data):
-		ob.ObjectType = ObjectTypeWormhole
+	case ObjectTypeWormhole:
 		ob.decodeWormhole(data)
-	case len(data) >= 20:
-		ob.ObjectType = ObjectTypeMysteryTrader
+	case ObjectTypeMysteryTrader:
 		ob.decodeMysteryTrader(data)
-	default:
-		ob.ObjectType = ObjectTypePacketSalvage
+	// ObjectTypePacketSalvage has no additional fields to decode
 	}
 }
 
-func (ob *ObjectBlock) isMinefield(data []byte) bool {
-	// Minefields have specific patterns - check for mine count presence
-	// This is a heuristic based on typical minefield data
-	return len(data) == 16
-}
-
-func (ob *ObjectBlock) isWormhole(data []byte) bool {
-	// Wormholes have specific patterns
-	return len(data) == 16
-}
 
 func (ob *ObjectBlock) decodeMinefield(data []byte) {
 	if len(data) < 16 {

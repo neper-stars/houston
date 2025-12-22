@@ -1,0 +1,29 @@
+{
+  "scenario": "minefield",
+  "minefields": [
+    {
+      "number": 0,
+      "owner": "MineMongers",
+      "x": 1260,
+      "y": 1255,
+      "type": "Standard",
+      "mineCount": 780
+    },
+    {
+      "number": 1,
+      "owner": "MineMongers",
+      "x": 1301,
+      "y": 1217,
+      "type": "Speed Bump",
+      "mineCount": 76
+    },
+    {
+      "number": 2,
+      "owner": "MineMongers",
+      "x": 1308,
+      "y": 1204,
+      "type": "Speed Bump",
+      "mineCount": 238
+    }
+  ]
+}
