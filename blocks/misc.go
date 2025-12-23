@@ -201,8 +201,28 @@ const (
 	EventTypeMinesBuilt          = 0x38 // Mines built on planet
 	EventTypeQueueEmpty          = 0x3E // Production queue empty
 	EventTypePopulationChange    = 0x26 // Population changed
-	EventTypePlanetDiscovery     = 0x5F // New planet discovered
+	EventTypeResearchComplete    = 0x50 // Research level completed
+	EventTypeTechBenefit         = 0x5F // Tech benefit gained
 )
+
+// Research field IDs
+const (
+	ResearchFieldEnergy        = 0
+	ResearchFieldWeapons       = 1
+	ResearchFieldPropulsion    = 2
+	ResearchFieldConstruction  = 3
+	ResearchFieldElectronics   = 4
+	ResearchFieldBiotechnology = 5
+)
+
+// ResearchFieldName returns the human-readable name for a research field
+func ResearchFieldName(field int) string {
+	names := []string{"Energy", "Weapons", "Propulsion", "Construction", "Electronics", "Biotechnology"}
+	if field >= 0 && field < len(names) {
+		return names[field]
+	}
+	return "Unknown"
+}
 
 // ProductionEvent represents a single production-related event
 type ProductionEvent struct {
@@ -211,11 +231,26 @@ type ProductionEvent struct {
 	Count     int // Count (for factories/mines built)
 }
 
+// ResearchCompleteEvent represents a research level completion
+type ResearchCompleteEvent struct {
+	Level     int // Tech level achieved (1-26)
+	Field     int // Research field completed (0-5)
+	NextField int // Next research field (where research continues)
+}
+
+// TechBenefitEvent represents gaining a tech benefit from research
+type TechBenefitEvent struct {
+	ItemID   int // Item ID gained
+	Category int // Category/index within field
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
 
-	ProductionEvents []ProductionEvent // Decoded production events
+	ProductionEvents []ProductionEvent       // Decoded production events
+	ResearchEvents   []ResearchCompleteEvent // Research completion events
+	TechBenefits     []TechBenefitEvent      // Tech benefits gained
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -283,6 +318,56 @@ func (eb *EventsBlock) decode() {
 		})
 
 		i += eventLen
+	}
+
+	// Parse research events and tech benefits from the remaining data
+	// Research complete: marker "50 00 FE FF" followed by level, field, field
+	// Tech benefit: 0x5F, flags, category, itemID[2], ...
+	eb.parseResearchEvents(data)
+}
+
+func (eb *EventsBlock) parseResearchEvents(data []byte) {
+	// Research Complete Event Format (7 bytes):
+	//   Byte 0: 0x50 (EventTypeResearchComplete)
+	//   Byte 1: 0x00 (flags)
+	//   Bytes 2-3: 0xFFFE = "no planet" marker (research is global, not planet-specific)
+	//              Production events have planet IDs here; research uses -2/0xFFFE instead
+	//   Byte 4: Level achieved (1-26)
+	//   Byte 5: Field completed (0-5)
+	//   Byte 6: Next research field (where research will continue, 0-5)
+	//
+	// Format confirmed by cross-referencing Player 1 (with population events)
+	// and Player 2 (without population events) - both use identical structure.
+
+	// Search for research complete events (0x50)
+	for i := 0; i < len(data)-6; i++ {
+		if data[i] == EventTypeResearchComplete && data[i+1] == 0x00 &&
+			data[i+2] == 0xFE && data[i+3] == 0xFF {
+			level := int(data[i+4])
+			field := int(data[i+5])
+			nextField := int(data[i+6])
+			// Validate: level should be 1-26, fields should be 0-5
+			if level >= 1 && level <= 26 && field <= 5 && nextField <= 5 {
+				eb.ResearchEvents = append(eb.ResearchEvents, ResearchCompleteEvent{
+					Level:     level,
+					Field:     field,
+					NextField: nextField,
+				})
+			}
+		}
+	}
+
+	// Search for tech benefit events (0x5F)
+	// Format: 5F flags category itemID[2] extra[2] (7 bytes total)
+	for i := 0; i < len(data)-6; i++ {
+		if data[i] == EventTypeTechBenefit {
+			category := int(data[i+2])
+			itemID := int(data[i+3]) | (int(data[i+4]) << 8)
+			eb.TechBenefits = append(eb.TechBenefits, TechBenefitEvent{
+				ItemID:   itemID,
+				Category: category,
+			})
+		}
 	}
 }
 

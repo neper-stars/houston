@@ -1,0 +1,68 @@
+{
+  "scenario": "message-research-done",
+  "description": "Research completion messages with tech benefits",
+  "year": 2462,
+  "totalMessages": 55,
+  "formatNotes": {
+    "research_event_format": "Research Complete Event is 7 bytes: 50 00 FE FF LL CF NF where 0x50=type, 0x00=flags, 0xFFFE='no planet' (research is global), LL=level, CF=completed field, NF=next research field",
+    "no_planet_marker": "0xFFFE (-2) in bytes 2-3 indicates 'no planet' since research is player-global. Production events have planet IDs at this position.",
+    "next_field": "Byte 6 is the NEXT research field (where research will continue), not a validation repeat. In our samples field=nextField because players continued in same field."
+  },
+  "researchEvents": [
+    {
+      "messageNumber": 46,
+      "description": "Your scientists have completed research into Tech Level 4 for Biotechnology",
+      "level": 4,
+      "field": 5,
+      "fieldName": "Biotechnology"
+    },
+    {
+      "messageNumber": 50,
+      "description": "Your scientists have completed research into Tech Level 5 for Biotechnology",
+      "level": 5,
+      "field": 5,
+      "fieldName": "Biotechnology"
+    },
+    {
+      "messageNumber": 51,
+      "description": "Your scientists have completed research into Tech Level 6 for Biotechnology",
+      "level": 6,
+      "field": 5,
+      "fieldName": "Biotechnology"
+    }
+  ],
+  "techBenefits": [
+    {
+      "messageNumber": 47,
+      "description": "Biotechnology gave Dolphin Scanner benefit",
+      "itemId": 1473,
+      "category": 8
+    },
+    {
+      "messageNumber": 48,
+      "description": "Biotechnology gave Carbonic Armor benefit",
+      "itemId": 1475,
+      "category": 2
+    },
+    {
+      "messageNumber": 49,
+      "description": "Biotechnology gave Mine Dispenser 50 benefit",
+      "itemId": 1480,
+      "category": 1
+    },
+    {
+      "messageNumber": 52,
+      "description": "Biotechnology gave DNA Scanner benefit",
+      "itemId": 1473,
+      "category": 3
+    }
+  ],
+  "researchFieldIds": {
+    "Energy": 0,
+    "Weapons": 1,
+    "Propulsion": 2,
+    "Construction": 3,
+    "Electronics": 4,
+    "Biotechnology": 5
+  }
+}

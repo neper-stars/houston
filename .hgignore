@@ -2,6 +2,7 @@ syntax: glob
 
 build/
 
+TODOs.md
 exemple/exemple
 inspiration/
 
