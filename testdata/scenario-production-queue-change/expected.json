@@ -1,0 +1,35 @@
+{
+  "scenario": "production-queue-change",
+  "description": "X file orders to change production queue and planet settings on Hurl",
+  "year": 2463,
+  "planetId": 105,
+  "planetName": "Hurl",
+  "productionQueueChange": {
+    "itemCount": 20,
+    "queueItems": [
+      {"index": 1, "itemId": 11, "name": "Mineral Alchemy", "count": 2},
+      {"index": 2, "itemId": 9, "name": "Defense", "count": 1},
+      {"index": 3, "itemId": 1, "name": "Auto Factories", "count": 1},
+      {"index": 4, "itemId": 0, "name": "Auto Mines", "count": 1},
+      {"index": 5, "itemId": 1, "name": "Auto Factories", "count": 2},
+      {"index": 6, "itemId": 0, "name": "Auto Mines", "count": 2},
+      {"index": 7, "itemId": 1, "name": "Auto Factories", "count": 3},
+      {"index": 8, "itemId": 0, "name": "Auto Mines", "count": 5},
+      {"index": 9, "itemId": 1, "name": "Auto Factories", "count": 10},
+      {"index": 10, "itemId": 0, "name": "Auto Mines", "count": 10},
+      {"index": 11, "itemId": 1, "name": "Auto Factories", "count": 30},
+      {"index": 12, "itemId": 0, "name": "Auto Mines", "count": 30},
+      {"index": 13, "itemId": 1, "name": "Auto Factories", "count": 100},
+      {"index": 14, "itemId": 0, "name": "Auto Mines", "count": 100},
+      {"index": 15, "itemId": 2, "name": "Auto Defenses", "count": 1},
+      {"index": 16, "itemId": 3, "name": "Auto Alchemy", "count": 1},
+      {"index": 17, "itemId": 4, "name": "Auto Min Terraform", "count": 1},
+      {"index": 18, "itemId": 5, "name": "Auto Max Terraform", "count": 1},
+      {"index": 19, "itemId": 6, "name": "Auto Packets", "count": 1},
+      {"index": 20, "itemId": 2, "name": "Auto Defenses", "count": 1}
+    ]
+  },
+  "planetChanges": [
+    {"setting": "ContributeOnlyLeftover", "value": true}
+  ]
+}

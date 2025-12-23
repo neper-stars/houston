@@ -1,36 +1,136 @@
-# Stars! block structure reversing Notes
- 
-##  Research Complete Event Format (7 bytes)
+# Stars! Block Structure Reversing Notes
 
-  50 00 FE FF LL FF FF
-  │  │  └───┘ │  └───┘
-  │  │    │   │    └─ Field (0-5), NextField
-  │  │    │   └─ Level (1-26)
-  │  │    └─ Fixed value 0xFFFE
-  │  └─ Flags (0x00)
-  └─ Event type (0x50 = EventTypeResearchComplete)
+## Event Types (in EventsBlock, Type 12)
 
-### Notes
-  2. 0xFFFE is "no planet" - Production events have planet IDs at bytes 2-3; research is player-global, so it uses -2/0xFFFE as a "no planet" marker. This is consistent with Stars! event structure, not a wasted fixed value.
-  3. Byte 6 is NextField - This is the field where research will continue, not a validation repeat. In our samples Field == NextField because players continued in the same field, but they're different data fields.
+### Production Events (planet-specific)
 
-## Research Event Format (confirmed)
+| Type | Name | Format |
+|------|------|--------|
+| 0x26 | Population Change | `26 00 PP PP ...` |
+| 0x35 | Defenses Built | `35 00 PP PP PP PP` (5 bytes) |
+| 0x36 | Factories Built | `36 00 PP PP CC PP PP` (6 bytes, CC=count) |
+| 0x37 | Mineral Alchemy | `37 00 PP PP PP PP` (5 bytes) |
+| 0x38 | Mines Built | `38 00 PP PP CC PP PP` (6 bytes, CC=count) |
+| 0x3E | Queue Empty | `3E 00 PP PP PP PP` (5 bytes) |
 
-  50 00 FE FF LL CF NF
-  │  │  └───┘ │  │  └─ Next research field (0-5)
-  │  │    │   │  └──── Completed field (0-5)
-  │  │    │   └─────── Level achieved (1-26)
-  │  │    └─────────── 0xFFFE = "no planet" (global event)
-  │  └──────────────── Flags
-  └────────────────────Event type (0x50)
+Where `PP PP` = Planet ID (16-bit little-endian)
 
-  ResearchChangeBlock Format (new)
+### Research Events (global/no planet)
 
-  Byte 0: Research budget percentage (0-100)
-  Byte 1: (next_field << 4) | current_field
+| Type | Name | Format |
+|------|------|--------|
+| 0x50 | Research Complete | `50 00 FE FF LL CF NF` (7 bytes) |
+| 0x5F | Tech Benefit | `5F FF CC II II XX XX` (7 bytes) |
 
-### Notes
+#### Research Complete Event (0x50)
 
-  1. 0xFFFE = "no planet" - Research is global, so it uses -2 where planet IDs go in production events
-  2. Byte 6 in research events = NextField - Where research continues after completion (not a validation repeat)
-  3. ResearchChangeBlock - Encodes both the budget % and field changes in 2 bytes using nibble packing
+```
+50 00 FE FF LL CF NF
+│  │  └───┘ │  │  └─ Next research field (0-5)
+│  │    │   │  └──── Completed field (0-5)
+│  │    │   └─────── Level achieved (1-26)
+│  │    └─────────── 0xFFFE = "no planet" (research is global)
+│  └──────────────── Flags (0x00)
+└────────────────────Event type (0x50)
+```
+
+**Key insight**: `0xFFFE` is NOT a fixed/magic value - it's the "no planet" marker. Production events have planet IDs at bytes 2-3; research is player-global so it uses -2/0xFFFE instead. This is consistent with Stars! event structure.
+
+#### Tech Benefit Event (0x5F)
+
+```
+5F FF CC II II XX XX
+│  │  │  └───┘ └───┘
+│  │  │    │     └─ Extra data
+│  │  │    └─────── Item ID (16-bit)
+│  │  └──────────── Category
+│  └─────────────── Flags
+└────────────────── Event type (0x5F)
+```
+
+### Research Field IDs
+
+| ID | Field |
+|----|-------|
+| 0 | Energy |
+| 1 | Weapons |
+| 2 | Propulsion |
+| 3 | Construction |
+| 4 | Electronics |
+| 5 | Biotechnology |
+
+---
+
+## X File Order Blocks
+
+### ResearchChangeBlock (Type 34) - 2 bytes
+
+```
+BB FF
+│  └─ (next_field << 4) | current_field
+└──── Research budget percentage (0-100)
+```
+
+Example: `0F 25` = 15% budget, current=Biotechnology(5), next=Propulsion(2)
+
+### ProductionQueueChangeBlock (Type 29)
+
+```
+PP PP [II II CC CC] [II II CC CC] ...
+└───┘ └───────────┘
+  │         └─ Queue items (4 bytes each)
+  └─────────── Planet ID (11 bits)
+```
+
+Each queue item (4 bytes):
+```
+Chunk1 (16-bit): ItemId(6 bits) | Count(10 bits)
+Chunk2 (16-bit): CompletePercent(12 bits) | ItemType(4 bits)
+```
+
+Item types:
+- `2` = Standard game items
+- `4` = Custom ship/starbase designs
+
+Standard item IDs:
+| ID | Item |
+|----|------|
+| 0 | Auto Mines |
+| 1 | Auto Factories |
+| 2 | Auto Defenses |
+| 3 | Auto Alchemy |
+| 4 | Auto Min Terraform |
+| 5 | Auto Max Terraform |
+| 6 | Auto Packets |
+| 7 | Factory |
+| 8 | Mine |
+| 9 | Defense |
+| 11 | Mineral Alchemy |
+
+### PlanetChangeBlock (Type 35) - 6 bytes
+
+```
+PP PP FF XX XX XX
+└───┘ │  └─────┘
+  │   │     └─ Additional settings (TBD)
+  │   └─────── Flags byte
+  └──────────── Planet ID (11 bits)
+```
+
+Flags byte (byte 2):
+| Bit | Meaning |
+|-----|---------|
+| 7 (0x80) | Contribute only leftover resources to research |
+| 0-6 | TBD |
+
+---
+
+## General Notes
+
+1. **Planet ID encoding**: Usually 11 bits (0-2047), stored in first 2 bytes with other flags in upper bits
+
+2. **"No planet" marker**: Global events (like research) use `0xFFFE` (-2 signed) where planet-specific events have planet IDs
+
+3. **Nibble packing**: Stars! developers pack multiple small values into single bytes using nibbles (4 bits each), e.g., ResearchChangeBlock encodes two field IDs in one byte
+
+4. **Data validation**: Rather than repeating data for validation, Stars! uses checksums. When bytes appear to repeat, they likely represent different data that happens to have the same value in test samples

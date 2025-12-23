@@ -35,14 +35,46 @@ func (rcb *ResearchChangeBlock) decode() {
 }
 
 // PlanetChangeBlock represents planet settings changes (Type 35)
-// Structure not fully documented - preserves raw data for analysis
+//
+// Format (6 bytes):
+//
+//	Bytes 0-1: Planet ID (11 bits)
+//	Byte 2: Flags
+//	        Bit 7 (0x80): Contribute only leftover resources to research
+//	        Other bits: TBD
+//	Byte 3: Additional settings (TBD)
+//	Bytes 4-5: Additional data (TBD)
 type PlanetChangeBlock struct {
 	GenericBlock
+
+	PlanetId                  int  // Planet ID (0-2047)
+	ContributeOnlyLeftover    bool // "Contribute only leftover resources to research"
+	RouteDestinationPlanetId  int  // Route destination planet (if routing is set)
+	Flags                     int  // Raw flags byte for analysis
 }
 
 // NewPlanetChangeBlock creates a PlanetChangeBlock from a GenericBlock
 func NewPlanetChangeBlock(b GenericBlock) *PlanetChangeBlock {
-	return &PlanetChangeBlock{GenericBlock: b}
+	pcb := &PlanetChangeBlock{GenericBlock: b}
+	pcb.decode()
+	return pcb
+}
+
+func (pcb *PlanetChangeBlock) decode() {
+	data := pcb.Decrypted
+	if len(data) < 4 {
+		return
+	}
+
+	pcb.PlanetId = int(data[0]) | ((int(data[1]) & 0x07) << 8)
+	pcb.Flags = int(data[2])
+	pcb.ContributeOnlyLeftover = (data[2] & 0x80) != 0
+
+	// Bytes 3-5 contain additional settings, possibly route destination
+	if len(data) >= 6 {
+		// Route destination might be encoded in remaining bytes
+		pcb.RouteDestinationPlanetId = int(data[3]) | (int(data[4]) << 8)
+	}
 }
 
 // ChangePasswordBlock represents a password change request (Type 36)
