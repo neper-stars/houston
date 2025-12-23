@@ -207,6 +207,11 @@ const (
 	EventTypePacketCaptured           = 0xD5 // Mineral packet captured at planet
 	EventTypeMineralPacketProduced    = 0xD3 // Mineral packet produced (launched from mass driver)
 	EventTypePacketBombardment        = 0xD8 // Mineral packet bombardment (uncaught packet hit planet)
+	EventTypeStarbaseBuilt            = 0xCD // Starbase constructed at planet
+	EventTypeCometStrike              = 0x86 // Comet strike random event
+	EventTypeNewColony                = 0x1C // New colony established on planet
+	EventTypeStrangeArtifact          = 0x5E // Strange artifact found (random event)
+	EventTypeFleetScrapped            = 0x59 // Fleet scrapped/dismantled at planet
 )
 
 // Research field IDs
@@ -283,6 +288,40 @@ type PacketBombardmentEvent struct {
 	ColonistsKilled int // Number of colonists killed
 }
 
+// StarbaseBuiltEvent represents a starbase being constructed at a planet
+type StarbaseBuiltEvent struct {
+	PlanetID   int // Planet where starbase was built
+	DesignInfo int // Design-related info (exact encoding not fully confirmed)
+}
+
+// CometStrikeEvent represents a comet striking a planet (random event)
+// This adds minerals to the planet and alters its environment
+type CometStrikeEvent struct {
+	PlanetID int // Planet that was struck by the comet
+	Subtype  int // Comet subtype/flags (exact encoding TBD)
+}
+
+// NewColonyEvent represents establishing a new colony on a planet
+type NewColonyEvent struct {
+	PlanetID int // Planet where colony was established
+}
+
+// StrangeArtifactEvent represents finding a strange artifact when settling a planet (random event)
+// This boosts research in a specific field
+type StrangeArtifactEvent struct {
+	PlanetID      int // Planet where artifact was found
+	ResearchField int // Research field boosted (0=Energy, 1=Weapons, etc.)
+	BoostAmount   int // Amount of research resources gained
+}
+
+// FleetScrappedEvent represents a fleet being scrapped/dismantled at a planet
+type FleetScrappedEvent struct {
+	PlanetID      int // Planet where minerals were deposited
+	FleetIndex    int // Index of the scrapped fleet (0-based, display is +1)
+	MineralAmount int // Total minerals recovered in kT
+	Flags         int // Flags/subtype (possibly design ID)
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
@@ -295,6 +334,11 @@ type EventsBlock struct {
 	PacketsCaptured          []PacketCapturedEvent           // Packet captured events
 	PacketsProduced          []MineralPacketProducedEvent    // Packet produced events
 	PacketBombardments       []PacketBombardmentEvent        // Packet bombardment events
+	StarbasesBuilt           []StarbaseBuiltEvent            // Starbase construction events
+	CometStrikes             []CometStrikeEvent              // Comet strike random events
+	NewColonies              []NewColonyEvent                // New colony events
+	StrangeArtifacts         []StrangeArtifactEvent          // Strange artifact random events
+	FleetsScrapped         []FleetScrappedEvent            // Fleet scrapped events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -502,6 +546,94 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 				PlanetID:        planetID,
 				MineralAmount:   mineralAmount,
 				ColonistsKilled: colonistsKilled,
+			})
+		}
+	}
+
+	// Search for starbase built events (0xCD)
+	// Format: CD 00 PP PP XX DD (6 bytes)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Byte 4: Unknown (repeat of planet low byte)
+	//   Byte 5: Design info (exact encoding not fully confirmed)
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeStarbaseBuilt && data[i+1] == 0x00 {
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			designInfo := int(data[i+5])
+			eb.StarbasesBuilt = append(eb.StarbasesBuilt, StarbaseBuiltEvent{
+				PlanetID:   planetID,
+				DesignInfo: designInfo,
+			})
+		}
+	}
+
+	// Search for comet strike events (0x86)
+	// Format: 86 SS PP PP PP PP (6 bytes)
+	//   Byte 1: Subtype/flags (0x02 observed)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Bytes 4-5: Planet ID repeated
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeCometStrike {
+			subtype := int(data[i+1])
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			eb.CometStrikes = append(eb.CometStrikes, CometStrikeEvent{
+				PlanetID: planetID,
+				Subtype:  subtype,
+			})
+		}
+	}
+
+	// Search for new colony events (0x1C)
+	// Format: 1C 00 PP PP XX XX PP PP PP PP (10 bytes)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Bytes 4-5: Extra data (possibly fleet info)
+	//   Bytes 6-9: Planet ID repeated twice
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeNewColony && data[i+1] == 0x00 {
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			eb.NewColonies = append(eb.NewColonies, NewColonyEvent{
+				PlanetID: planetID,
+			})
+		}
+	}
+
+	// Search for strange artifact events (0x5E)
+	// Format: 5E 02 FE FF PP PP FF BB (8 bytes)
+	//   Byte 1: Flags (0x02 observed)
+	//   Bytes 2-3: 0xFFFE (no-planet marker, but planet specified below)
+	//   Bytes 4-5: Planet ID (16-bit LE)
+	//   Byte 6: Research field (0=Energy, 1=Weapons, etc.)
+	//   Byte 7: Boost amount
+	for i := 0; i < len(data)-7; i++ {
+		if data[i] == EventTypeStrangeArtifact && data[i+1] == 0x02 {
+			planetID := int(data[i+4]) | (int(data[i+5]) << 8)
+			field := int(data[i+6])
+			boost := int(data[i+7])
+			eb.StrangeArtifacts = append(eb.StrangeArtifacts, StrangeArtifactEvent{
+				PlanetID:      planetID,
+				ResearchField: field,
+				BoostAmount:   boost,
+			})
+		}
+	}
+
+	// Search for fleet scrapped events (0x59)
+	// Format: 59 FF PP PP FI MM (6 bytes)
+	//   Byte 1: Flags (possibly design ID or subtype)
+	//   Bytes 2-3: Planet ID (16-bit LE) where minerals deposited
+	//   Byte 4: Fleet index (0-based, display is +1)
+	//   Byte 5: Mineral amount / 7
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeFleetScrapped {
+			flags := int(data[i+1])
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			fleetIndex := int(data[i+4])
+			mineralEncoded := int(data[i+5])
+			mineralAmount := mineralEncoded * 7
+			eb.FleetsScrapped = append(eb.FleetsScrapped, FleetScrappedEvent{
+				PlanetID:      planetID,
+				FleetIndex:    fleetIndex,
+				MineralAmount: mineralAmount,
+				Flags:         flags,
 			})
 		}
 	}

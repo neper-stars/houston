@@ -1,0 +1,10 @@
+{
+  "scenario": "comet-strike",
+  "description": "A huge comet has crashed into Burgoyne embedding vast quantities of minerals in the planet and radically altering its environment",
+  "year": 2478,
+  "cometStrike": {
+    "planetId": 485,
+    "planetName": "Burgoyne",
+    "subtype": 2
+  }
+}

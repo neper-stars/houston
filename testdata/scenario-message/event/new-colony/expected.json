@@ -1,0 +1,25 @@
+{
+  "scenario": "new-colony",
+  "description": "New colony established on Harris with strange artifact discovery and fleet scrapped",
+  "year": 2479,
+  "newColony": {
+    "planetId": 318,
+    "planetName": "Harris"
+  },
+  "strangeArtifact": {
+    "planetId": 318,
+    "planetName": "Harris",
+    "researchField": 0,
+    "researchFieldName": "Energy",
+    "boostAmount": 107
+  },
+  "fleetScrapped": {
+    "planetId": 318,
+    "planetName": "Harris",
+    "fleetIndex": 10,
+    "fleetDisplayNumber": 11,
+    "fleetName": "Santa Maria #11",
+    "mineralAmount": 28,
+    "flags": 18
+  }
+}

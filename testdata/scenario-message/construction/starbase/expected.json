@@ -1,0 +1,10 @@
+{
+  "scenario": "starbase-construction",
+  "description": "Ice Patch has built a new Starbase MD ST",
+  "year": 2474,
+  "starbaseBuilt": {
+    "planetId": 186,
+    "planetName": "Ice Patch",
+    "designInfo": 18
+  }
+}

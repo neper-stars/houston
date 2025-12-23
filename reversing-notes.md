@@ -295,6 +295,104 @@ Example from test data:
 - `D8 00 BA 00 BA F0 00 00 36` → Planet 186, 240kT, 5400 colonists killed (54 × 100)
 - `D8 00 BA 00 BA FC 00 00 64` → Planet 186, 252kT, 10000 colonists killed (100 × 100)
 
+### Starbase Built (0xCD)
+
+```
+CD 00 PP PP XX DD
+│  │  └───┘ │  └─── Design info (exact encoding TBD)
+│  │    │   └────── Unknown (repeat of planet low byte)
+│  │    └────────── Planet ID (16-bit LE)
+│  └─────────────── Flags (0x00)
+└────────────────── Event type
+```
+
+This event is generated when a planet finishes constructing a new starbase.
+
+Example from test data:
+- `CD 00 BA 00 BA 12` → Planet 186 (Ice Patch) built a starbase, design info = 18
+
+---
+
+## Random Events
+
+Random events occur when the game has "Random Events" enabled. These include comet strikes, artifact discoveries, and other special occurrences.
+
+### Comet Strike (0x86)
+
+```
+86 SS PP PP PP PP
+│  │  └───┘ └───┘
+│  │    │     └─── Planet ID repeated (16-bit LE)
+│  │    └───────── Planet ID (16-bit LE)
+│  └────────────── Subtype/flags (0x02 observed)
+└────────────────── Event type
+```
+
+This event is generated when a comet strikes a planet. The comet embeds minerals in the planet and radically alters its environment.
+
+Example from test data:
+- `86 02 E5 01 E5 01` → Planet 485 (Burgoyne) was struck by a comet, subtype = 2
+
+### Strange Artifact (0x5E)
+
+```
+5E 02 FE FF PP PP FF BB
+│  │  └───┘ └───┘ │  └─── Boost amount (research resources)
+│  │    │     │   └────── Research field (0=Energy, 1=Weapons, etc.)
+│  │    │     └────────── Planet ID (16-bit LE)
+│  │    └──────────────── 0xFFFE marker
+│  └───────────────────── Flags (0x02 observed)
+└────────────────────────Event type
+```
+
+This event is generated when colonists settling a new planet find a strange artifact that boosts research.
+
+Example from test data:
+- `5E 02 FE FF 3E 01 00 6B` → Planet 318 (Harris) found artifact, Energy (0) +107 resources
+
+---
+
+## Colony Events
+
+### New Colony Established (0x1C)
+
+```
+1C 00 PP PP XX XX PP PP PP PP
+│  │  └───┘ └───┘ └─────────┘
+│  │    │     │        └───── Planet ID repeated twice (confirmation)
+│  │    │     └────────────── Extra data (possibly fleet info)
+│  │    └──────────────────── Planet ID (16-bit LE)
+│  └───────────────────────── Flags (0x00)
+└──────────────────────────── Event type
+```
+
+This event is generated when colonists establish a new colony on a planet.
+
+Example from test data:
+- `1C 00 3E 01 0A 02 3E 01 3E 01` → New colony on planet 318 (Harris)
+
+---
+
+## Fleet Events
+
+### Fleet Scrapped (0x59)
+
+```
+59 FF PP PP FI MM
+│  │  └───┘ │  └─── Mineral amount / 7 (encoded)
+│  │    │   └────── Fleet index (0-based, display is +1)
+│  │    └────────── Planet ID (16-bit LE) where minerals deposited
+│  └─────────────── Flags (possibly design ID or subtype)
+└────────────────── Event type
+```
+
+This event is generated when a fleet is scrapped/dismantled at a planet, depositing minerals.
+
+**Mineral encoding**: The mineral amount in kT is encoded as `value / 7`. To decode: `mineralAmount = encodedByte * 7`
+
+Example from test data:
+- `59 12 3E 01 0A 04` → Fleet 10 (Santa Maria #11) scrapped at planet 318 (Harris), 28kT minerals (4 × 7)
+
 ---
 
 ## Client-Generated Messages
