@@ -31,16 +31,23 @@ const (
 	WarpStargate = 11 // Use stargate for travel
 )
 
+// Transport action flags (byte 15 of WaypointTaskBlock for Transport tasks)
+const (
+	TransportActionLoadAll   = 0x10 // Load All Available
+	TransportActionUnloadAll = 0x20 // Unload All
+)
+
 // WaypointBlock represents a waypoint in a fleet's route (Type 20)
 type WaypointBlock struct {
 	GenericBlock
 
-	X                  int // X coordinate
-	Y                  int // Y coordinate
-	PositionObject     int // Object ID at position
-	Warp               int // Warp factor (0-15)
-	WaypointTask       int // Task type (0-9)
-	PositionObjectType int // Type of object at position
+	X                  int    // X coordinate
+	Y                  int    // Y coordinate
+	PositionObject     int    // Object ID at position
+	Warp               int    // Warp factor (0-15)
+	WaypointTask       int    // Task type (0-9)
+	PositionObjectType int    // Type of object at position
+	TransportAction    int    // Transport action (0x10=Load All, 0x20=Unload All) from byte 15
 	AdditionalBytes    []byte // Variable-length additional data for tasks
 }
 
@@ -62,8 +69,8 @@ func (wb *WaypointBlock) decode() {
 	wb.X = int(encoding.Read16(data, 0))
 	wb.Y = int(encoding.Read16(data, 2))
 	wb.PositionObject = int(encoding.Read16(data, 4))
-	wb.Warp = int(data[6]&0xFF) >> 4        // Upper nibble
-	wb.WaypointTask = int(data[6] & 0x0F)   // Lower nibble
+	wb.Warp = int(data[6]&0xFF) >> 4       // Upper nibble
+	wb.WaypointTask = int(data[6] & 0x0F)  // Lower nibble
 	wb.PositionObjectType = int(data[7] & 0xFF)
 
 	// Additional bytes for task data
@@ -71,11 +78,26 @@ func (wb *WaypointBlock) decode() {
 		wb.AdditionalBytes = make([]byte, len(data)-8)
 		copy(wb.AdditionalBytes, data[8:])
 	}
+
+	// Extract transport action from byte 15 (for Transport tasks)
+	if len(data) >= 16 && wb.WaypointTask == WaypointTaskTransport {
+		wb.TransportAction = int(data[15] & 0xFF)
+	}
 }
 
 // UsesStargate returns true if this waypoint uses stargate travel
 func (wb *WaypointBlock) UsesStargate() bool {
 	return wb.Warp == WarpStargate
+}
+
+// IsLoadAllTransport returns true if this is a "Load All Available" transport task
+func (wb *WaypointBlock) IsLoadAllTransport() bool {
+	return wb.WaypointTask == WaypointTaskTransport && (wb.TransportAction&TransportActionLoadAll) != 0
+}
+
+// IsUnloadAllTransport returns true if this is an "Unload All" transport task
+func (wb *WaypointBlock) IsUnloadAllTransport() bool {
+	return wb.WaypointTask == WaypointTaskTransport && (wb.TransportAction&TransportActionUnloadAll) != 0
 }
 
 // WaypointTaskBlock represents a waypoint with task information (Type 19)

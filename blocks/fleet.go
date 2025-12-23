@@ -34,6 +34,7 @@ type PartialFleetBlock struct {
 	ShipTypes          uint16   // 16-bit bitmask, one bit per design
 	ShipCount          [16]int  // Ship counts per design slot
 	ShipCountTwoBytes  bool     // True if ship counts are 2 bytes each
+	RepeatOrders       bool     // True if fleet repeats waypoint orders (bit 1 of Byte5)
 
 	// Resources/Cargo (if full or pick-pocket)
 	Ironium    int64
@@ -109,6 +110,9 @@ func (fb *PartialFleetBlock) decode() {
 
 	// Determine if ship counts are 2 bytes (bit 3 of byte5 clear)
 	fb.ShipCountTwoBytes = (fb.Byte5 & 0x08) == 0
+
+	// Repeat orders flag (bit 1 of byte5)
+	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0
 
 	// Bytes 6-13: Position and ship types
 	fb.PositionObjectId = int(encoding.Read16(data, 6))

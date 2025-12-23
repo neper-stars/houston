@@ -1,0 +1,38 @@
+{
+  "scenario": "waypoint-repeat",
+  "description": "Fleet with repeat orders and transport waypoint tasks",
+  "year": 2455,
+  "fleets": [
+    {
+      "name": "Rubber Pump",
+      "fleetNumber": 11,
+      "x": 1267,
+      "y": 1327,
+      "repeatOrders": true,
+      "waypointCount": 3,
+      "waypoints": [
+        {
+          "description": "Current position (deep space)",
+          "x": 1267,
+          "y": 1327
+        },
+        {
+          "description": "Hurl - Load All Available Colonists",
+          "targetPlanet": "Hurl",
+          "x": 1273,
+          "y": 1341,
+          "task": "Transport",
+          "transportAction": "Load All Available"
+        },
+        {
+          "description": "Rubber - Unload All Colonists",
+          "targetPlanet": "Rubber",
+          "x": 1249,
+          "y": 1149,
+          "task": "Transport",
+          "transportAction": "Unload All"
+        }
+      ]
+    }
+  ]
+}
