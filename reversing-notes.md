@@ -15,11 +15,12 @@
 
 Where `PP PP` = Planet ID (16-bit little-endian)
 
-### Research Events (global/no planet)
+### Global Events (not planet-specific)
 
 | Type | Name | Format |
 |------|------|--------|
 | 0x50 | Research Complete | `50 00 FE FF LL CF NF` (7 bytes) |
+| 0x57 | Terraformable Planet Found | `57 FF ?? ?? ?? ?? GG GG` (8 bytes) |
 | 0x5F | Tech Benefit | `5F FF CC II II XX XX` (7 bytes) |
 
 #### Research Complete Event (0x50)
@@ -35,6 +36,22 @@ Where `PP PP` = Planet ID (16-bit little-endian)
 ```
 
 **Key insight**: `0xFFFE` is NOT a fixed/magic value - it's the "no planet" marker. Production events have planet IDs at bytes 2-3; research is player-global so it uses -2/0xFFFE instead. This is consistent with Stars! event structure.
+
+#### Terraformable Planet Found Event (0x57)
+
+```
+57 FF ?? ?? ?? ?? GG GG
+│  │              └───┘
+│  │                └─── Growth rate encoded (16-bit LE)
+│  └──────────────────── Flags
+└────────────────────── Event type (0x57)
+```
+
+**Growth rate encoding**: The last 2 bytes encode the potential growth rate after terraforming.
+- Formula: `growth_percent = encoded_value / 332`
+- Example: `0x0380` (896) → 896 / 332 = 2.70%
+
+**Planet identification**: Bytes 2-5 contain planet reference data (encoding TBD). The corresponding partial planet block (Type 14) will have extended 21-byte format with terraforming potential data.
 
 #### Tech Benefit Event (0x5F)
 
@@ -122,6 +139,20 @@ Flags byte (byte 2):
 |-----|---------|
 | 7 (0x80) | Contribute only leftover resources to research |
 | 0-6 | TBD |
+
+---
+
+## M File Blocks
+
+### PlayerBlock (Type 6)
+
+When `FullDataFlag` is set, `FullDataBytes` (104 bytes starting at offset 8) contains race settings:
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 8-16 | 9 | Habitability ranges |
+| 17 | 1 | Growth rate (max population growth %, typically 1-20) |
+| 18-23 | 6 | Tech levels (Energy, Weapons, Propulsion, Construction, Electronics, Biotech) |
 
 ---
 

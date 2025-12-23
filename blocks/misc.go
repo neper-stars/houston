@@ -195,14 +195,15 @@ func NewWaypointRepeatOrdersBlock(b GenericBlock) *WaypointRepeatOrdersBlock {
 
 // Event type constants for production-related events
 const (
-	EventTypeDefensesBuilt       = 0x35 // Defenses built on planet
-	EventTypeFactoriesBuilt      = 0x36 // Factories built on planet
-	EventTypeMineralAlchemyBuilt = 0x37 // Mineral alchemy or similar
-	EventTypeMinesBuilt          = 0x38 // Mines built on planet
-	EventTypeQueueEmpty          = 0x3E // Production queue empty
-	EventTypePopulationChange    = 0x26 // Population changed
-	EventTypeResearchComplete    = 0x50 // Research level completed
-	EventTypeTechBenefit         = 0x5F // Tech benefit gained
+	EventTypeDefensesBuilt            = 0x35 // Defenses built on planet
+	EventTypeFactoriesBuilt           = 0x36 // Factories built on planet
+	EventTypeMineralAlchemyBuilt      = 0x37 // Mineral alchemy or similar
+	EventTypeMinesBuilt               = 0x38 // Mines built on planet
+	EventTypeQueueEmpty               = 0x3E // Production queue empty
+	EventTypePopulationChange         = 0x26 // Population changed
+	EventTypeResearchComplete         = 0x50 // Research level completed
+	EventTypeTerraformablePlanetFound = 0x57 // Terraformable planet found
+	EventTypeTechBenefit              = 0x5F // Tech benefit gained
 )
 
 // Research field IDs
@@ -244,13 +245,20 @@ type TechBenefitEvent struct {
 	Category int // Category/index within field
 }
 
+// TerraformablePlanetFoundEvent represents finding a terraformable planet
+type TerraformablePlanetFoundEvent struct {
+	GrowthRateEncoded int     // Raw encoded growth rate value
+	GrowthRatePercent float64 // Calculated growth rate (encoded / 332)
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
 
-	ProductionEvents []ProductionEvent       // Decoded production events
-	ResearchEvents   []ResearchCompleteEvent // Research completion events
-	TechBenefits     []TechBenefitEvent      // Tech benefits gained
+	ProductionEvents         []ProductionEvent               // Decoded production events
+	ResearchEvents           []ResearchCompleteEvent         // Research completion events
+	TechBenefits             []TechBenefitEvent              // Tech benefits gained
+	TerraformablePlanets     []TerraformablePlanetFoundEvent // Terraformable planets found
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -366,6 +374,20 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 			eb.TechBenefits = append(eb.TechBenefits, TechBenefitEvent{
 				ItemID:   itemID,
 				Category: category,
+			})
+		}
+	}
+
+	// Search for terraformable planet found events (0x57)
+	// Format: 57 flags ?? ?? ?? ?? GG GG (8 bytes total)
+	// Bytes 6-7: Growth rate encoded (16-bit LE), divide by 332 for percentage
+	for i := 0; i < len(data)-7; i++ {
+		if data[i] == EventTypeTerraformablePlanetFound {
+			growthEncoded := int(data[i+6]) | (int(data[i+7]) << 8)
+			growthPercent := float64(growthEncoded) / 332.0
+			eb.TerraformablePlanets = append(eb.TerraformablePlanets, TerraformablePlanetFoundEvent{
+				GrowthRateEncoded: growthEncoded,
+				GrowthRatePercent: growthPercent,
 			})
 		}
 	}

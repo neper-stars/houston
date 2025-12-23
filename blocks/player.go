@@ -30,6 +30,8 @@ type PlayerBlock struct {
 	Byte7               byte
 	FullDataBytes       []byte
 	PlayerRelations     []byte
+	// Race settings (from FullDataBytes when FullDataFlag is true)
+	GrowthRate int // Max population growth rate percentage (typically 1-20)
 }
 
 // HashedPass returns the hashed password from inside
@@ -76,6 +78,8 @@ func (p *PlayerBlock) decode() error {
 	if p.FullDataFlag {
 		p.FullDataBytes = make([]byte, 0x68)
 		copy(p.FullDataBytes, p.Decrypted[8:8+0x68])
+		// Decode race settings from FullDataBytes
+		p.GrowthRate = int(p.FullDataBytes[17])
 		index = 0x70
 		playerRelationsLength := int(p.Decrypted[index]) & 0xFF
 		p.PlayerRelations = make([]byte, playerRelationsLength)

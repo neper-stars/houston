@@ -1,0 +1,34 @@
+{
+  "scenario": "new-terraformable-found",
+  "description": "M file with message about finding a terraformable planet (Sea Squared)",
+  "year": 2464,
+  "player": {
+    "raceMaxGrowthRate": 15
+  },
+  "messageInfo": {
+    "messageNumber": 16,
+    "totalMessages": 16,
+    "text": "You have found a new planet which you have the ability to make habitable. With terraforming, your colonists will grow by up to 2.70% per year if you colonize Sea Squared."
+  },
+  "events": [
+    {
+      "type": "TerraformablePlanetFound",
+      "planetName": "Sea Squared",
+      "planetId": 410,
+      "growthRatePercent": 2.70
+    },
+    {
+      "type": "ResearchComplete",
+      "level": 6,
+      "completedField": "Electronics",
+      "nextField": "Electronics"
+    }
+  ],
+  "partialPlanets": [
+    {
+      "planetId": 410,
+      "name": "Sea Squared",
+      "hasTerraformData": true
+    }
+  ]
+}
