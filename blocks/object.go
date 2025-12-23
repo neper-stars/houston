@@ -83,6 +83,13 @@ type ObjectBlock struct {
 	MetBits  uint16 // Player mask: who trader has met
 	ItemBits uint16 // Items the trader is carrying
 	TurnNo   int    // Turn number
+
+	// Mineral packet-specific fields (ObjectType == 1)
+	DestinationPlanetID int // Target planet for the packet
+	Ironium             int // Ironium amount in kT
+	Boranium            int // Boranium amount in kT
+	Germanium           int // Germanium amount in kT
+	PacketSpeed         int // Warp speed of packet (from byte 7, encoding TBD)
 }
 
 // NewObjectBlock creates an ObjectBlock from a GenericBlock
@@ -124,11 +131,12 @@ func (ob *ObjectBlock) decode() {
 	switch ob.ObjectType {
 	case ObjectTypeMinefield:
 		ob.decodeMinefield(data)
+	case ObjectTypePacketSalvage:
+		ob.decodePacket(data)
 	case ObjectTypeWormhole:
 		ob.decodeWormhole(data)
 	case ObjectTypeMysteryTrader:
 		ob.decodeMysteryTrader(data)
-	// ObjectTypePacketSalvage has no additional fields to decode
 	}
 }
 
@@ -143,6 +151,29 @@ func (ob *ObjectBlock) decodeMinefield(data []byte) {
 	ob.MinefieldType = int(data[12] & 0xFF)
 	ob.Detonating = data[13] != 0
 	// Bytes 14-15: player visibility mask
+}
+
+func (ob *ObjectBlock) decodePacket(data []byte) {
+	if len(data) < 14 {
+		return
+	}
+
+	// Mineral packet format (18 bytes total):
+	// Bytes 0-1: Object ID (already decoded)
+	// Bytes 2-3: X position (already decoded)
+	// Bytes 4-5: Y position (already decoded)
+	// Byte 6: Destination planet ID
+	// Byte 7: Speed/flags (encoding not fully understood)
+	// Bytes 8-9: Ironium in kT
+	// Bytes 10-11: Boranium in kT
+	// Bytes 12-13: Germanium in kT
+	// Bytes 14-17: Unknown
+
+	ob.DestinationPlanetID = int(data[6])
+	ob.PacketSpeed = int(data[7]) // Raw value, encoding TBD
+	ob.Ironium = int(encoding.Read16(data, 8))
+	ob.Boranium = int(encoding.Read16(data, 10))
+	ob.Germanium = int(encoding.Read16(data, 12))
 }
 
 func (ob *ObjectBlock) decodeWormhole(data []byte) {
@@ -183,6 +214,16 @@ func (ob *ObjectBlock) IsWormhole() bool {
 // IsMysteryTrader returns true if this is a mystery trader object
 func (ob *ObjectBlock) IsMysteryTrader() bool {
 	return !ob.IsCountObject && ob.ObjectType == ObjectTypeMysteryTrader
+}
+
+// IsPacket returns true if this is a mineral packet object
+func (ob *ObjectBlock) IsPacket() bool {
+	return !ob.IsCountObject && ob.ObjectType == ObjectTypePacketSalvage
+}
+
+// TotalMinerals returns the total mineral content of a packet
+func (ob *ObjectBlock) TotalMinerals() int {
+	return ob.Ironium + ob.Boranium + ob.Germanium
 }
 
 // PlayerCanSee returns true if the given player can see this wormhole

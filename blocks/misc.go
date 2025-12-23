@@ -200,10 +200,12 @@ const (
 	EventTypeMineralAlchemyBuilt      = 0x37 // Mineral alchemy or similar
 	EventTypeMinesBuilt               = 0x38 // Mines built on planet
 	EventTypeQueueEmpty               = 0x3E // Production queue empty
-	EventTypePopulationChange         = 0x26 // Population changed
+	EventTypePopulationChange         = 0x26 // Population changed (decrease due to overcrowding, etc.)
 	EventTypeResearchComplete         = 0x50 // Research level completed
 	EventTypeTerraformablePlanetFound = 0x57 // Terraformable planet found
 	EventTypeTechBenefit              = 0x5F // Tech benefit gained
+	EventTypePacketCaptured           = 0xD5 // Mineral packet captured at planet
+	EventTypeMineralPacketProduced    = 0xD3 // Mineral packet produced (launched from mass driver)
 )
 
 // Research field IDs
@@ -251,6 +253,27 @@ type TerraformablePlanetFoundEvent struct {
 	GrowthRatePercent float64 // Calculated growth rate (encoded / 332)
 }
 
+// PopulationChangeEvent represents population change on a planet
+// (e.g., decrease due to overcrowding)
+type PopulationChangeEvent struct {
+	PlanetID int // Planet where population changed
+	Amount   int // Amount of change in colonists (e.g., 200 = 200 colonists died)
+}
+
+// PacketCapturedEvent represents capturing a mineral packet at a planet
+type PacketCapturedEvent struct {
+	PlanetID      int // Planet where packet was captured
+	MineralAmount int // Total mineral amount in kT
+}
+
+// MineralPacketProducedEvent represents a mineral packet launched from a mass driver
+// Note: Source planet encoding is not fully understood - the parsed SourcePlanetID
+// may not match the actual planet name shown in the game message
+type MineralPacketProducedEvent struct {
+	SourcePlanetID      int // Planet with mass driver (encoding not fully confirmed)
+	DestinationPlanetID int // Target planet for the packet
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
@@ -259,6 +282,9 @@ type EventsBlock struct {
 	ResearchEvents           []ResearchCompleteEvent         // Research completion events
 	TechBenefits             []TechBenefitEvent              // Tech benefits gained
 	TerraformablePlanets     []TerraformablePlanetFoundEvent // Terraformable planets found
+	PopulationChanges        []PopulationChangeEvent         // Population change events
+	PacketsCaptured          []PacketCapturedEvent           // Packet captured events
+	PacketsProduced          []MineralPacketProducedEvent    // Packet produced events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -276,10 +302,21 @@ func (eb *EventsBlock) decode() {
 		return
 	}
 
-	// Parse production events (types 0x35-0x3E)
-	// These have a consistent format:
-	// - Types 0x35, 0x37, 0x3E: 5 bytes (type, 0x00, planetID[2], checksum)
-	// - Types 0x36, 0x38: 6 bytes (type, 0x00, planetID[2], count, checksum)
+	// Parse production events sequentially to maintain order
+	// Then parse other event types by scanning
+	eb.parseProductionEvents(data)
+	eb.parseResearchEvents(data)
+}
+
+// parseProductionEvents parses production events sequentially while maintaining order
+func (eb *EventsBlock) parseProductionEvents(data []byte) {
+	// Production events (types 0x35-0x3E)
+	// Format: type flags planetID[2] [count] checksum
+	// - Types 0x35, 0x37, 0x3E: 5 bytes (no count)
+	// - Types 0x36, 0x38: 6 bytes (with count in byte 4)
+	//
+	// Events with flags=0x00 are simple production events
+	// Events with other flags may have different formats
 
 	i := 0
 	for i < len(data) {
@@ -290,9 +327,11 @@ func (eb *EventsBlock) decode() {
 		eventType := int(data[i])
 		flags := data[i+1]
 
-		// Only process simple production events with flags=0x00
+		// Only process production events with flags=0x00
 		if flags != 0x00 {
-			break // Different event format section starts
+			// Skip this byte and continue looking for more events
+			i++
+			continue
 		}
 
 		planetID := int(data[i+2]) | (int(data[i+3]) << 8)
@@ -303,20 +342,21 @@ func (eb *EventsBlock) decode() {
 		switch eventType {
 		case EventTypeDefensesBuilt, EventTypeMineralAlchemyBuilt, EventTypeQueueEmpty:
 			eventLen = 5
-			count = 0
+			count = 1 // Default count for DefensesBuilt
+			if eventType != EventTypeDefensesBuilt {
+				count = 0
+			}
 		case EventTypeFactoriesBuilt, EventTypeMinesBuilt:
 			if i+6 > len(data) {
-				break
+				i++
+				continue
 			}
 			eventLen = 6
 			count = int(data[i+4])
 		default:
-			// Unknown event type, stop parsing this section
-			break
-		}
-
-		if eventLen == 0 {
-			break
+			// Unknown event type, skip this byte and continue
+			i++
+			continue
 		}
 
 		eb.ProductionEvents = append(eb.ProductionEvents, ProductionEvent{
@@ -327,11 +367,6 @@ func (eb *EventsBlock) decode() {
 
 		i += eventLen
 	}
-
-	// Parse research events and tech benefits from the remaining data
-	// Research complete: marker "50 00 FE FF" followed by level, field, field
-	// Tech benefit: 0x5F, flags, category, itemID[2], ...
-	eb.parseResearchEvents(data)
 }
 
 func (eb *EventsBlock) parseResearchEvents(data []byte) {
@@ -388,6 +423,55 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 			eb.TerraformablePlanets = append(eb.TerraformablePlanets, TerraformablePlanetFoundEvent{
 				GrowthRateEncoded: growthEncoded,
 				GrowthRatePercent: growthPercent,
+			})
+		}
+	}
+
+	// Search for population change events (0x26)
+	// Format: 26 00 PP PP CC AA AA (7 bytes total)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Byte 4: Checksum/repeat of planet low byte
+	//   Bytes 5-6: Amount in hundreds of colonists (e.g., 2 = 200 colonists)
+	for i := 0; i < len(data)-6; i++ {
+		if data[i] == EventTypePopulationChange && data[i+1] == 0x00 {
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			amountHundreds := int(data[i+5]) | (int(data[i+6]) << 8)
+			amount := amountHundreds * 100
+			eb.PopulationChanges = append(eb.PopulationChanges, PopulationChangeEvent{
+				PlanetID: planetID,
+				Amount:   amount,
+			})
+		}
+	}
+
+	// Search for packet captured events (0xD5)
+	// Format: D5 00 PP PP PP PP MM MM (8 bytes total)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Bytes 4-5: Planet ID repeated
+	//   Bytes 6-7: Mineral amount in kT (16-bit LE)
+	for i := 0; i < len(data)-7; i++ {
+		if data[i] == EventTypePacketCaptured && data[i+1] == 0x00 {
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			mineralAmount := int(data[i+6]) | (int(data[i+7]) << 8)
+			eb.PacketsCaptured = append(eb.PacketsCaptured, PacketCapturedEvent{
+				PlanetID:      planetID,
+				MineralAmount: mineralAmount,
+			})
+		}
+	}
+
+	// Search for mineral packet produced events (0xD3)
+	// Format: D3 00 SS SS SS DD (6 bytes)
+	//   Bytes 2-3: Source planet ID (16-bit LE) - NOTE: encoding not fully confirmed
+	//   Byte 4: Repeat of source low byte
+	//   Byte 5: Destination planet ID (low byte only observed)
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeMineralPacketProduced && data[i+1] == 0x00 {
+			sourcePlanetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			destPlanetID := int(data[i+5]) // Only low byte observed
+			eb.PacketsProduced = append(eb.PacketsProduced, MineralPacketProducedEvent{
+				SourcePlanetID:      sourcePlanetID,
+				DestinationPlanetID: destPlanetID,
 			})
 		}
 	}

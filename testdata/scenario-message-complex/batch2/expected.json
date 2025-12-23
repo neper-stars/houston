@@ -1,0 +1,70 @@
+{
+  "scenario": "message-complex-batch2",
+  "description": "M file with various message types including production, research, packets, and planet discovery",
+  "year": 2464,
+  "totalMessages": 57,
+  "events": [
+    {
+      "type": "MineralAlchemy",
+      "messageNumber": 14,
+      "planetName": "Hurl",
+      "amount": 2
+    },
+    {
+      "type": "DefensesBuilt",
+      "messageNumber": 19,
+      "planetName": "Hurl",
+      "count": 2
+    },
+    {
+      "type": "MineralPacketProduced",
+      "messageNumber": 20,
+      "sourcePlanet": "Hurl",
+      "destinationPlanet": "Purgatory"
+    },
+    {
+      "type": "DefensesBuilt",
+      "messageNumber": 21,
+      "planetName": "Hurl",
+      "count": 1
+    },
+    {
+      "type": "PopulationDecrease",
+      "messageNumber": 47,
+      "planetName": "Purgatory",
+      "amount": 200,
+      "reason": "overcrowding"
+    },
+    {
+      "type": "ResearchComplete",
+      "messageNumber": 48,
+      "level": 10,
+      "completedField": "Propulsion",
+      "nextField": "Propulsion"
+    },
+    {
+      "type": "TechBenefit",
+      "messageNumber": 49,
+      "field": "Propulsion",
+      "benefitName": "Gravity Terraform ±11"
+    },
+    {
+      "type": "PacketCaptured",
+      "messageNumber": 50,
+      "planetName": "Purgatory",
+      "mineralAmount": 120
+    },
+    {
+      "type": "TerraformablePlanetFound",
+      "messageNumber": 55,
+      "planetName": "Astair",
+      "growthRatePercent": 9.20
+    },
+    {
+      "type": "HabitablePlanetFound",
+      "messageNumber": 57,
+      "planetName": "Sphere",
+      "growthRatePercent": 3.80
+    }
+  ]
+}
