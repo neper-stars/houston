@@ -1,0 +1,16 @@
+{
+  "scenario": "research-next-change",
+  "description": "X file order to change next research field from Biotechnology to Propulsion",
+  "year": 2463,
+  "researchChange": {
+    "budgetPercent": 15,
+    "currentField": 5,
+    "currentFieldName": "Biotechnology",
+    "nextField": 2,
+    "nextFieldName": "Propulsion"
+  },
+  "formatNotes": {
+    "byte0": "Research budget percentage (15%)",
+    "byte1": "(next_field << 4) | current_field = (2 << 4) | 5 = 0x25"
+  }
+}
