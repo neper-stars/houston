@@ -206,6 +206,7 @@ const (
 	EventTypeTechBenefit              = 0x5F // Tech benefit gained
 	EventTypePacketCaptured           = 0xD5 // Mineral packet captured at planet
 	EventTypeMineralPacketProduced    = 0xD3 // Mineral packet produced (launched from mass driver)
+	EventTypePacketBombardment        = 0xD8 // Mineral packet bombardment (uncaught packet hit planet)
 )
 
 // Research field IDs
@@ -274,6 +275,14 @@ type MineralPacketProducedEvent struct {
 	DestinationPlanetID int // Target planet for the packet
 }
 
+// PacketBombardmentEvent represents a mineral packet hitting a planet (uncaught)
+// This occurs when a packet arrives at a planet that can't catch it
+type PacketBombardmentEvent struct {
+	PlanetID        int // Planet that was bombarded
+	MineralAmount   int // Total mineral amount in kT
+	ColonistsKilled int // Number of colonists killed
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
@@ -285,6 +294,7 @@ type EventsBlock struct {
 	PopulationChanges        []PopulationChangeEvent         // Population change events
 	PacketsCaptured          []PacketCapturedEvent           // Packet captured events
 	PacketsProduced          []MineralPacketProducedEvent    // Packet produced events
+	PacketBombardments       []PacketBombardmentEvent        // Packet bombardment events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -472,6 +482,26 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 			eb.PacketsProduced = append(eb.PacketsProduced, MineralPacketProducedEvent{
 				SourcePlanetID:      sourcePlanetID,
 				DestinationPlanetID: destPlanetID,
+			})
+		}
+	}
+
+	// Search for packet bombardment events (0xD8)
+	// Format: D8 00 PP PP XX MM MM 00 DD (9 bytes)
+	//   Bytes 2-3: Planet ID (16-bit LE)
+	//   Byte 4: Unknown (often same as planet low byte)
+	//   Bytes 5-6: Mineral amount in kT (16-bit LE)
+	//   Byte 7: Unknown (always 0x00 observed)
+	//   Byte 8: Colonists killed / 100
+	for i := 0; i < len(data)-8; i++ {
+		if data[i] == EventTypePacketBombardment && data[i+1] == 0x00 {
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			mineralAmount := int(data[i+5]) | (int(data[i+6]) << 8)
+			colonistsKilled := int(data[i+8]) * 100
+			eb.PacketBombardments = append(eb.PacketBombardments, PacketBombardmentEvent{
+				PlanetID:        planetID,
+				MineralAmount:   mineralAmount,
+				ColonistsKilled: colonistsKilled,
 			})
 		}
 	}

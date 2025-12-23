@@ -165,3 +165,165 @@ When `FullDataFlag` is set, `FullDataBytes` (104 bytes starting at offset 8) con
 3. **Nibble packing**: Stars! developers pack multiple small values into single bytes using nibbles (4 bits each), e.g., ResearchChangeBlock encodes two field IDs in one byte
 
 4. **Data validation**: Rather than repeating data for validation, Stars! uses checksums. When bytes appear to repeat, they likely represent different data that happens to have the same value in test samples
+
+---
+
+## Object Block (Type 43)
+
+The Object Block is a multipurpose block for map objects with several subtypes:
+
+| ObjectType | Name | Description |
+|------------|------|-------------|
+| 0 | Minefield | Player-owned minefields |
+| 1 | Packet/Salvage | Mineral packets and salvage |
+| 2 | Wormhole | Wormholes |
+| 3 | Mystery Trader | The Mystery Trader ship |
+
+### Common Header (6 bytes)
+
+```
+OO OO XX XX YY YY
+└───┘ └───┘ └───┘
+  │     │     └─── Y coordinate (16-bit LE)
+  │     └───────── X coordinate (16-bit LE)
+  └─────────────── Object ID word
+```
+
+Object ID word breakdown:
+- Bits 0-8: Object number (9 bits, 0-511)
+- Bits 9-12: Owner player index (4 bits, 0-15)
+- Bits 13-15: Object type (3 bits, 0-3)
+
+### Mineral Packet (ObjectType 1) - 18 bytes
+
+```
+OO OO XX XX YY YY DD SS II II BB BB GG GG ?? ?? ?? ??
+└───┘ └───┘ └───┘ │  │  └───┘ └───┘ └───┘ └─────────┘
+  │     │     │   │  │    │     │     │         └─ Unknown (4 bytes)
+  │     │     │   │  │    │     │     └─────────── Germanium kT (16-bit LE)
+  │     │     │   │  │    │     └───────────────── Boranium kT (16-bit LE)
+  │     │     │   │  │    └─────────────────────── Ironium kT (16-bit LE)
+  │     │     │   │  └──────────────────────────── Speed byte
+  │     │     │   └─────────────────────────────── Destination planet ID (8-bit)
+  │     │     └─────────────────────────────────── Y position
+  │     └───────────────────────────────────────── X position
+  └─────────────────────────────────────────────── Object ID (see above)
+```
+
+#### Warp Speed Encoding (byte 7)
+
+The speed byte encodes warp speed using the formula:
+
+```
+rawByte = (warp - 5) * 4 + 196
+warp = (rawByte >> 2) - 44
+```
+
+| Warp | Raw Byte | Hex |
+|------|----------|-----|
+| 5 | 196 | 0xC4 |
+| 6 | 200 | 0xC8 |
+| 7 | 204 | 0xCC |
+| 8 | 208 | 0xD0 |
+| 9 | 212 | 0xD4 |
+| 10 | 216 | 0xD8 |
+| 11 | 220 | 0xDC |
+| 12 | 224 | 0xE0 |
+| 13 | 228 | 0xE4 |
+
+**Note**: The lower 2 bits of the speed byte appear to always be 0. Upper bits may contain additional flags (TBD).
+
+---
+
+## Additional Event Types
+
+### Mineral Packet Produced (0xD3)
+
+```
+D3 FF SS SS DD DD
+│  │  └───┘ └───┘
+│  │    │     └─── Destination planet ID (16-bit LE)
+│  │    └───────── Source planet ID (16-bit LE)
+│  └────────────── Flags (0xFF = global event marker)
+└──────────────── Event type
+```
+
+This event is generated when a mass driver launches a mineral packet.
+
+### Packet Captured (0xD5)
+
+```
+D5 FF PP PP MM MM
+│  │  └───┘ └───┘
+│  │    │     └─── Mineral amount in kT (16-bit LE)
+│  │    └───────── Planet ID that captured the packet (16-bit LE)
+│  └────────────── Flags
+└──────────────── Event type
+```
+
+This event is generated when a planet with a mass driver catches an incoming mineral packet.
+
+### Population Change (0x26)
+
+```
+26 00 PP PP AA AA ...
+│  │  └───┘ └───┘
+│  │    │     └─── Amount (encoded, likely in hundreds of colonists)
+│  │    └───────── Planet ID (16-bit LE)
+│  └────────────── Flags
+└──────────────── Event type
+```
+
+This event tracks population changes on planets (growth, decay, or transfers).
+
+### Packet Bombardment (0xD8)
+
+```
+D8 00 PP PP XX MM MM 00 DD
+│  │  └───┘ │  └───┘ │  └─── Colonists killed / 100
+│  │    │   │    │   └────── Unknown (always 0x00)
+│  │    │   │    └────────── Mineral amount in kT (16-bit LE)
+│  │    │   └─────────────── Unknown (often same as planet low byte)
+│  │    └─────────────────── Planet ID (16-bit LE)
+│  └──────────────────────── Flags (0x00)
+└─────────────────────────── Event type
+```
+
+This event is generated when a mineral packet hits a planet that cannot catch it (no mass driver or insufficient mass driver level).
+
+Example from test data:
+- `D8 00 BA 00 BA F0 00 00 36` → Planet 186, 240kT, 5400 colonists killed (54 × 100)
+- `D8 00 BA 00 BA FC 00 00 64` → Planet 186, 252kT, 10000 colonists killed (100 × 100)
+
+---
+
+## Client-Generated Messages
+
+Some messages displayed in the Stars! client are not stored in the M file but are dynamically generated based on game state analysis.
+
+### Packet Collision Warnings
+
+Warning messages like "A mass packet appears to be on a collision course with [Planet], which currently is unable to safely catch the packet" are **not stored as events** in the file.
+
+Instead, the client:
+1. Reads packet objects (position, destination, warp speed)
+2. Reads destination planet data (mass driver capability)
+3. Calculates if the planet can safely catch packets at that speed
+4. Dynamically generates warning messages for any mismatches
+
+This reduces file size by avoiding redundant data - the warning condition can be derived from existing packet and planet information.
+
+### Enemy Planet Discovery Messages
+
+Messages like "You have found a planet occupied by someone else. [Planet] is currently owned by the [Race]" are **not stored as events** in the file.
+
+Instead, the client:
+1. Reads PartialPlanetBlocks from the current turn
+2. Checks owner field for each planet (owner > 0 means enemy-owned)
+3. Compares with previous turn data to identify newly discovered enemy planets
+4. Dynamically generates discovery messages for each new sighting
+
+Example from test data:
+- 3 enemy planets (IDs 392, 411, 412) owned by Player 1 (Halflings)
+- Planet IDs NOT present in EventsBlock
+- Client generates 3 "found enemy planet" messages from PartialPlanetBlock data

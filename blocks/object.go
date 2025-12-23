@@ -89,7 +89,7 @@ type ObjectBlock struct {
 	Ironium             int // Ironium amount in kT
 	Boranium            int // Boranium amount in kT
 	Germanium           int // Germanium amount in kT
-	PacketSpeed         int // Warp speed of packet (from byte 7, encoding TBD)
+	PacketSpeed         int // Raw speed byte value
 }
 
 // NewObjectBlock creates an ObjectBlock from a GenericBlock
@@ -224,6 +224,13 @@ func (ob *ObjectBlock) IsPacket() bool {
 // TotalMinerals returns the total mineral content of a packet
 func (ob *ObjectBlock) TotalMinerals() int {
 	return ob.Ironium + ob.Boranium + ob.Germanium
+}
+
+// WarpSpeed returns the decoded warp speed for a mineral packet
+// The raw byte encodes warp as: rawByte = (warp - 5) * 4 + 196
+// So warp = (rawByte >> 2) - 44
+func (ob *ObjectBlock) WarpSpeed() int {
+	return (ob.PacketSpeed >> 2) - 44
 }
 
 // PlayerCanSee returns true if the given player can see this wormhole

@@ -1,0 +1,19 @@
+{
+  "scenario": "mineral-packet-bombardment",
+  "description": "Mineral packets bombarding Ice Patch, killing colonists",
+  "year": 2472,
+  "bombardments": [
+    {
+      "planetId": 186,
+      "planetName": "Ice Patch",
+      "mineralAmount": 240,
+      "colonistsKilled": 5400
+    },
+    {
+      "planetId": 186,
+      "planetName": "Ice Patch",
+      "mineralAmount": 252,
+      "colonistsKilled": 10000
+    }
+  ]
+}

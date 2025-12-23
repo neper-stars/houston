@@ -1,0 +1,62 @@
+{
+  "scenario": "mineral-packet-batch2",
+  "description": "Multiple mineral packets with different warp speeds (5, 6, 7, 8) and mineral contents",
+  "year": 2469,
+  "packets": [
+    {
+      "x": 1439,
+      "y": 1485,
+      "destinationPlanetId": 238,
+      "destinationPlanetName": "Tsagigla'lal",
+      "ironium": 120,
+      "boranium": 120,
+      "germanium": 120,
+      "totalMinerals": 360,
+      "warpSpeed": 7
+    },
+    {
+      "x": 1399,
+      "y": 1359,
+      "destinationPlanetId": 186,
+      "destinationPlanetName": "Ice Patch",
+      "ironium": 120,
+      "boranium": 120,
+      "germanium": 120,
+      "totalMinerals": 360,
+      "warpSpeed": 6
+    },
+    {
+      "x": 1363,
+      "y": 1354,
+      "destinationPlanetId": 186,
+      "destinationPlanetName": "Ice Patch",
+      "ironium": 80,
+      "boranium": 80,
+      "germanium": 80,
+      "totalMinerals": 240,
+      "warpSpeed": 6
+    },
+    {
+      "x": 1310,
+      "y": 1346,
+      "destinationPlanetId": 186,
+      "destinationPlanetName": "Ice Patch",
+      "ironium": 240,
+      "boranium": 40,
+      "germanium": 40,
+      "totalMinerals": 320,
+      "warpSpeed": 5
+    },
+    {
+      "x": 1305,
+      "y": 1345,
+      "destinationPlanetId": 186,
+      "destinationPlanetName": "Ice Patch",
+      "ironium": 30,
+      "boranium": 30,
+      "germanium": 323,
+      "totalMinerals": 383,
+      "warpSpeed": 8
+    }
+  ]
+}
