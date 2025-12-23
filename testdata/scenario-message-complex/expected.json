@@ -1,0 +1,80 @@
+{
+  "scenario": "message-complex",
+  "description": "Complex message scenario with various event types",
+  "year": 2461,
+  "totalMessages": 49,
+  "productionEvents": {
+    "count": 32,
+    "samples": [
+      {
+        "description": "msg-filtered-01: You have built 3 factories on Mungle",
+        "eventType": "factories",
+        "planetId": 14,
+        "planetName": "Mungle",
+        "count": 3
+      },
+      {
+        "description": "msg-filtered-02: You have built 3 mines on Mungle",
+        "eventType": "mines",
+        "planetId": 14,
+        "planetName": "Mungle",
+        "count": 3
+      },
+      {
+        "description": "msg-filtered-03: Mungle has completed its orders. The production queue is empty",
+        "eventType": "queueEmpty",
+        "planetId": 14,
+        "planetName": "Mungle"
+      }
+    ]
+  },
+  "otherMessages": {
+    "description": "Messages not in production events section (research, population, discoveries)",
+    "samples": [
+      {
+        "messageNumber": 43,
+        "description": "The population on Purgatory has decreased by 200 colonists due to overcrowding",
+        "type": "populationDecrease",
+        "planetName": "Purgatory",
+        "planetId": 109
+      },
+      {
+        "messageNumber": 44,
+        "description": "Your scientists have completed research into Tech Level 12 for Weapons",
+        "type": "researchComplete"
+      },
+      {
+        "messageNumber": 45,
+        "description": "Your recent breakthrough in Weapons has also given you the Mini Blaster benefit",
+        "type": "techBenefit"
+      },
+      {
+        "messageNumber": 46,
+        "description": "Your recent breakthrough in Weapons has also given you the Jihad Missile benefit",
+        "type": "techBenefit"
+      },
+      {
+        "messageNumber": 47,
+        "description": "Found uninhabitable planet Steppenwolf (1.50% death rate)",
+        "type": "planetDiscovery",
+        "planetName": "Steppenwolf",
+        "planetId": 169,
+        "habitable": false
+      },
+      {
+        "messageNumber": 48,
+        "description": "Found habitable planet Sadie (4.40% growth rate)",
+        "type": "planetDiscovery",
+        "planetName": "Sadie",
+        "planetId": 173,
+        "habitable": true
+      }
+    ]
+  },
+  "planets": {
+    "Mungle": 14,
+    "Purgatory": 109,
+    "Steppenwolf": 169,
+    "Sadie": 173
+  }
+}

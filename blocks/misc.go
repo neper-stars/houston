@@ -193,15 +193,97 @@ func NewWaypointRepeatOrdersBlock(b GenericBlock) *WaypointRepeatOrdersBlock {
 	return &WaypointRepeatOrdersBlock{GenericBlock: b}
 }
 
+// Event type constants for production-related events
+const (
+	EventTypeDefensesBuilt       = 0x35 // Defenses built on planet
+	EventTypeFactoriesBuilt      = 0x36 // Factories built on planet
+	EventTypeMineralAlchemyBuilt = 0x37 // Mineral alchemy or similar
+	EventTypeMinesBuilt          = 0x38 // Mines built on planet
+	EventTypeQueueEmpty          = 0x3E // Production queue empty
+	EventTypePopulationChange    = 0x26 // Population changed
+	EventTypePlanetDiscovery     = 0x5F // New planet discovered
+)
+
+// ProductionEvent represents a single production-related event
+type ProductionEvent struct {
+	EventType int // Event type (0x35-0x3E for production)
+	PlanetID  int // Planet where event occurred
+	Count     int // Count (for factories/mines built)
+}
+
 // EventsBlock represents game events (Type 12)
-// Structure not fully documented - preserves raw data for analysis
 type EventsBlock struct {
 	GenericBlock
+
+	ProductionEvents []ProductionEvent // Decoded production events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
 func NewEventsBlock(b GenericBlock) *EventsBlock {
-	return &EventsBlock{GenericBlock: b}
+	eb := &EventsBlock{
+		GenericBlock: b,
+	}
+	eb.decode()
+	return eb
+}
+
+func (eb *EventsBlock) decode() {
+	data := eb.Decrypted
+	if len(data) < 5 {
+		return
+	}
+
+	// Parse production events (types 0x35-0x3E)
+	// These have a consistent format:
+	// - Types 0x35, 0x37, 0x3E: 5 bytes (type, 0x00, planetID[2], checksum)
+	// - Types 0x36, 0x38: 6 bytes (type, 0x00, planetID[2], count, checksum)
+
+	i := 0
+	for i < len(data) {
+		if i+5 > len(data) {
+			break
+		}
+
+		eventType := int(data[i])
+		flags := data[i+1]
+
+		// Only process simple production events with flags=0x00
+		if flags != 0x00 {
+			break // Different event format section starts
+		}
+
+		planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+
+		var eventLen int
+		var count int
+
+		switch eventType {
+		case EventTypeDefensesBuilt, EventTypeMineralAlchemyBuilt, EventTypeQueueEmpty:
+			eventLen = 5
+			count = 0
+		case EventTypeFactoriesBuilt, EventTypeMinesBuilt:
+			if i+6 > len(data) {
+				break
+			}
+			eventLen = 6
+			count = int(data[i+4])
+		default:
+			// Unknown event type, stop parsing this section
+			break
+		}
+
+		if eventLen == 0 {
+			break
+		}
+
+		eb.ProductionEvents = append(eb.ProductionEvents, ProductionEvent{
+			EventType: eventType,
+			PlanetID:  planetID,
+			Count:     count,
+		})
+
+		i += eventLen
+	}
 }
 
 // MessagesFilterBlock represents message filter settings (Type 33)
