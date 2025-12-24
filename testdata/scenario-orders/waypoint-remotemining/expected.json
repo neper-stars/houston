@@ -1,0 +1,18 @@
+{
+  "description": "Waypoint remote mining order - Fleet 2 to mine Chennault",
+  "year": 2481,
+  "waypointRemoteMining": {
+    "fleetNumber": 9,
+    "fleetName": "Fleet 2",
+    "waypointNumber": 1,
+    "x": 1304,
+    "y": 1387,
+    "warp": 6,
+    "task": 3,
+    "taskName": "Remote Mining",
+    "targetPlanetNumber": 123,
+    "targetPlanetName": "Chennault",
+    "targetType": 1,
+    "targetTypeName": "Planet"
+  }
+}
