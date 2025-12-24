@@ -1,0 +1,38 @@
+{
+  "description": "Waypoint transport load orders - Large Freighter #4 to Salvage",
+  "year": 2481,
+  "waypointChangeTask": {
+    "fleetNumber": 3,
+    "fleetName": "Large Freighter #4",
+    "waypointNumber": 1,
+    "x": 1291,
+    "y": 1359,
+    "targetType": 8,
+    "targetTypeName": "Salvage",
+    "warp": 5,
+    "task": 1,
+    "taskName": "Transport"
+  },
+  "transportOrders": {
+    "ironium": {
+      "action": 3,
+      "actionName": "Load Exactly",
+      "value": 18
+    },
+    "boranium": {
+      "action": 1,
+      "actionName": "Load All Available",
+      "value": 0
+    },
+    "germanium": {
+      "action": 5,
+      "actionName": "Fill Up to %",
+      "value": 50
+    },
+    "colonists": {
+      "action": 0,
+      "actionName": "No Action",
+      "value": 0
+    }
+  }
+}

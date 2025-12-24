@@ -37,6 +37,52 @@ const (
 	TransportActionUnloadAll = 0x20 // Unload All
 )
 
+// Transport task action types (stored in high nibble of action byte)
+const (
+	TransportTaskNoAction        = 0 // No action for this cargo type
+	TransportTaskLoadAll         = 1 // Load All Available
+	TransportTaskUnloadAll       = 2 // Unload All
+	TransportTaskLoadExactly     = 3 // Load Exactly N kT
+	TransportTaskUnloadExactly   = 4 // Unload Exactly N kT
+	TransportTaskFillToPercent   = 5 // Fill Up to N%
+	TransportTaskWaitForPercent  = 6 // Wait for N%
+	TransportTaskDropAndLoad     = 7 // Drop and Load (unload all, then load)
+	TransportTaskSetAmountTo     = 8 // Set Amount To N kT
+)
+
+// Cargo type indices
+const (
+	CargoIronium   = 0
+	CargoBoranium  = 1
+	CargoGermanium = 2
+	CargoColonists = 3
+)
+
+// TransportOrder represents a transport task for a single cargo type
+type TransportOrder struct {
+	Action int // Transport action type (0-8)
+	Value  int // Amount in kT or percentage depending on action
+}
+
+// TransportTaskName returns the human-readable name for a transport action
+func TransportTaskName(action int) string {
+	names := []string{
+		"No Action",
+		"Load All Available",
+		"Unload All",
+		"Load Exactly",
+		"Unload Exactly",
+		"Fill Up to %",
+		"Wait for %",
+		"Drop and Load",
+		"Set Amount To",
+	}
+	if action >= 0 && action < len(names) {
+		return names[action]
+	}
+	return "Unknown"
+}
+
 // WaypointBlock represents a waypoint in a fleet's route (Type 20)
 type WaypointBlock struct {
 	GenericBlock
@@ -120,17 +166,21 @@ func NewWaypointTaskBlock(b GenericBlock) *WaypointTaskBlock {
 type WaypointChangeTaskBlock struct {
 	GenericBlock
 
-	FleetNumber             int // Fleet ID (9 bits)
-	WaypointNumber          int // Waypoint index (0 for immediate move)
-	UnknownByte3            int
-	X                       int // X coordinate
-	Y                       int // Y coordinate
-	Target                  int // Target ID (fleet/planet number)
-	Warp                    int // Warp factor
-	WaypointTask            int // Task type
+	FleetNumber               int // Fleet ID (9 bits)
+	WaypointNumber            int // Waypoint index (0 for immediate move)
+	UnknownByte3              int
+	X                         int // X coordinate
+	Y                         int // Y coordinate
+	Target                    int // Target ID (fleet/planet number)
+	Warp                      int // Warp factor
+	WaypointTask              int // Task type
 	UnknownBitsWithTargetType int // Upper nibble of target type byte
-	TargetType              int // 1=planet, 2=fleet, 4=deep space, 8=wormhole
-	SubTaskIndex            int // Optional sub-task index
+	TargetType                int // 1=planet, 2=fleet, 4=deep space, 8=wormhole
+	SubTaskIndex              int // Optional sub-task index
+
+	// Transport task orders (when WaypointTask == WaypointTaskTransport)
+	// Each cargo type has an action and value
+	TransportOrders [4]TransportOrder // [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists
 }
 
 // NewWaypointChangeTaskBlock creates a WaypointChangeTaskBlock from a GenericBlock
@@ -154,13 +204,27 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 	wctb.X = int(encoding.Read16(data, 4))
 	wctb.Y = int(encoding.Read16(data, 6))
 	wctb.Target = int(data[8]&0xFF) + (int(data[9]&0x01) << 8)
-	wctb.Warp = int(data[10]&0xFF) >> 4       // Upper nibble
-	wctb.WaypointTask = int(data[10] & 0x0F)  // Lower nibble
+	wctb.Warp = int(data[10]&0xFF) >> 4      // Upper nibble
+	wctb.WaypointTask = int(data[10] & 0x0F) // Lower nibble
 	wctb.UnknownBitsWithTargetType = int(data[11]&0xFF) >> 4
 	wctb.TargetType = int(data[11] & 0x0F)
 
 	if len(data) > 12 {
 		wctb.SubTaskIndex = int(data[12] & 0xFF)
+	}
+
+	// Decode transport orders if this is a Transport task
+	// Format: 2 bytes per cargo type starting at byte 12
+	//   Byte 0: Value (amount in kT or percentage)
+	//   Byte 1: Action type in high nibble (action << 4)
+	if wctb.WaypointTask == WaypointTaskTransport && len(data) >= 14 {
+		for i := 0; i < 4; i++ {
+			offset := 12 + (i * 2)
+			if offset+1 < len(data) {
+				wctb.TransportOrders[i].Value = int(data[offset] & 0xFF)
+				wctb.TransportOrders[i].Action = int(data[offset+1]&0xFF) >> 4
+			}
+		}
 	}
 }
 
