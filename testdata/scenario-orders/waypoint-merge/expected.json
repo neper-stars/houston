@@ -1,0 +1,20 @@
+{
+  "description": "Waypoint merge order - Long Range Scout #21 to merge with Fleet 1 at Hurl via Stargate",
+  "year": 2481,
+  "waypointMerge": {
+    "fleetNumber": 20,
+    "fleetName": "Long Range Scout #21",
+    "waypointNumber": 1,
+    "x": 1273,
+    "y": 1341,
+    "destinationName": "Hurl",
+    "warp": 11,
+    "usesStargate": true,
+    "task": 4,
+    "taskName": "Merge with Fleet",
+    "targetType": 2,
+    "targetTypeName": "Fleet",
+    "targetFleetNumber": 0,
+    "targetFleetName": "Fleet 1"
+  }
+}
