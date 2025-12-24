@@ -1,0 +1,10 @@
+{
+  "description": "Set fleet battle plan - Long Range Scout+ #3 set to Kill Starbase plan",
+  "year": 2480,
+  "setFleetBattlePlan": {
+    "fleetNumber": 2,
+    "fleetName": "Long Range Scout+ #3",
+    "battlePlanIndex": 1,
+    "battlePlanName": "Kill Starbase"
+  }
+}

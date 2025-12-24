@@ -625,12 +625,32 @@ func NewBattleContinuationBlock(b GenericBlock) *BattleContinuationBlock {
 }
 
 // SetFleetBattlePlanBlock represents setting a fleet's battle plan (Type 42)
-// Structure not fully documented - preserves raw data for analysis
+// Found in X files when player assigns a battle plan to a fleet
+// Format: 4 bytes
+//   Bytes 0-1: Fleet number (9 bits, little-endian)
+//   Bytes 2-3: Battle plan index (little-endian)
 type SetFleetBattlePlanBlock struct {
 	GenericBlock
+
+	FleetNumber     int // Fleet number (0-indexed, display is +1)
+	BattlePlanIndex int // Battle plan index (0=Default, 1-4=custom plans)
 }
 
 // NewSetFleetBattlePlanBlock creates a SetFleetBattlePlanBlock from a GenericBlock
 func NewSetFleetBattlePlanBlock(b GenericBlock) *SetFleetBattlePlanBlock {
-	return &SetFleetBattlePlanBlock{GenericBlock: b}
+	sfbp := &SetFleetBattlePlanBlock{GenericBlock: b}
+	sfbp.decode()
+	return sfbp
+}
+
+func (sfbp *SetFleetBattlePlanBlock) decode() {
+	data := sfbp.Decrypted
+	if len(data) < 4 {
+		return
+	}
+
+	// Fleet number is 9 bits (like other fleet blocks)
+	sfbp.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
+	// Battle plan index
+	sfbp.BattlePlanIndex = int(data[2]&0xFF) + (int(data[3]) << 8)
 }
