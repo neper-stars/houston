@@ -1,6 +1,7 @@
 syntax: glob
 
 build/
+displayblocks
 
 TODOs.md
 exemple/exemple
