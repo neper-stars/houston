@@ -23,7 +23,6 @@
     "attackerStacks": 4,
     "defenderStacks": 2,
     "attackerLosses": 1,
-    "defenderLosses": 2,
     "numActions": 30
   }
 }

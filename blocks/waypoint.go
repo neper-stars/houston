@@ -1,6 +1,8 @@
 package blocks
 
 import (
+	"fmt"
+
 	"github.com/neper-stars/houston/encoding"
 )
 
@@ -162,6 +164,28 @@ func NewWaypointTaskBlock(b GenericBlock) *WaypointTaskBlock {
 	return wtb
 }
 
+// Patrol range constants
+const (
+	PatrolRangeAnyEnemy = 11 // Special value meaning "any enemy" (no range limit)
+)
+
+// PatrolRangeLY converts a patrol range value to light years
+// Returns -1 for "any enemy" (infinite range)
+func PatrolRangeLY(value int) int {
+	if value == PatrolRangeAnyEnemy {
+		return -1 // Infinite
+	}
+	return (value + 1) * 50
+}
+
+// PatrolRangeName returns a human-readable name for a patrol range value
+func PatrolRangeName(value int) string {
+	if value == PatrolRangeAnyEnemy {
+		return "any enemy"
+	}
+	return fmt.Sprintf("within %d ly", (value+1)*50)
+}
+
 // WaypointChangeTaskBlock represents a waypoint task modification (Type 5)
 type WaypointChangeTaskBlock struct {
 	GenericBlock
@@ -181,6 +205,11 @@ type WaypointChangeTaskBlock struct {
 	// Transport task orders (when WaypointTask == WaypointTaskTransport)
 	// Each cargo type has an action and value
 	TransportOrders [4]TransportOrder // [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists
+
+	// Patrol range (when WaypointTask == WaypointTaskPatrol)
+	// 0=50ly, 1=100ly, 2=150ly, ..., 10=550ly, 11=any enemy
+	// Use PatrolRangeLY() to convert to light years
+	PatrolRange int
 }
 
 // NewWaypointChangeTaskBlock creates a WaypointChangeTaskBlock from a GenericBlock
@@ -225,6 +254,13 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 				wctb.TransportOrders[i].Action = int(data[offset+1]&0xFF) >> 4
 			}
 		}
+	}
+
+	// Decode patrol range if this is a Patrol task
+	// Patrol range is at byte 14 when present (15-byte block)
+	// 0=50ly, 1=100ly, ..., 10=550ly, 11=any enemy
+	if wctb.WaypointTask == WaypointTaskPatrol && len(data) >= 15 {
+		wctb.PatrolRange = int(data[14] & 0xFF)
 	}
 }
 

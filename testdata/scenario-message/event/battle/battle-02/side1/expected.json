@@ -1,0 +1,29 @@
+{
+  "scenario": "battle-02-side1",
+  "description": "Battle at Redmond between Hobbits and Halflings (continuation). Stalwart Defender destroyed, Hobbits take no casualties.",
+  "year": 2481,
+  "battle": {
+    "planetId": 392,
+    "planetName": "Redmond",
+    "enemyPlayer": 1,
+    "enemyRace": "Halflings",
+    "yourForces": 3,
+    "enemyForces": 1,
+    "yourLosses": 0,
+    "enemyLosses": 1,
+    "youSurvived": true,
+    "enemySurvived": false,
+    "hasRecording": true
+  },
+  "battleBlock": {
+    "rounds": 10,
+    "side1Stacks": 2,
+    "totalStacks": 4,
+    "planetId": 392,
+    "attackerStacks": 2,
+    "defenderStacks": 0,
+    "attackerLosses": 0,
+    "numActions": 28
+  },
+  "notes": "This is the second battle at Redmond. Ships carry damage from battle-01. The Stalwart Defender is destroyed at phase 61."
+}

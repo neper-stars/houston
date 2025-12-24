@@ -277,7 +277,7 @@ type BattleBlock struct {
 	AttackerStacks  int // Attacker stack count
 	DefenderStacks  int // Defender stack count
 	AttackerLosses  int // Ships lost by attacker
-	DefenderLosses  int // Ships lost by defender
+	Unknown17       int // Unknown field at byte 17 (not defender losses)
 
 	// Parsed data
 	Stacks  []BattleStack  // Stack definitions
@@ -317,7 +317,7 @@ func (bb *BattleBlock) decode() {
 	bb.AttackerStacks = int(data[14])
 	bb.DefenderStacks = int(data[15])
 	bb.AttackerLosses = int(data[16])
-	bb.DefenderLosses = int(data[17])
+	bb.Unknown17 = int(data[17])
 
 	// Decode stack definitions
 	stackStart := battleHeaderSize
@@ -343,6 +343,36 @@ func (bb *BattleBlock) decode() {
 		}
 		bb.Actions = append(bb.Actions, action)
 	}
+
+	// Calculate actual rounds from action data (header byte[1] is unreliable)
+	bb.Rounds = bb.calculateRoundsFromActions()
+}
+
+// calculateRoundsFromActions scans action data for round markers and returns
+// the actual number of rounds. The header byte[1] is unreliable for some battles.
+func (bb *BattleBlock) calculateRoundsFromActions() int {
+	maxRound := -1
+	actionData := bb.RawActionData()
+
+	// Scan for phase markers: [round][stack1][stack2][0x04 or 0xC4]
+	for i := 0; i < len(actionData)-3; i++ {
+		round := int(actionData[i])
+		stack1 := int(actionData[i+1])
+		stack2 := int(actionData[i+2])
+		actionType := actionData[i+3]
+
+		if round <= 15 && stack1 <= 5 && stack2 <= 5 &&
+			(actionType == 0x04 || actionType == 0xC4) {
+			if round > maxRound {
+				maxRound = round
+			}
+		}
+	}
+
+	if maxRound >= 0 {
+		return maxRound + 1 // Convert 0-indexed to count
+	}
+	return 1 // Default to 1 round if no markers found
 }
 
 // decodeActionEvents parses individual events from a 22-byte action record.
@@ -398,7 +428,7 @@ func (bb *BattleBlock) decodeActionEvents(actionData []byte) []BattleRecordEvent
 			stackID := int(actionData[pos+2])
 			position := int(actionData[pos+3])
 
-			if stackID <= 5 && position >= 0x40 && position <= 0x99 {
+			if stackID <= 5 && isValidPosition(position) {
 				gridX, gridY := posToGrid(position)
 				events = append(events, BattleRecordEvent{
 					Round:      currentRound,
@@ -417,7 +447,7 @@ func (bb *BattleBlock) decodeActionEvents(actionData []byte) []BattleRecordEvent
 		// Format: [stack] [position]
 		if b <= 5 && pos+1 < len(actionData) {
 			position := int(actionData[pos+1])
-			if position >= 0x40 && position <= 0x99 {
+			if isValidPosition(position) {
 				gridX, gridY := posToGrid(position)
 				events = append(events, BattleRecordEvent{
 					Round:      currentRound,
@@ -437,13 +467,26 @@ func (bb *BattleBlock) decodeActionEvents(actionData []byte) []BattleRecordEvent
 	return events
 }
 
-// posToGrid converts a position byte (0x40-0x99) to grid coordinates.
-// The Stars! battle grid is 10x10, with 0x40 being (0,0).
+// posToGrid converts a position byte to grid coordinates.
+// The Stars! battle grid is 10x10.
+// Position encoding: position = col*11 + row
+// Example: (7,5) = 7*11 + 5 = 82 = 0x52
 func posToGrid(pos int) (int, int) {
-	if pos < 0x40 || pos > 0x99 {
+	col := pos / 11
+	row := pos % 11
+	if col > 9 || row > 9 {
 		return -1, -1
 	}
-	return (pos - 0x40) % 10, (pos - 0x40) / 10
+	return col, row
+}
+
+// isValidPosition checks if a byte value represents a valid battle grid position.
+// Valid positions encode (col, row) where 0 <= col <= 9 and 0 <= row <= 9.
+// Position = col*11 + row, so valid range is 0 to 108.
+func isValidPosition(pos int) bool {
+	col := pos / 11
+	row := pos % 11
+	return col <= 9 && row <= 9
 }
 
 func (bb *BattleBlock) decodeStack(stack []byte, stackIndex int) BattleStack {
@@ -567,7 +610,7 @@ func (bb *BattleBlock) Phases() []BattlePhase {
 		for j := i + 4; j < len(allData)-1 && j < i+12; j++ {
 			s := int(allData[j])
 			pos := int(allData[j+1])
-			if s <= 5 && pos >= 0x40 && pos <= 0x99 {
+			if s <= 5 && isValidPosition(pos) {
 				phase.GridX, phase.GridY = posToGrid(pos)
 				stackPositions[s] = [2]int{phase.GridX, phase.GridY}
 				break

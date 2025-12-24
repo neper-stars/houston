@@ -183,14 +183,34 @@ func (fhb *FileHashBlock) HardwareHashString() string {
 }
 
 // WaypointRepeatOrdersBlock represents waypoint repeat orders (Type 10)
-// Structure not fully documented - preserves raw data for analysis
+// Found in X files when player enables "Repeat Orders" for a fleet
+// Format: 4 bytes
+//
+//	Bytes 0-1: Fleet number (9 bits, little-endian)
+//	Byte 2: Starting waypoint index for repeat loop
+//	Byte 3: Unknown/flags
 type WaypointRepeatOrdersBlock struct {
 	GenericBlock
+
+	FleetNumber        int // Fleet number (0-indexed, display is +1)
+	RepeatFromWaypoint int // Waypoint index where repeat loop starts
 }
 
 // NewWaypointRepeatOrdersBlock creates a WaypointRepeatOrdersBlock from a GenericBlock
 func NewWaypointRepeatOrdersBlock(b GenericBlock) *WaypointRepeatOrdersBlock {
-	return &WaypointRepeatOrdersBlock{GenericBlock: b}
+	wrob := &WaypointRepeatOrdersBlock{GenericBlock: b}
+	wrob.decode()
+	return wrob
+}
+
+func (wrob *WaypointRepeatOrdersBlock) decode() {
+	data := wrob.Decrypted
+	if len(data) < 3 {
+		return
+	}
+
+	wrob.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
+	wrob.RepeatFromWaypoint = int(data[2] & 0xFF)
 }
 
 // Event type constants for production-related events
@@ -212,6 +232,7 @@ const (
 	EventTypeNewColony                = 0x1C // New colony established on planet
 	EventTypeStrangeArtifact          = 0x5E // Strange artifact found (random event)
 	EventTypeFleetScrapped            = 0x59 // Fleet scrapped/dismantled at planet
+	EventTypeFleetScrappedAtStarbase  = 0x5A // Fleet scrapped/dismantled at starbase
 	EventTypeFleetScrappedInSpace     = 0x5B // Fleet scrapped/dismantled in deep space (salvage left)
 	EventTypeBattle                   = 0x4F // Battle occurred at location
 )
@@ -324,6 +345,15 @@ type FleetScrappedEvent struct {
 	Flags         int // Flags/subtype (possibly design ID)
 }
 
+// FleetScrappedAtStarbaseEvent represents a fleet being scrapped/dismantled at a starbase
+// Similar to FleetScrappedEvent but minerals go to the starbase
+type FleetScrappedAtStarbaseEvent struct {
+	PlanetID   int // Planet with starbase where minerals were deposited
+	FleetIndex int // Index of the scrapped fleet (0-based, display is +1)
+	FleetMass  int // Total fleet mass in kT (not minerals recovered - recovery rate applies)
+	Flags      int // Flags/subtype
+}
+
 // FleetScrappedInSpaceEvent represents a fleet being scrapped/dismantled in deep space
 // The salvage is left floating in space as an object. The fleet ID is stored in the
 // salvage object (ObjectBlock byte 7, low nibble), not in this event.
@@ -361,9 +391,10 @@ type EventsBlock struct {
 	CometStrikes             []CometStrikeEvent              // Comet strike random events
 	NewColonies              []NewColonyEvent                // New colony events
 	StrangeArtifacts         []StrangeArtifactEvent          // Strange artifact random events
-	FleetsScrapped         []FleetScrappedEvent            // Fleet scrapped at planet events
-	FleetsScrappedInSpace  []FleetScrappedInSpaceEvent     // Fleet scrapped in space events
-	Battles                []BattleEvent                   // Battle events
+	FleetsScrapped           []FleetScrappedEvent            // Fleet scrapped at planet events
+	FleetsScrappedAtStarbase []FleetScrappedAtStarbaseEvent  // Fleet scrapped at starbase events
+	FleetsScrappedInSpace    []FleetScrappedInSpaceEvent     // Fleet scrapped in space events
+	Battles                  []BattleEvent                   // Battle events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -659,6 +690,28 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 				FleetIndex:    fleetIndex,
 				MineralAmount: mineralAmount,
 				Flags:         flags,
+			})
+		}
+	}
+
+	// Search for fleet scrapped at starbase events (0x5A)
+	// Format: 5A SS PP PP FI MM (6 bytes)
+	//   Byte 1: Flags/subtype
+	//   Bytes 2-3: Planet ID (16-bit LE) with starbase
+	//   Byte 4: Fleet index (0-based, display is +1)
+	//   Byte 5: Fleet mass / 7 (total mass, not recovered minerals - recovery rate applies)
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeFleetScrappedAtStarbase {
+			flags := int(data[i+1])
+			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
+			fleetIndex := int(data[i+4])
+			massEncoded := int(data[i+5])
+			fleetMass := massEncoded * 7
+			eb.FleetsScrappedAtStarbase = append(eb.FleetsScrappedAtStarbase, FleetScrappedAtStarbaseEvent{
+				PlanetID:   planetID,
+				FleetIndex: fleetIndex,
+				FleetMass:  fleetMass,
+				Flags:      flags,
 			})
 		}
 	}

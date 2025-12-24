@@ -1,0 +1,16 @@
+{
+  "description": "Fleet dismantled at starbase - Fleet #12 at Hurl starbase",
+  "year": 2481,
+  "fleetScrappedAtStarbase": {
+    "planetID": 105,
+    "planetName": "Hurl",
+    "fleetIndex": 11,
+    "fleetDisplayNumber": 12,
+    "mineralAmountEncoded": 6,
+    "fleetMass": 42,
+    "mineralsRecovered": 23,
+    "recoveryRate": "54.8%",
+    "flags": 2,
+    "note": "Encoded value (6 * 7 = 42kT) is fleet total mass; message shows 23kT recovered (~55% recovery rate at starbase)"
+  }
+}

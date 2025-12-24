@@ -180,7 +180,6 @@ type battleExpected struct {
 		AttackerStacks int `json:"attackerStacks"`
 		DefenderStacks int `json:"defenderStacks"`
 		AttackerLosses int `json:"attackerLosses"`
-		DefenderLosses int `json:"defenderLosses"`
 		NumActions     int `json:"numActions"`
 	} `json:"battleBlock"`
 }
@@ -260,8 +259,6 @@ func TestScenarioBattle(t *testing.T) {
 			"defender stacks should be %d", expected.BattleBlock.DefenderStacks)
 		assert.Equal(t, expected.BattleBlock.AttackerLosses, bb.AttackerLosses,
 			"attacker losses should be %d", expected.BattleBlock.AttackerLosses)
-		assert.Equal(t, expected.BattleBlock.DefenderLosses, bb.DefenderLosses,
-			"defender losses should be %d", expected.BattleBlock.DefenderLosses)
 		assert.Equal(t, expected.BattleBlock.NumActions, len(bb.Actions),
 			"number of actions should be %d", expected.BattleBlock.NumActions)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, len(bb.Stacks),
@@ -422,8 +419,6 @@ func TestScenarioBattleSide2(t *testing.T) {
 			"defender stacks should be %d", expected.BattleBlock.DefenderStacks)
 		assert.Equal(t, expected.BattleBlock.AttackerLosses, bb.AttackerLosses,
 			"attacker losses should be %d", expected.BattleBlock.AttackerLosses)
-		assert.Equal(t, expected.BattleBlock.DefenderLosses, bb.DefenderLosses,
-			"defender losses should be %d", expected.BattleBlock.DefenderLosses)
 		assert.Equal(t, expected.BattleBlock.NumActions, len(bb.Actions),
 			"number of actions should be %d", expected.BattleBlock.NumActions)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, len(bb.Stacks),

@@ -1,0 +1,27 @@
+{
+  "description": "Waypoint patrol with repeat orders - Fleet 2 patrolling 4 waypoints with different ranges",
+  "year": 2481,
+  "repeatOrders": {
+    "fleetNumber": 9,
+    "fleetName": "Fleet 2",
+    "repeatFromWaypoint": 1
+  },
+  "patrolWaypoints": [
+    {
+      "waypointNumber": 1,
+      "x": 1373,
+      "y": 1332,
+      "patrolRange": 1,
+      "patrolRangeLY": 100,
+      "patrolRangeName": "within 100 ly"
+    },
+    {
+      "waypointNumber": 2,
+      "x": 1368,
+      "y": 1411,
+      "patrolRange": 2,
+      "patrolRangeLY": 150,
+      "patrolRangeName": "within 150 ly"
+    }
+  ]
+}
