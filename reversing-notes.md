@@ -233,6 +233,38 @@ warp = (rawByte >> 2) - 44
 
 **Note**: The lower 2 bits of the speed byte appear to always be 0. Upper bits may contain additional flags (TBD).
 
+### Salvage Object (ObjectType 1, variant)
+
+Salvage objects share the same ObjectType as mineral packets but have different field meanings for bytes 6-7:
+
+```
+OO OO XX XX YY YY ?? SF II II BB BB GG GG ?? ?? ?? ??
+└───┘ └───┘ └───┘ │  │  └───┘ └───┘ └───┘ └─────────┘
+  │     │     │   │  │    │     │     │         └─ Unknown (4 bytes)
+  │     │     │   │  │    │     │     └─────────── Germanium kT (16-bit LE)
+  │     │     │   │  │    │     └───────────────── Boranium kT (16-bit LE)
+  │     │     │   │  │    └─────────────────────── Ironium kT (16-bit LE)
+  │     │     │   │  └──────────────────────────── Source/Fleet byte (see below)
+  │     │     │   └─────────────────────────────── Unknown (0xFF for salvage)
+  │     │     └─────────────────────────────────── Y position
+  │     └───────────────────────────────────────── X position
+  └─────────────────────────────────────────────── Object ID (see above)
+```
+
+**Source/Fleet byte (byte 7)**: For salvage from scrapped fleets:
+- Low nibble (bits 0-3): Source fleet ID (0-indexed, display is ID+1)
+- High nibble (bits 4-7): Flags (0x8 observed)
+
+**Distinguishing packets vs salvage**:
+- Mineral packets: byte 6 = destination planet ID, byte 7 = warp speed
+- Salvage: byte 6 = 0xFF, byte 7 = fleet source info
+
+Example from test data:
+- `00 20 15 05 42 05 FF 83 06 00 00 00 04 00 02 00 00 00`
+- Position: (1301, 1346)
+- Byte 7: `0x83` → Fleet ID = 3 (displayed as #4), flags = 0x8
+- Minerals: 6kT Fe, 0kT Bo, 4kT Ge
+
 ---
 
 ## Additional Event Types
@@ -392,6 +424,176 @@ This event is generated when a fleet is scrapped/dismantled at a planet, deposit
 
 Example from test data:
 - `59 12 3E 01 0A 04` → Fleet 10 (Santa Maria #11) scrapped at planet 318 (Harris), 28kT minerals (4 × 7)
+
+### Fleet Scrapped in Space (0x5B)
+
+```
+5B SS LL LL OO OO
+│  │  └───┘ └───┘
+│  │    │     └─── Object reference (salvage object ID word)
+│  │    └───────── Location marker: 0xFFFA = "in deep space"
+│  └────────────── Subtype/flags (0x06 observed)
+└────────────────── Event type
+```
+
+This event is generated when a fleet is scrapped/dismantled in deep space (not at a planet). The salvage is left floating in space as a salvage object.
+
+**Key differences from 0x59 (scrapped at planet)**:
+- 0x59: Minerals deposited directly at planet, encoded in event
+- 0x5B: Salvage object created in space, event references the object
+
+**Location marker**: `0xFFFA` (-6 signed) indicates "in deep space", similar to `0xFFFE` (-2) for "no planet" but distinct.
+
+**Object reference**: The last 2 bytes match the salvage object's ID word, linking the event to the salvage object which contains:
+- Position (X, Y)
+- Mineral amounts (Ironium, Boranium, Germanium)
+- Source fleet ID (in byte 7, low nibble)
+
+Example from test data:
+- `5B 06 FA FF 00 20` → Fleet scrapped in space, salvage object `0x2000`
+- Salvage object at (1301, 1346) with 6kT Fe, 0kT Bo, 4kT Ge
+- Fleet ID in salvage byte 7: `0x83` → low nibble 3 = fleet #4 ("Teamster #4")
+
+**Game message**: "Teamster #4 has been dismantled. The scrap was left in deep space."
+
+---
+
+## Battle Events
+
+### Battle Occurred (0x4F)
+
+```
+4F FF FF PP PP OO YF EF YL EL
+│  │  │  └───┘ │  │  │  │  └── Enemy losses (ships lost)
+│  │  │    │   │  │  │  └───── Your losses (ships lost)
+│  │  │    │   │  │  └──────── Enemy forces (stacks in battle)
+│  │  │    │   │  └─────────── Your forces (stacks in battle)
+│  │  │    │   └────────────── Outcome byte (see below)
+│  │  │    └────────────────── Planet ID (16-bit LE) where battle occurred
+│  │  └──────────────────────── Unknown (0xFF observed)
+│  └────────────────────────── Flags (0xFF = global event)
+└───────────────────────────── Event type
+```
+
+This event is generated when a battle takes place. The battle VCR recording is stored in a separate BattleBlock (Type 31).
+
+**Outcome byte breakdown**:
+- Low nibble (bits 0-3): Enemy player index (0-15)
+- High nibble (bits 4-7): Outcome flags
+  - Bit 4 (0x10): Enemy survived (not completely wiped out)
+  - Bit 5 (0x20): Battle recording available
+
+**Example from test data**:
+- `4F FF FF 88 01 31 04 02 01 01` → Battle at planet 392 (Redmond)
+  - Planet ID: 0x0188 = 392
+  - Outcome byte: 0x31
+    - Enemy player: 0x1 = Player 1 (Halflings)
+    - Flags: 0x3 = both bits set (enemy survived, has recording)
+  - Your forces: 4
+  - Enemy forces: 2
+  - Your losses: 1
+  - Enemy losses: 1
+
+**Game message**: "A battle took place at Redmond against the Halflings. Neither your 4 forces nor the enemy's 2 forces were completely wiped out. You lost 1 and the enemy lost 1."
+
+### BattleBlock (Type 31) Structure
+
+The BattleBlock contains the battle VCR recording data with three sections:
+
+#### Header (18 bytes)
+
+```
+Offset  Size  Field
+------  ----  -----
+0       1     Battle ID (usually 1)
+1       1     Rounds - 1 (0-indexed, add 1 for actual round count)
+2       1     Side 1 stack count
+3       1     Total stack count (Side 2 = total - side1)
+4-5     2     Unknown (always 3 observed)
+6-7     2     Block size (16-bit LE, self-referencing)
+8-9     2     Planet ID (16-bit LE)
+10-11   2     X coordinate (16-bit LE)
+12-13   2     Y coordinate (16-bit LE)
+14      1     Attacker stack count
+15      1     Defender stack count
+16      1     Attacker losses
+17      1     Defender losses
+```
+
+#### Stack Definitions (29 bytes each)
+
+Each participating stack has a 29-byte definition containing:
+- Ship design information
+- Ship count
+- Initial stats (armor, shields, initiative)
+
+The 0x41 byte serves as a marker within the stack structure:
+- Byte at marker-1: Design ID
+- Byte at marker+1: Ship count
+- Following bytes: Initiative, movement, and other stats
+
+#### Action Records (22 bytes each)
+
+Battle actions are recorded in fixed 22-byte records containing:
+- Position and state data
+- Damage information (0x64 = base 100, 0xE4 = variant)
+- Stack references and movement
+- Round numbers (0-15 for 16 rounds)
+
+**Example structure:**
+```
+Total size: 854 bytes
+├── Header:      18 bytes   (0x000 - 0x011)
+├── Stack defs: 174 bytes   (0x012 - 0x0BF) = 6 stacks × 29 bytes
+└── Actions:    660 bytes   (0x0C0 - 0x355) = 30 actions × 22 bytes
+```
+
+**Example from test data (Hobbits vs Halflings at Redmond):**
+- Battle ID: 1
+- Rounds: 16 (stored as 15)
+- Total stacks: 6 (4 attackers + 2 defenders)
+- Planet: 392 (Redmond)
+- Location: (1943, 2087)
+- Attacker losses: 1, Defender losses: 2
+
+#### Battle VCR Phase Detection
+
+The Battle VCR displays "Phase X of Y, Round Z of 16" where each phase represents one stack's turn to act. Phase markers are encoded within the 22-byte action records using this pattern:
+
+```
+[round][stack][stack][type]
+   │      │      │      └── 0x04 = MOVE, 0xC4 = FIRE
+   │      │      └───────── Target stack (0-5) or self
+   │      └──────────────── Acting stack (0-5)
+   └─────────────────────── Round number (0-15)
+```
+
+**Detection accuracy**: ~60% of phases can be detected with this pattern. Later rounds (5-15) are reliably detected; early rounds have lower detection rates.
+
+**Damage markers** follow phase markers:
+- `0x64` or `0xE4` = damage indicator
+- Next byte: damage amount
+- Next byte: target stack (0-5)
+- Next byte: grid position
+
+**Grid position encoding**:
+```
+position = 0x40 + x + y*10
+```
+
+Where x and y are 0-9 on a 10×10 grid. Position 0x40 = (0,0), position 0x99 = (9,9).
+
+**Note**: The Y-axis may be inverted between data encoding (Y=0 at top) and UI display (Y=0 at bottom).
+
+**Stack position updates** use `[stack][position]` pairs (2 bytes) without the full phase marker, appearing throughout the action data.
+
+#### Limitations and Unknown Encodings
+
+1. **Initial placement**: Round 0 may use different encoding for initial stack positions (not the standard `[round][stack][stack][type]` pattern)
+
+2. **Fractional movement**: Stacks with movement > 1 (e.g., 1¾) get multiple phases per round. The encoding for these additional phases is not fully decoded.
+
+3. **Complete phase count**: Test battle shows 68 phases in VCR but only ~40 are detected via pattern matching. The remaining ~28 phases use encoding patterns not yet identified.
 
 ---
 

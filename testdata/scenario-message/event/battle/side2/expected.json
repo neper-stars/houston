@@ -1,0 +1,29 @@
+{
+  "scenario": "battle-side2",
+  "description": "Battle at Redmond from Halflings perspective (vs Hobbits). Neither side completely wiped out.",
+  "year": 2480,
+  "battle": {
+    "planetId": 392,
+    "planetName": "Redmond",
+    "enemyPlayer": 0,
+    "enemyRace": "Hobbits",
+    "yourForces": 2,
+    "enemyForces": 4,
+    "yourLosses": 1,
+    "enemyLosses": 1,
+    "youSurvived": true,
+    "enemySurvived": true,
+    "hasRecording": true
+  },
+  "battleBlock": {
+    "rounds": 16,
+    "side1Stacks": 2,
+    "totalStacks": 6,
+    "planetId": 392,
+    "attackerStacks": 4,
+    "defenderStacks": 2,
+    "attackerLosses": 1,
+    "defenderLosses": 2,
+    "numActions": 30
+  }
+}

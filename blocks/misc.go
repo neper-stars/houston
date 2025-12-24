@@ -212,6 +212,8 @@ const (
 	EventTypeNewColony                = 0x1C // New colony established on planet
 	EventTypeStrangeArtifact          = 0x5E // Strange artifact found (random event)
 	EventTypeFleetScrapped            = 0x59 // Fleet scrapped/dismantled at planet
+	EventTypeFleetScrappedInSpace     = 0x5B // Fleet scrapped/dismantled in deep space (salvage left)
+	EventTypeBattle                   = 0x4F // Battle occurred at location
 )
 
 // Research field IDs
@@ -322,6 +324,27 @@ type FleetScrappedEvent struct {
 	Flags         int // Flags/subtype (possibly design ID)
 }
 
+// FleetScrappedInSpaceEvent represents a fleet being scrapped/dismantled in deep space
+// The salvage is left floating in space as an object. The fleet ID is stored in the
+// salvage object (ObjectBlock byte 7, low nibble), not in this event.
+type FleetScrappedInSpaceEvent struct {
+	SalvageObjectID int // Object ID word of the salvage (matches ObjectBlock bytes 0-1)
+	Subtype         int // Subtype/flags (0x06 observed)
+}
+
+// BattleEvent represents a battle that occurred at a location
+type BattleEvent struct {
+	PlanetID      int  // Planet where battle occurred (or nearest planet)
+	EnemyPlayer   int  // Enemy player index (0-15)
+	YourForces    int  // Number of your fleets/stacks in battle
+	EnemyForces   int  // Number of enemy fleets/stacks in battle
+	YourLosses    int  // Ships you lost
+	EnemyLosses   int  // Ships enemy lost
+	YouSurvived   bool // True if you have surviving forces
+	EnemySurvived bool // True if enemy has surviving forces
+	HasRecording  bool // True if battle recording is available
+}
+
 // EventsBlock represents game events (Type 12)
 type EventsBlock struct {
 	GenericBlock
@@ -338,7 +361,9 @@ type EventsBlock struct {
 	CometStrikes             []CometStrikeEvent              // Comet strike random events
 	NewColonies              []NewColonyEvent                // New colony events
 	StrangeArtifacts         []StrangeArtifactEvent          // Strange artifact random events
-	FleetsScrapped         []FleetScrappedEvent            // Fleet scrapped events
+	FleetsScrapped         []FleetScrappedEvent            // Fleet scrapped at planet events
+	FleetsScrappedInSpace  []FleetScrappedInSpaceEvent     // Fleet scrapped in space events
+	Battles                []BattleEvent                   // Battle events
 }
 
 // NewEventsBlock creates an EventsBlock from a GenericBlock
@@ -634,6 +659,73 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 				FleetIndex:    fleetIndex,
 				MineralAmount: mineralAmount,
 				Flags:         flags,
+			})
+		}
+	}
+
+	// Search for fleet scrapped in space events (0x5B)
+	// Format: 5B SS LL LL OO OO (6 bytes)
+	//   Byte 1: Subtype/flags (0x06 observed)
+	//   Bytes 2-3: Location marker 0xFFFA = "in deep space"
+	//   Bytes 4-5: Salvage object ID word (matches ObjectBlock bytes 0-1)
+	// The fleet ID is stored in the salvage object (byte 7 low nibble), not here.
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == EventTypeFleetScrappedInSpace {
+			subtype := int(data[i+1])
+			locationMarker := int(data[i+2]) | (int(data[i+3]) << 8)
+			// Check for "in deep space" marker (0xFFFA = -6 signed)
+			if locationMarker == 0xFFFA {
+				salvageObjectID := int(data[i+4]) | (int(data[i+5]) << 8)
+				eb.FleetsScrappedInSpace = append(eb.FleetsScrappedInSpace, FleetScrappedInSpaceEvent{
+					SalvageObjectID: salvageObjectID,
+					Subtype:         subtype,
+				})
+			}
+		}
+	}
+
+	// Search for battle events (0x4F)
+	// Format: 4F FF FF PP PP OO YF EF YL EL (10 bytes)
+	//   Byte 1: Flags (0xFF = global event)
+	//   Byte 2: Unknown (0xFF observed)
+	//   Bytes 3-4: Planet ID (16-bit LE) where battle occurred
+	//   Byte 5: Outcome byte - low nibble = enemy player, high nibble = flags
+	//           Bit 4 (0x10): Enemy survived
+	//           Bit 5 (0x20): Battle recording available
+	//   Byte 6: Your forces (number of stacks/fleets)
+	//   Byte 7: Enemy forces (number of stacks/fleets)
+	//   Byte 8: Your losses (ships lost)
+	//   Byte 9: Enemy losses (ships lost)
+	for i := 0; i < len(data)-9; i++ {
+		if data[i] == EventTypeBattle && data[i+1] == 0xFF {
+			planetID := int(data[i+3]) | (int(data[i+4]) << 8)
+			outcomeByte := int(data[i+5])
+			enemyPlayer := outcomeByte & 0x0F
+			outcomeFlags := (outcomeByte >> 4) & 0x0F
+			yourForces := int(data[i+6])
+			enemyForces := int(data[i+7])
+			yourLosses := int(data[i+8])
+			enemyLosses := int(data[i+9])
+
+			// Decode outcome flags
+			// Bit 0 of high nibble (0x10 in full byte): enemy survived
+			// Bit 1 of high nibble (0x20 in full byte): has recording
+			enemySurvived := (outcomeFlags & 0x01) != 0
+			hasRecording := (outcomeFlags & 0x02) != 0
+
+			// You survived if your losses < your forces
+			youSurvived := yourLosses < yourForces
+
+			eb.Battles = append(eb.Battles, BattleEvent{
+				PlanetID:      planetID,
+				EnemyPlayer:   enemyPlayer,
+				YourForces:    yourForces,
+				EnemyForces:   enemyForces,
+				YourLosses:    yourLosses,
+				EnemyLosses:   enemyLosses,
+				YouSurvived:   youSurvived,
+				EnemySurvived: enemySurvived,
+				HasRecording:  hasRecording,
 			})
 		}
 	}

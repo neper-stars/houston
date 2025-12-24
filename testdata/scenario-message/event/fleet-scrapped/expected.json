@@ -1,0 +1,20 @@
+{
+  "description": "Fleet scrapped in deep space scenario - Teamster #4 dismantled",
+  "year": 2480,
+  "salvageObject": {
+    "x": 1301,
+    "y": 1346,
+    "ironium": 6,
+    "boranium": 0,
+    "germanium": 4,
+    "sourceFleetName": "Teamster #4"
+  },
+  "battle": {
+    "planetID": 392,
+    "enemyPlayer": 1,
+    "yourForces": 4,
+    "enemyForces": 2,
+    "yourLosses": 1,
+    "enemyLosses": 1
+  }
+}
