@@ -231,6 +231,48 @@ This order enables "Repeat Orders" for a fleet, causing it to loop back to a spe
 Example from test data:
 - `09 00 01 00` → Fleet 9 (Fleet 2) repeats from waypoint 1
 
+### RenameFleetBlock (Type 44) - Variable length
+
+```
+FF FF UU UU LL [encoded name...]
+└───┘ └───┘ │  └───────────────── Stars! encoded string (LL bytes)
+  │     │   └──────────────────── Name length
+  │     └──────────────────────── Unknown (often 0x0002)
+  └────────────────────────────── Fleet number (16-bit LE)
+```
+
+This order renames a fleet from its default name to a custom name.
+
+**Name encoding**: Uses Stars! string format where the first byte is the length, followed by the encoded characters using the standard Stars! character compression.
+
+**Example from test data:**
+- `00 00 02 00 06 C2 D5 7D EA AE 2F` → Fleet 0 renamed to "Scoutty"
+  - Fleet number: 0
+  - Unknown: 2
+  - Name length: 6 (but encodes to 7-char "Scoutty" due to compression)
+  - Encoded name: `C2 D5 7D EA AE 2F`
+
+### FleetNameBlock (Type 21) - Variable length (M files)
+
+```
+LL [encoded name bytes...]
+│  └───────────────────────── Stars! encoded string (LL bytes)
+└──────────────────────────── Name length
+```
+
+This block appears in M files **only for fleets with custom names**. It immediately precedes the FleetBlock whose name it contains (positional association - no fleet number in the block itself).
+
+**Important:** If no FleetNameBlock precedes a FleetBlock, the game auto-generates the fleet name (e.g., "Long Range Scout #1", "Armed Probe #2") based on the ship design and fleet number.
+
+**Example from test data (results/game.m1):**
+- `06 C2 D5 7D EA AE 2F` → "Scoutty"
+  - Appears before the FleetBlock for the renamed fleet
+  - Other fleets without custom names have no preceding FleetNameBlock
+
+**Relationship between Type 44 and Type 21:**
+- Type 44 (RenameFleetBlock): Order in X file to rename a fleet
+- Type 21 (FleetNameBlock): Stored custom name in M file after turn generation
+
 ### WaypointChangeTaskBlock (Type 5) - Variable length
 
 Base format (12 bytes):

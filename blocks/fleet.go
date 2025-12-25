@@ -283,14 +283,39 @@ func (fmb *FleetsMergeBlock) decode() {
 }
 
 // FleetNameBlock represents a fleet name record (Type 21)
-// Structure not fully documented - preserves raw data for analysis
+// Found in M files, precedes the FleetBlock it names.
+//
+// Format:
+//
+//	LL [encoded name bytes...]
+//	│  └─────────────────────── Stars! encoded string (LL bytes)
+//	└────────────────────────── Name length
+//
+// Note: The fleet association is positional - this block immediately
+// precedes the FleetBlock whose name it contains.
 type FleetNameBlock struct {
 	GenericBlock
+
+	Name string // Decoded fleet name
 }
 
 // NewFleetNameBlock creates a FleetNameBlock from a GenericBlock
 func NewFleetNameBlock(b GenericBlock) *FleetNameBlock {
-	return &FleetNameBlock{GenericBlock: b}
+	fnb := &FleetNameBlock{GenericBlock: b}
+	fnb.decode()
+	return fnb
+}
+
+func (fnb *FleetNameBlock) decode() {
+	data := fnb.Decrypted
+	if len(data) < 1 {
+		return
+	}
+
+	name, err := encoding.DecodeStarsString(data)
+	if err == nil {
+		fnb.Name = name
+	}
 }
 
 // ShipTransfer represents a single design's ship transfer in a merge operation
