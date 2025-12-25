@@ -941,6 +941,43 @@ When ships survive a battle and fight again on the next turn with carried damage
 
 ---
 
+## File Structure
+
+### File Footer Data
+
+Each Stars! file type has different footer data (this is NOT a checksum - just metadata):
+
+| File Type | Extension | Footer Data |
+|-----------|-----------|-------------|
+| M files | .m1-.m16 | Turn number (from FileHeader) |
+| XY files | .xy | PlayerCount (from PlanetsBlock) |
+| X files | .x1-.x16 | None (footer size 0) |
+| H files | .h1-.h16 | None (footer size 0) |
+
+The footer data is stored as a 16-bit little-endian value in the FileFooter block when present. Despite being called "checksum" in some documentation, these values are simply copies of existing metadata, not computed integrity checks.
+
+### PlanetsBlock Trailing Data
+
+The PlanetsBlock (Type 7) has a unique structure: after the encrypted 64-byte block data, there are additional bytes for planet coordinates that are **stored unencrypted**.
+
+```
+[Block Header 2 bytes] [Block Data 64 bytes, encrypted] [Planet Data N×4 bytes, unencrypted]
+```
+
+- Block data (64 bytes): Contains universe settings, player count, planet count, game name - **encrypted**
+- Trailing planet data (4 bytes per planet): Contains packed planet coordinates and name IDs - **unencrypted**
+
+Each planet entry (4 bytes, little-endian uint32):
+```
+Bits 31-22 (10 bits): Planet name ID (index into planet names table)
+Bits 21-10 (12 bits): Y coordinate (absolute)
+Bits  9-0  (10 bits): X offset from previous planet (first planet uses base 1000)
+```
+
+This is the only known case where data following an encrypted block is stored unencrypted.
+
+---
+
 ## Client-Generated Messages
 
 Some messages displayed in the Stars! client are not stored in the M file but are dynamically generated based on game state analysis.

@@ -110,6 +110,10 @@ type PlanetsBlock struct {
 	// Planets is the list of all planets in the universe.
 	// Populated by ParsePlanetsData() after the main block is decoded.
 	Planets []Planet
+
+	// RawPlanetsData contains the original trailing planet bytes (4 bytes per planet).
+	// Preserved for re-encoding when writing files.
+	RawPlanetsData []byte
 }
 
 // GetPlanetCount returns the number of planets in the universe.
@@ -181,6 +185,10 @@ func NewPlanetsBlock(b GenericBlock) *PlanetsBlock {
 // Parameters:
 //   - d: Raw bytes containing 4 bytes per planet (len must be PlanetCount * 4)
 func (p *PlanetsBlock) ParsePlanetsData(d []byte) {
+	// Store raw data for re-encoding
+	p.RawPlanetsData = make([]byte, len(d))
+	copy(p.RawPlanetsData, d)
+
 	// Base X coordinate - all planet X values are relative to this
 	x := uint32(1000)
 
