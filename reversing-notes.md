@@ -140,6 +140,69 @@ Flags byte (byte 2):
 | 7 (0x80) | Contribute only leftover resources to research |
 | 0-6 | TBD |
 
+### PlayersRelationChangeBlock (Type 38) - 2 bytes
+
+```
+RR PP
+│  └── Target player index (0-15)
+└───── Relation type
+```
+
+**Relation types:**
+| Value | Relation |
+|-------|----------|
+| 0 | Friend |
+| 1 | Neutral |
+| 2 | Enemy |
+
+This order sets the diplomatic relation with another player. Diplomatic relations are one-way: Player A can consider Player B a friend while Player B considers Player A an enemy.
+
+**Example from test data:**
+- `00 01` → Set player 1 (Halflings) as Friend
+- `02 00` → Set player 0 (Hobbits) as Enemy
+
+### Player Relations Storage (in PlayerBlock, M files)
+
+After turn generation, diplomatic relations are stored in the PlayerBlock within the player's own M file.
+
+**Location**: In PlayerBlock, after FullDataBytes (at offset 0x70), a length-prefixed array stores relations.
+
+**Format:**
+```
+LL [R0] [R1] [R2] ... [R(LL-1)]
+│   └────────────────────────── Relation to player i (0=Neutral, 1=Friend, 2=Enemy)
+└────────────────────────────── Length (number of entries)
+```
+
+**IMPORTANT: Different encoding from order files!**
+
+| Value | Order File (Type 38) | M File Storage |
+|-------|---------------------|----------------|
+| 0 | Friend | Neutral |
+| 1 | Neutral | Friend |
+| 2 | Enemy | Enemy |
+
+Friend and Neutral are **swapped** between order files and M file storage.
+
+**Storage rules:**
+- `PlayerRelations[i]` = relation to player `i`
+- Array length varies by player - indices beyond array length default to Neutral
+- Player's relation to self (own index) is stored as Neutral (0)
+
+**Example from 3-player game:**
+```
+P0 (Hobbits):   set P1=Friend, P2=Neutral
+  Stored: [02] [00 01] = length=2, [0]=Neutral(self), [1]=Friend(P1)
+  P2 defaults to Neutral (not stored)
+
+P1 (Halflings): set P0=Neutral, P2=Enemy
+  Stored: [03] [00 00 02] = length=3, [0]=Neutral(P0), [1]=Neutral(self), [2]=Enemy(P2)
+
+P2 (Orcs):      set P0=Friend, P1=Enemy
+  Stored: [02] [01 02] = length=2, [0]=Friend(P0), [1]=Enemy(P1)
+  Self defaults to Neutral (not stored)
+```
+
 ### SetFleetBattlePlanBlock (Type 42) - 4 bytes
 
 ```
@@ -679,7 +742,13 @@ Offset  Size  Field
 - Battle-01: byte[1]=15, action data has rounds 0-15 (16 rounds) ✓
 - Battle-02: byte[1]=0, but action data has rounds 0-9 (10 rounds!) ✗
 
-The current interpretation `Rounds = byte[1] + 1` only works for some battles. Battle-02 (a "continuation" battle where ships carried damage from a previous turn) has byte[1]=0 but clearly 10 rounds of action data.
+The naive interpretation `Rounds = byte[1] + 1` only works for some battles. Battle-02 (a "continuation" battle where ships carried damage from a previous turn) has byte[1]=0 but clearly 10 rounds of action data.
+
+**Solution implemented**: The parser now calculates rounds by scanning action data for phase markers `[round][stack1][stack2][0x04|0xC4]` and finding the maximum round number. This gives accurate results for both battles:
+- Battle-01: max round 15 → 16 rounds ✓
+- Battle-02: max round 9 → 10 rounds ✓
+
+The header byte[1] is unreliable and should not be trusted for round count.
 
 **byte[17] is NOT defender losses:**
 Both battles have byte[17]=2, but actual defender losses from game messages:

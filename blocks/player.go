@@ -132,3 +132,39 @@ func NewPlayerBlock(b GenericBlock) (*PlayerBlock, error) {
 
 	return p, nil
 }
+
+// Stored relation values in M files (different from order file encoding)
+const (
+	StoredRelationNeutral = 0
+	StoredRelationFriend  = 1
+	StoredRelationEnemy   = 2
+)
+
+// GetRelationTo returns this player's diplomatic relation to another player.
+// Returns the stored relation value (0=Neutral, 1=Friend, 2=Enemy).
+// Relations beyond the stored array length default to Neutral (0).
+// Returns -1 only if playerIndex is negative.
+func (p *PlayerBlock) GetRelationTo(playerIndex int) int {
+	if playerIndex < 0 {
+		return -1
+	}
+	if len(p.PlayerRelations) == 0 || playerIndex >= len(p.PlayerRelations) {
+		// Relations not explicitly stored default to Neutral
+		return StoredRelationNeutral
+	}
+	return int(p.PlayerRelations[playerIndex])
+}
+
+// GetRelationName returns the human-readable name for a stored relation value
+func GetRelationName(storedRelation int) string {
+	switch storedRelation {
+	case StoredRelationNeutral:
+		return "Neutral"
+	case StoredRelationFriend:
+		return "Friend"
+	case StoredRelationEnemy:
+		return "Enemy"
+	default:
+		return "Unknown"
+	}
+}

@@ -88,13 +88,53 @@ func NewChangePasswordBlock(b GenericBlock) *ChangePasswordBlock {
 	return &ChangePasswordBlock{GenericBlock: b}
 }
 
+// Diplomatic relation types
+const (
+	RelationFriend  = 0
+	RelationNeutral = 1
+	RelationEnemy   = 2
+)
+
 // PlayersRelationChangeBlock represents diplomatic relation changes (Type 38)
-// Structure not fully documented - preserves raw data for analysis
+//
+// Format (2 bytes):
+//
+//	Byte 0: Relation type (0=Friend, 1=Neutral, 2=Enemy)
+//	Byte 1: Target player index (0-15)
 type PlayersRelationChangeBlock struct {
 	GenericBlock
+
+	Relation     int // Diplomatic relation: 0=Friend, 1=Neutral, 2=Enemy
+	TargetPlayer int // Target player index (0-15)
 }
 
 // NewPlayersRelationChangeBlock creates a PlayersRelationChangeBlock from a GenericBlock
 func NewPlayersRelationChangeBlock(b GenericBlock) *PlayersRelationChangeBlock {
-	return &PlayersRelationChangeBlock{GenericBlock: b}
+	prc := &PlayersRelationChangeBlock{GenericBlock: b}
+	prc.decode()
+	return prc
+}
+
+func (prc *PlayersRelationChangeBlock) decode() {
+	data := prc.Decrypted
+	if len(data) < 2 {
+		return
+	}
+
+	prc.Relation = int(data[0])
+	prc.TargetPlayer = int(data[1])
+}
+
+// RelationName returns the human-readable name of the relation
+func (prc *PlayersRelationChangeBlock) RelationName() string {
+	switch prc.Relation {
+	case RelationFriend:
+		return "Friend"
+	case RelationNeutral:
+		return "Neutral"
+	case RelationEnemy:
+		return "Enemy"
+	default:
+		return "Unknown"
+	}
 }
