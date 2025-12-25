@@ -195,10 +195,15 @@ var PlanetNames = data.PlanetNames
 
 // Re-exported password functions
 var (
-	AsciiString       = password.AsciiString
-	HashRacePassword  = password.HashRacePassword
-	GuessRacePassword = password.GuessRacePassword
+	AsciiString                = password.AsciiString
+	HashRacePassword           = password.HashRacePassword
+	HashRacePasswordBytes      = password.HashRacePasswordBytes
+	GuessRacePassword          = password.GuessRacePassword
+	GuessRacePasswordParallel  = password.GuessRacePasswordParallel
 )
+
+// ProgressCallback is called periodically during parallel password search
+type ProgressCallback = password.ProgressCallback
 
 // ReadRawFile reads an entire file into a FileData struct
 func ReadRawFile(fName string, fileData *FileData) error {
