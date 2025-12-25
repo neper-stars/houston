@@ -9,7 +9,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/tools/mfilemerger"
+	"github.com/neper-stars/houston/lib/tools/mfilemerger"
 )
 
 type mergeMCommand struct {

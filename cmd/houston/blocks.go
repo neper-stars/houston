@@ -6,7 +6,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/tools/displayblocks"
+	"github.com/neper-stars/houston/lib/tools/displayblocks"
 )
 
 type blocksCommand struct {

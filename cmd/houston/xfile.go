@@ -5,7 +5,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/tools/xfilereader"
+	"github.com/neper-stars/houston/lib/tools/xfilereader"
 )
 
 type xfileCommand struct {

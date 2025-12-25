@@ -8,7 +8,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/tools/maprenderer"
+	"github.com/neper-stars/houston/lib/tools/maprenderer"
 )
 
 type mapCommand struct {

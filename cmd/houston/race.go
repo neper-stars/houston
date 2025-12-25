@@ -9,7 +9,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/tools/racefixer"
+	"github.com/neper-stars/houston/lib/tools/racefixer"
 )
 
 type raceCommand struct {
