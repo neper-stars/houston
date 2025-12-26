@@ -3,6 +3,9 @@ package store
 import (
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/neper-stars/houston/blocks"
 )
@@ -106,6 +109,91 @@ func (gs *GameStore) AddFileReader(name string, r io.Reader) error {
 	return gs.AddFile(name, data)
 }
 
+// AddFileWithXY loads a game file and automatically loads the companion XY file
+// if the input is an M or H file (to get planet coordinates).
+func (gs *GameStore) AddFileWithXY(filename string) error {
+	return gs.AddFileWithXYFromFS(filename, osFS{})
+}
+
+// AddFileWithXYFromFS loads a file with optional companion XY file using a filesystem interface.
+func (gs *GameStore) AddFileWithXYFromFS(filename string, fs FileSystem) error {
+	// First, try to load companion XY file for M/H files
+	xyFile := findCompanionXYFile(filename, fs)
+	if xyFile != "" {
+		// Load XY file first to get planet coordinates
+		data, err := fs.ReadFile(xyFile)
+		if err == nil {
+			// Ignore errors - just try to load
+			_ = gs.AddFile(xyFile, data)
+		}
+	}
+
+	// Now load the main file
+	data, err := fs.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return gs.AddFile(filename, data)
+}
+
+// FileSystem interface for abstracting file operations.
+type FileSystem interface {
+	ReadFile(filename string) ([]byte, error)
+	Stat(filename string) (bool, error)
+}
+
+// osFS implements FileSystem using os package.
+type osFS struct{}
+
+func (osFS) ReadFile(filename string) ([]byte, error) {
+	return os.ReadFile(filename)
+}
+
+func (osFS) Stat(filename string) (bool, error) {
+	_, err := os.Stat(filename)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// findCompanionXYFile finds the XY file for a given M or H file.
+// Returns empty string if not found or not applicable.
+func findCompanionXYFile(filename string, fs FileSystem) string {
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		return ""
+	}
+
+	// Check if this is an M or H file (e.g., .m1, .h1, .M1, .H1)
+	extLower := strings.ToLower(ext)
+	if len(extLower) < 2 {
+		return ""
+	}
+
+	fileType := extLower[1] // 'm', 'h', 'x', etc.
+	if fileType != 'm' && fileType != 'h' {
+		return "" // Only M and H files need companion XY
+	}
+
+	// Build the XY filename
+	baseName := strings.TrimSuffix(filename, ext)
+	xyFile := baseName + ".xy"
+
+	// Check if it exists
+	if ok, _ := fs.Stat(xyFile); ok {
+		return xyFile
+	}
+
+	// Try uppercase
+	xyFile = baseName + ".XY"
+	if ok, _ := fs.Stat(xyFile); ok {
+		return xyFile
+	}
+
+	return ""
+}
+
 // validateSource checks that the source is compatible with the store.
 func (gs *GameStore) validateSource(source *FileSource) error {
 	if source.Header == nil {
@@ -203,7 +291,7 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 	return nil
 }
 
-// mergePlanetsBlock extracts planet names and universe info.
+// mergePlanetsBlock extracts planet names, coordinates, and universe info.
 func (gs *GameStore) mergePlanetsBlock(pb *blocks.PlanetsBlock, source *FileSource) {
 	if !pb.Valid {
 		return
@@ -214,9 +302,44 @@ func (gs *GameStore) mergePlanetsBlock(pb *blocks.PlanetsBlock, source *FileSour
 		gs.GameName = pb.GameName
 	}
 
-	// Extract planet names
+	// Extract planet names and create/update planet entities with coordinates
 	for _, planet := range pb.Planets {
 		gs.planetNames[planet.ID] = planet.Name
+
+		// Create a minimal planet entity with coordinates if it doesn't exist
+		key := EntityKey{
+			Type:   EntityTypePlanet,
+			Owner:  -1, // Unowned by default
+			Number: planet.ID,
+		}
+
+		if existing, ok := gs.Planets.Get(key); ok {
+			// Update existing planet with coordinates if missing
+			if existing.X == 0 && existing.Y == 0 {
+				existing.X = int(planet.X)
+				existing.Y = int(planet.Y)
+			}
+			if existing.Name == "" {
+				existing.Name = planet.Name
+			}
+		} else {
+			// Create new minimal planet entity with coordinates
+			entity := &PlanetEntity{
+				meta: EntityMeta{
+					Key:        key,
+					BestSource: source,
+					Quality:    QualityMinimal,
+					Turn:       source.Turn,
+				},
+				PlanetNumber: planet.ID,
+				Owner:        -1,
+				Name:         planet.Name,
+				X:            int(planet.X),
+				Y:            int(planet.Y),
+			}
+			entity.meta.AddSource(source)
+			gs.Planets.Add(entity)
+		}
 	}
 }
 
@@ -287,14 +410,47 @@ func (gs *GameStore) mergePlanet(pb *blocks.PartialPlanetBlock, source *FileSour
 		entity.Name = name
 	}
 
+	// Try to find existing planet by number (owner may differ)
+	// First check with exact key, then search by number
 	key := entity.Meta().Key
+	var existing *PlanetEntity
+	var found bool
 
-	if existing, ok := gs.Planets.Get(key); ok {
+	if existing, found = gs.Planets.Get(key); !found {
+		// Try to find by planet number with owner=-1 (from XY file)
+		unownedKey := EntityKey{
+			Type:   EntityTypePlanet,
+			Owner:  -1,
+			Number: pb.PlanetNumber,
+		}
+		existing, found = gs.Planets.Get(unownedKey)
+	}
+
+	if found {
+		// Preserve coordinates if the new entity doesn't have them
+		if entity.X == 0 && entity.Y == 0 && (existing.X != 0 || existing.Y != 0) {
+			entity.X = existing.X
+			entity.Y = existing.Y
+		}
+		// Preserve name if the new entity doesn't have it
+		if entity.Name == "" && existing.Name != "" {
+			entity.Name = existing.Name
+		}
+
 		if gs.resolver.ShouldReplace(existing, entity) {
 			existing.Meta().AddSource(source)
+			// Remove old entry if owner changed
+			if existing.Owner != entity.Owner {
+				gs.Planets.Remove(existing.Meta().Key)
+			}
 			gs.Planets.Add(entity)
 		} else {
 			existing.Meta().AddSource(source)
+			// Still update coordinates if missing
+			if existing.X == 0 && existing.Y == 0 {
+				existing.X = entity.X
+				existing.Y = entity.Y
+			}
 		}
 	} else {
 		gs.Planets.Add(entity)

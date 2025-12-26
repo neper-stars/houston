@@ -167,3 +167,31 @@ func (c *EntityCollection[T]) ResetDirtyFlags() {
 		entity.Meta().Dirty = false
 	}
 }
+
+// Remove removes an entity from the collection by its key.
+func (c *EntityCollection[T]) Remove(key EntityKey) bool {
+	if _, exists := c.byKey[key]; !exists {
+		return false
+	}
+
+	delete(c.byKey, key)
+
+	// Remove from all slice
+	for i, e := range c.all {
+		if e.Meta().Key == key {
+			c.all = append(c.all[:i], c.all[i+1:]...)
+			break
+		}
+	}
+
+	// Remove from byOwner slice
+	owner := key.Owner
+	for i, e := range c.byOwner[owner] {
+		if e.Meta().Key == key {
+			c.byOwner[owner] = append(c.byOwner[owner][:i], c.byOwner[owner][i+1:]...)
+			break
+		}
+	}
+
+	return true
+}

@@ -15,11 +15,13 @@ type mapCommand struct {
 	Output     string `short:"o" long:"output" description:"Output filename (default: input.png or animation.gif)"`
 	Width      int    `short:"W" long:"width" description:"Image width in pixels" default:"800"`
 	Height     int    `short:"H" long:"height" description:"Image height in pixels" default:"600"`
+	SVG        bool   `short:"s" long:"svg" description:"Output as SVG instead of PNG"`
 	GIF        bool   `short:"g" long:"gif" description:"Create animated GIF from multiple files"`
 	Dir        string `short:"d" long:"dir" description:"Load all M files from directory for animation"`
 	Delay      int    `long:"delay" description:"Delay between frames in milliseconds" default:"1000"`
 	ShowNames  bool   `short:"n" long:"names" description:"Show planet names"`
 	ShowFleets bool   `short:"f" long:"fleets" description:"Show fleet indicators"`
+	FleetPaths int    `short:"p" long:"fleet-paths" description:"Show fleet projected paths (number of years)" default:"0"`
 	ShowMines  bool   `short:"m" long:"mines" description:"Show minefields"`
 	ShowWH     bool   `short:"w" long:"wormholes" description:"Show wormholes"`
 	ShowLegend bool   `short:"l" long:"legend" description:"Show player legend"`
@@ -46,14 +48,15 @@ func (c *mapCommand) Execute(args []string) error {
 	}
 
 	renderOpts := &maprenderer.RenderOptions{
-		Width:         c.Width,
-		Height:        c.Height,
-		ShowNames:     c.ShowNames,
-		ShowFleets:    showFleets,
-		ShowMines:     c.ShowMines,
-		ShowWormholes: showWH,
-		ShowLegend:    showLegend,
-		Padding:       20,
+		Width:          c.Width,
+		Height:         c.Height,
+		ShowNames:      c.ShowNames,
+		ShowFleets:     showFleets,
+		ShowFleetPaths: c.FleetPaths,
+		ShowMines:      c.ShowMines,
+		ShowWormholes:  showWH,
+		ShowLegend:     showLegend,
+		Padding:        20,
 	}
 
 	// Determine if we're creating a GIF
@@ -73,17 +76,26 @@ func (c *mapCommand) createSingleImage(renderOpts *maprenderer.RenderOptions) er
 	filename := c.Args.Files[0]
 	renderer := maprenderer.New()
 
-	if err := renderer.LoadFile(filename); err != nil {
+	// Use LoadFileWithXY to automatically load companion XY file for M/H files
+	if err := renderer.LoadFileWithXY(filename); err != nil {
 		return fmt.Errorf("failed to load %s: %w", filename, err)
 	}
 
 	output := c.Output
-	if output == "" {
-		output = filename + ".png"
-	}
-
-	if err := renderer.SavePNG(output, renderOpts); err != nil {
-		return fmt.Errorf("failed to save PNG: %w", err)
+	if c.SVG {
+		if output == "" {
+			output = filename + ".svg"
+		}
+		if err := renderer.SaveSVG(output, renderOpts); err != nil {
+			return fmt.Errorf("failed to save SVG: %w", err)
+		}
+	} else {
+		if output == "" {
+			output = filename + ".png"
+		}
+		if err := renderer.SavePNG(output, renderOpts); err != nil {
+			return fmt.Errorf("failed to save PNG: %w", err)
+		}
 	}
 
 	fmt.Printf("Created %s\n", output)

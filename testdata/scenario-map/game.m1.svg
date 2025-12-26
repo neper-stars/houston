@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+<rect width="100%" height="100%" fill="black"/>
+<defs>
+  <pattern id="minefield-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1" stroke-opacity="0.7"/>
+  </pattern>
+  <marker id="arrow-0" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L0,6 L6,3 z" fill="rgba(255,3,3,0.6)"/>
+  </marker>
+  <marker id="arrow-1" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L0,6 L6,3 z" fill="rgba(0,66,255,0.6)"/>
+  </marker>
+</defs>
+<circle cx="2274.3" cy="770.3" r="47.6" fill="rgba(255,3,3,0.15)" stroke="rgba(255,3,3,0.4)" stroke-width="1"/>
+<circle cx="2274.3" cy="770.3" r="47.6" fill="url(#minefield-hatch)" style="color:rgba(255,3,3,0.5)"/>
+<circle cx="2560.2" cy="1074.0" r="32.7" fill="rgba(255,3,3,0.15)" stroke="rgba(255,3,3,0.4)" stroke-width="1"/>
+<circle cx="2560.2" cy="1074.0" r="32.7" fill="url(#minefield-hatch)" style="color:rgba(255,3,3,0.5)"/>
+<path d="M1029.7,365.4 L946.3,335.6 L2447.0,865.6" fill="none" stroke="rgba(255,3,3,0.5)" stroke-width="1.5" marker-mid="url(#arrow-0)" marker-end="url(#arrow-0)"/>
+<path d="M2732.9,949.0 L2875.8,984.7 L2447.0,865.6" fill="none" stroke="rgba(255,3,3,0.5)" stroke-width="1.5" marker-mid="url(#arrow-0)" marker-end="url(#arrow-0)"/>
+<circle cx="803.4" cy="79.6" r="2.0" fill="rgb(128,128,128)"/>
+<text x="808.4" y="74.6" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Radium</text>
+<circle cx="863.0" cy="1788.7" r="2.0" fill="rgb(128,128,128)"/>
+<text x="868.0" y="1783.7" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Wood Shed</text>
+<circle cx="1017.8" cy="996.6" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1022.8" y="991.6" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Bloop</text>
+<circle cx="1053.5" cy="859.7" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1058.5" y="854.7" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Fluffy</text>
+<circle cx="1065.4" cy="1681.5" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1070.4" y="1676.5" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Dry Spell</text>
+<circle cx="1142.9" cy="788.2" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1147.9" y="783.2" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Lead</text>
+<circle cx="1166.7" cy="508.3" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1171.7" y="503.3" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Prude</text>
+<circle cx="1333.4" cy="1514.7" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1338.4" y="1509.7" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Saturn</text>
+<circle cx="1404.9" cy="115.3" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1409.9" y="110.3" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Doris</text>
+<circle cx="1458.5" cy="1907.8" r="2.0" fill="rgb(128,128,128)"/>
+<text x="1463.5" y="1902.8" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Chunk</text>
+<circle cx="2000.4" cy="1889.9" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2005.4" y="1884.9" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Kosciusko</text>
+<circle cx="2161.2" cy="1878.0" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2166.2" y="1873.0" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Sagittarius</text>
+<circle cx="2250.5" cy="1883.9" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2255.5" y="1878.9" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Bones</text>
+<circle cx="2304.1" cy="174.8" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2309.1" y="169.8" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Huckleberry</text>
+<circle cx="2369.6" cy="1556.4" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2374.6" y="1551.4" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Lambda</text>
+<circle cx="2935.3" cy="145.1" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2940.3" y="140.1" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Utopia</text>
+<circle cx="2977.0" cy="413.0" r="2.0" fill="rgb(128,128,128)"/>
+<text x="2982.0" y="408.0" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Muspell</text>
+<circle cx="3036.6" cy="347.5" r="2.0" fill="rgb(128,128,128)"/>
+<text x="3041.6" y="342.5" fill="rgb(128,128,128)" font-size="10" font-family="monospace">Data</text>
+<circle cx="946.3" cy="335.6" r="3.0" fill="rgb(255,3,3)"/>
+<text x="951.3" y="330.6" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Status</text>
+<circle cx="1619.3" cy="1240.8" r="6.0" fill="none" stroke="white" stroke-width="1.0"/>
+<circle cx="1624.3" cy="1235.8" r="2.0" fill="rgb(255,255,0)"/>
+<circle cx="1619.3" cy="1240.8" r="3.0" fill="rgb(0,66,255)"/>
+<text x="1624.3" y="1235.8" fill="rgb(0,66,255)" font-size="10" font-family="monospace">Woody</text>
+<circle cx="1923.0" cy="460.7" r="3.0" fill="rgb(255,3,3)"/>
+<text x="1928.0" y="455.7" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Sparta</text>
+<circle cx="2155.2" cy="2140.0" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2160.2" y="2135.0" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Oasis</text>
+<circle cx="2316.0" cy="20.0" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2321.0" y="15.0" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Elder</text>
+<circle cx="2423.2" cy="1109.8" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2428.2" y="1104.8" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Applegate</text>
+<circle cx="2447.0" cy="865.6" r="6.0" fill="none" stroke="white" stroke-width="1.0"/>
+<circle cx="2452.0" cy="860.6" r="2.0" fill="rgb(255,255,0)"/>
+<circle cx="2447.0" cy="865.6" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2452.0" y="860.6" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Gates</text>
+<circle cx="2482.8" cy="1616.0" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2487.8" y="1611.0" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Naledi</text>
+<circle cx="2524.4" cy="276.1" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2529.4" y="271.1" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Reagan</text>
+<circle cx="2560.2" cy="1449.2" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2565.2" y="1444.2" fill="rgb(255,3,3)" font-size="10" font-family="monospace">April</text>
+<circle cx="2566.1" cy="1711.2" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2571.1" y="1706.2" fill="rgb(255,3,3)" font-size="10" font-family="monospace">98053</text>
+<circle cx="2697.1" cy="1306.3" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2702.1" y="1301.3" fill="rgb(255,3,3)" font-size="10" font-family="monospace">LGM 4</text>
+<circle cx="2863.9" cy="472.6" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2868.9" y="467.6" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Raisa</text>
+<circle cx="2875.8" cy="984.7" r="3.0" fill="rgb(255,3,3)"/>
+<text x="2880.8" y="979.7" fill="rgb(255,3,3)" font-size="10" font-family="monospace">Kidney</text>
+<polygon points="863.0,1785.7 866.0,1788.7 863.0,1791.7 860.0,1788.7" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="1026.0,364.0 1032.8,362.8 1030.4,369.3" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="2274.3,767.3 2277.3,770.3 2274.3,773.3 2271.3,770.3" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="2560.2,1071.0 2563.2,1074.0 2560.2,1077.0 2557.2,1074.0" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="2736.7,950.0 2730.1,951.9 2731.8,945.1" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="1458.5,1904.8 1461.5,1907.8 1458.5,1910.8 1455.5,1907.8" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="2447.0,862.6 2450.0,865.6 2447.0,868.6 2444.0,865.6" fill="none" stroke="rgba(255,3,3,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="2185.0,1077.0 2188.0,1080.0 2185.0,1083.0 2182.0,1080.0" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<polygon points="1619.3,1237.8 1622.3,1240.8 1619.3,1243.8 1616.3,1240.8" fill="none" stroke="rgba(0,66,255,0.8)" stroke-width="1.0"/>
+<rect x="5.0" y="10.0" width="10.0" height="10.0" fill="rgb(255,3,3)"/>
+<text x="20.0" y="19.0" fill="rgb(255,3,3)" font-size="10" font-family="monospace">MineMonger</text>
+<rect x="5.0" y="24.0" width="10.0" height="10.0" fill="rgb(0,66,255)"/>
+<text x="20.0" y="33.0" fill="rgb(0,66,255)" font-size="10" font-family="monospace">Halfling</text>
+<text x="10.0" y="2150.0" fill="rgb(0,128,255)" font-size="12" font-family="monospace">2480</text>
+</svg>
