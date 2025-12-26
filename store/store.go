@@ -147,30 +147,49 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 		}
 	}
 
-	// Second pass: Extract fleets, planets, objects, and production queues
+	// Second pass: Extract fleets, planets, objects, production queues, and waypoints
 	var pendingName *blocks.FleetNameBlock
+	var currentFleet *FleetEntity
+	var waypointIndex int
 	var lastPlanetNumber int = -1
 	for _, block := range source.Blocks {
 		switch b := block.(type) {
 		case blocks.FleetNameBlock:
 			pendingName = &b
 		case blocks.FleetBlock:
-			gs.mergeFleet(&b.PartialFleetBlock, pendingName, source)
+			currentFleet = gs.mergeFleet(&b.PartialFleetBlock, pendingName, source)
+			waypointIndex = 0
 			pendingName = nil
 			lastPlanetNumber = -1
 		case blocks.PartialFleetBlock:
-			gs.mergeFleet(&b, pendingName, source)
+			currentFleet = gs.mergeFleet(&b, pendingName, source)
+			waypointIndex = 0
 			pendingName = nil
 			lastPlanetNumber = -1
+		case blocks.WaypointBlock:
+			if currentFleet != nil {
+				wp := newWaypointEntityFromBlock(&b, currentFleet.Owner, currentFleet.FleetNumber, waypointIndex, source)
+				currentFleet.AddWaypoint(wp)
+				waypointIndex++
+			}
+		case blocks.WaypointTaskBlock:
+			if currentFleet != nil {
+				wp := newWaypointEntityFromTaskBlock(&b, currentFleet.Owner, currentFleet.FleetNumber, waypointIndex, source)
+				currentFleet.AddWaypoint(wp)
+				waypointIndex++
+			}
 		case blocks.PlanetBlock:
 			gs.mergePlanet(&b.PartialPlanetBlock, source)
 			lastPlanetNumber = b.PlanetNumber
+			currentFleet = nil // Planet block ends fleet context
 		case blocks.PartialPlanetBlock:
 			gs.mergePlanet(&b, source)
 			lastPlanetNumber = b.PlanetNumber
+			currentFleet = nil
 		case blocks.ObjectBlock:
 			gs.mergeObject(&b, source)
 			lastPlanetNumber = -1
+			currentFleet = nil
 		case blocks.ProductionQueueBlock:
 			if lastPlanetNumber >= 0 {
 				gs.mergeProductionQueue(&b, lastPlanetNumber, source)
@@ -218,8 +237,8 @@ func (gs *GameStore) mergeDesign(db *blocks.DesignBlock, source *FileSource) {
 	}
 }
 
-// mergeFleet merges a fleet into the store.
-func (gs *GameStore) mergeFleet(fb *blocks.PartialFleetBlock, nameBlock *blocks.FleetNameBlock, source *FileSource) {
+// mergeFleet merges a fleet into the store and returns it for waypoint association.
+func (gs *GameStore) mergeFleet(fb *blocks.PartialFleetBlock, nameBlock *blocks.FleetNameBlock, source *FileSource) *FleetEntity {
 	entity := newFleetEntityFromBlock(fb, source)
 
 	// Associate name if present
@@ -248,11 +267,14 @@ func (gs *GameStore) mergeFleet(fb *blocks.PartialFleetBlock, nameBlock *blocks.
 		if gs.resolver.ShouldReplace(existing, entity) {
 			existing.Meta().AddSource(source)
 			gs.Fleets.Add(entity)
+			return entity
 		} else {
 			existing.Meta().AddSource(source)
+			return existing
 		}
 	} else {
 		gs.Fleets.Add(entity)
+		return entity
 	}
 }
 

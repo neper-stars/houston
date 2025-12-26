@@ -15,6 +15,7 @@
 //	merge-m    Merge M files between allied players
 //	merge-h    Merge H (history) files
 //	map        Render galaxy maps as PNG or animated GIF
+//	exploits   Detect and fix known exploits
 package main
 
 import (
@@ -51,6 +52,7 @@ func main() {
 	addMergeMCommand(parser)
 	addMergeHCommand(parser)
 	addMapCommand(parser)
+	addExploitsCommand(parser)
 
 	_, err := parser.Parse()
 	if err != nil {

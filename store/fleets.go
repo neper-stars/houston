@@ -46,6 +46,7 @@ type FleetEntity struct {
 	CustomName    string
 	HasCustomName bool
 	PrimaryDesign *DesignEntity
+	Waypoints     []*WaypointEntity // Associated waypoints in order
 
 	// Raw blocks (preserved for re-encoding)
 	fleetBlock *blocks.PartialFleetBlock
@@ -57,7 +58,7 @@ func (f *FleetEntity) Meta() *EntityMeta {
 	return &f.meta
 }
 
-// RawBlocks returns the original blocks.
+// RawBlocks returns the original blocks including waypoints.
 func (f *FleetEntity) RawBlocks() []blocks.Block {
 	var result []blocks.Block
 	if f.nameBlock != nil {
@@ -66,7 +67,21 @@ func (f *FleetEntity) RawBlocks() []blocks.Block {
 	if f.fleetBlock != nil {
 		result = append(result, *f.fleetBlock)
 	}
+	// Include waypoint blocks
+	for _, wp := range f.Waypoints {
+		result = append(result, wp.RawBlocks()...)
+	}
 	return result
+}
+
+// AddWaypoint adds a waypoint to the fleet.
+func (f *FleetEntity) AddWaypoint(wp *WaypointEntity) {
+	f.Waypoints = append(f.Waypoints, wp)
+}
+
+// ClearWaypoints removes all waypoints from the fleet.
+func (f *FleetEntity) ClearWaypoints() {
+	f.Waypoints = nil
 }
 
 // SetDirty marks the entity as modified.

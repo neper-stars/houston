@@ -151,8 +151,10 @@ func (gs *GameStore) GenerateRFile(playerSlot int) ([]byte, error) {
 }
 
 // generateFileFromSource generates a complete file from a source template.
+// If entities have been modified (marked dirty), their blocks are re-encoded.
 func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) {
 	writer := NewFileWriter()
+	encoder := NewBlockEncoder()
 	var result []byte
 
 	header := source.Header
@@ -170,6 +172,10 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
 
+	// Track current fleet and planet for association
+	var currentFleetKey *EntityKey
+	var lastPlanetNumber int = -1
+
 	// Write all blocks from the source, replacing dirty entities with re-encoded data
 	for _, block := range source.Blocks {
 		typeID := block.BlockTypeID()
@@ -182,9 +188,89 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 			continue
 		}
 
-		// For now, write blocks using their original data
-		// In the future, we can replace dirty entities with re-encoded blocks
-		decrypted := block.DecryptedData()
+		var decrypted []byte
+
+		// Check if this block corresponds to a dirty entity and needs re-encoding
+		switch b := block.(type) {
+		case blocks.FleetBlock:
+			currentFleetKey = &EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			lastPlanetNumber = -1
+			if fleet, ok := gs.Fleets.Get(*currentFleetKey); ok && fleet.Meta().Dirty {
+				if encoded, err := encoder.EncodeFleetBlock(fleet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.PartialFleetBlock:
+			currentFleetKey = &EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			lastPlanetNumber = -1
+			if fleet, ok := gs.Fleets.Get(*currentFleetKey); ok && fleet.Meta().Dirty {
+				if encoded, err := encoder.EncodeFleetBlock(fleet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.PlanetBlock:
+			lastPlanetNumber = b.PlanetNumber
+			currentFleetKey = nil
+			decrypted = block.DecryptedData()
+
+		case blocks.PartialPlanetBlock:
+			lastPlanetNumber = b.PlanetNumber
+			currentFleetKey = nil
+			decrypted = block.DecryptedData()
+
+		case blocks.ProductionQueueBlock:
+			// Find the production queue entity for the last planet
+			if lastPlanetNumber >= 0 {
+				if pq, ok := gs.ProductionQueues.GetByOwnerAndNumber(EntityTypeProductionQueue, -1, lastPlanetNumber); ok && pq.Meta().Dirty {
+					if encoded, err := encoder.EncodeProductionQueueBlock(pq); err == nil {
+						decrypted = encoded
+					} else {
+						decrypted = block.DecryptedData()
+					}
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.BattlePlanBlock:
+			key := EntityKey{Type: EntityTypeBattlePlan, Owner: source.PlayerIndex, Number: b.PlanId}
+			if bp, ok := gs.BattlePlans.Get(key); ok && bp.Meta().Dirty {
+				if encoded, err := encoder.EncodeBattlePlanBlock(bp); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.WaypointBlock, blocks.WaypointTaskBlock:
+			// For waypoints, check if the associated fleet is dirty
+			// If so, we might need to re-encode (for now, use original data)
+			decrypted = block.DecryptedData()
+
+		case blocks.ObjectBlock:
+			currentFleetKey = nil
+			lastPlanetNumber = -1
+			decrypted = block.DecryptedData()
+
+		default:
+			// For all other block types, use original data
+			decrypted = block.DecryptedData()
+		}
+
 		result = append(result, writer.WriteEncryptedBlock(typeID, decrypted)...)
 
 		// Handle special case for PlanetsBlock (extra trailing data)

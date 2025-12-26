@@ -560,3 +560,90 @@ func TestHFileRoundTrip_AllTestdata(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestFleetWaypoints(t *testing.T) {
+	// Use a file that has fleets with waypoints
+	data, err := os.ReadFile("../testdata/scenario-orders/waypoint-merge/game.m1")
+	require.NoError(t, err)
+
+	gs := store.New()
+	err = gs.AddFile("game.m1", data)
+	require.NoError(t, err)
+
+	// Find fleets with waypoints
+	fleetsWithWaypoints := 0
+	for _, fleet := range gs.AllFleets() {
+		if len(fleet.Waypoints) > 0 {
+			fleetsWithWaypoints++
+			t.Logf("Fleet %d (owner %d) has %d waypoints", fleet.FleetNumber, fleet.Owner, len(fleet.Waypoints))
+			for i, wp := range fleet.Waypoints {
+				t.Logf("  Waypoint %d: (%d, %d) task=%s", i, wp.X, wp.Y, wp.TaskName())
+			}
+		}
+	}
+
+	// We expect at least some fleets to have waypoints in this scenario
+	assert.Greater(t, fleetsWithWaypoints, 0, "expected at least one fleet with waypoints")
+}
+
+func TestDirtyFleetRegeneration(t *testing.T) {
+	data, err := os.ReadFile("../testdata/scenario-orders/fleetnames/results/game.m1")
+	require.NoError(t, err)
+
+	gs := store.New()
+	err = gs.AddFile("game.m1", data)
+	require.NoError(t, err)
+
+	// Find a fleet with cargo
+	var fleetWithCargo *store.FleetEntity
+	for _, fleet := range gs.AllFleets() {
+		cargo := fleet.GetCargo()
+		if cargo.Fuel > 0 {
+			fleetWithCargo = fleet
+			break
+		}
+	}
+
+	if fleetWithCargo == nil {
+		t.Skip("No fleet with fuel cargo found")
+	}
+
+	// Record original cargo
+	originalCargo := fleetWithCargo.GetCargo()
+	t.Logf("Original cargo: Ironium=%d, Boranium=%d, Germanium=%d, Fuel=%d",
+		originalCargo.Ironium, originalCargo.Boranium, originalCargo.Germanium, originalCargo.Fuel)
+
+	// Modify the cargo
+	fleetWithCargo.SetCargo(store.Cargo{
+		Ironium:    originalCargo.Ironium + 100,
+		Boranium:   originalCargo.Boranium + 50,
+		Germanium:  originalCargo.Germanium + 25,
+		Population: originalCargo.Population,
+		Fuel:       originalCargo.Fuel,
+	})
+
+	assert.True(t, fleetWithCargo.Meta().Dirty, "fleet should be marked dirty after cargo change")
+	assert.True(t, gs.HasChanges(), "store should have changes")
+
+	// Generate modified M file
+	regenerated, err := gs.GenerateMFile(0)
+	require.NoError(t, err)
+
+	// Reload the regenerated file
+	gs2 := store.New()
+	err = gs2.AddFile("regenerated.m1", regenerated)
+	require.NoError(t, err)
+
+	// Find the same fleet and verify cargo was updated
+	fleet2, ok := gs2.Fleet(fleetWithCargo.Owner, fleetWithCargo.FleetNumber)
+	require.True(t, ok, "should find fleet in regenerated file")
+
+	newCargo := fleet2.GetCargo()
+	t.Logf("Regenerated cargo: Ironium=%d, Boranium=%d, Germanium=%d, Fuel=%d",
+		newCargo.Ironium, newCargo.Boranium, newCargo.Germanium, newCargo.Fuel)
+
+	// Verify the cargo was modified
+	assert.Equal(t, originalCargo.Ironium+100, newCargo.Ironium, "ironium should be updated")
+	assert.Equal(t, originalCargo.Boranium+50, newCargo.Boranium, "boranium should be updated")
+	assert.Equal(t, originalCargo.Germanium+25, newCargo.Germanium, "germanium should be updated")
+}
