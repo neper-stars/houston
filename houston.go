@@ -6,6 +6,7 @@ package houston
 import (
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/data"
+	"github.com/neper-stars/houston/lib/tools/racefixer"
 	"github.com/neper-stars/houston/parser"
 	"github.com/neper-stars/houston/password"
 )
@@ -209,3 +210,31 @@ type ProgressCallback = password.ProgressCallback
 func ReadRawFile(fName string, fileData *FileData) error {
 	return parser.ReadRawFile(fName, (*parser.FileData)(fileData))
 }
+
+// Racefixer type aliases
+type (
+	RaceFileInfo   = racefixer.FileInfo
+	RaceRepairResult = racefixer.RepairResult
+)
+
+// Racefixer functions
+var (
+	// AnalyzeRaceFile reads a race file and determines if it needs repair
+	AnalyzeRaceFile = racefixer.Analyze
+	// AnalyzeRaceFileBytes analyzes race file data
+	AnalyzeRaceFileBytes = racefixer.AnalyzeBytes
+	// AnalyzeRaceFileReader analyzes race file data from an io.Reader
+	AnalyzeRaceFileReader = racefixer.AnalyzeReader
+	// RepairRaceFileBytes attempts to fix corrupted race file data
+	RepairRaceFileBytes = racefixer.RepairBytes
+	// RepairRaceFileReader repairs race file data from an io.Reader
+	RepairRaceFileReader = racefixer.RepairReader
+	// RemoveRacePassword removes the password from a race file on disk
+	RemoveRacePassword = racefixer.RemovePassword
+	// RemoveRacePasswordBytes removes the password from race file data
+	RemoveRacePasswordBytes = racefixer.RemovePasswordBytes
+	// ValidateRaceHashBytes verifies the integrity checksum of race file data
+	ValidateRaceHashBytes = racefixer.ValidateHashBytes
+	// ValidateRaceHashReader verifies the integrity checksum from an io.Reader
+	ValidateRaceHashReader = racefixer.ValidateHashReader
+)
