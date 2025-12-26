@@ -44,7 +44,6 @@ import (
 
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/crypto"
-	"github.com/neper-stars/houston/encoding"
 	"github.com/neper-stars/houston/parser"
 	"github.com/neper-stars/houston/store"
 )
@@ -152,67 +151,6 @@ func AnalyzeBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	return info, nil
 }
 
-// parseRaceNamesFromData extracts the singular and plural race names from decrypted PlayerBlock data.
-// This matches the parsing logic in blocks.PlayerBlock.decode().
-func parseRaceNamesFromData(decryptedData []byte) (singular, plural string, err error) {
-	if len(decryptedData) < 8 {
-		return "", "", fmt.Errorf("data too short: need at least 8 bytes, got %d", len(decryptedData))
-	}
-
-	// Check the required bits in byte 6 (bits 0-1 must be 0x03)
-	if (decryptedData[6] & 0x03) != 0x03 {
-		return "", "", fmt.Errorf("invalid PlayerBlock format: byte 6 bits 0-1 should be 0x03")
-	}
-
-	// FullDataFlag is bit 2 of byte 6
-	fullDataFlag := (decryptedData[6] & 0x04) != 0
-
-	index := 8
-	if fullDataFlag {
-		// For full data, names are after player relations at offset 0x70
-		index = 0x70
-		if index >= len(decryptedData) {
-			return "", "", fmt.Errorf("data too short for full data: need at least %d bytes, got %d", index+1, len(decryptedData))
-		}
-		playerRelationsLength := int(decryptedData[index])
-		index += 1 + playerRelationsLength
-	}
-
-	if index >= len(decryptedData) {
-		return "", "", fmt.Errorf("data too short for names: index %d >= length %d", index, len(decryptedData))
-	}
-
-	// Decode singular name
-	singularNameLength := int(decryptedData[index])
-	singularEnd := index + 1 + singularNameLength
-	if singularEnd > len(decryptedData) {
-		return "", "", fmt.Errorf("singular name extends beyond data: end %d > length %d", singularEnd, len(decryptedData))
-	}
-	singularBytes := decryptedData[index:singularEnd]
-	singular, err = encoding.DecodeStarsString(singularBytes)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to decode singular name: %w", err)
-	}
-
-	// Decode plural name
-	pluralIndex := singularEnd
-	if pluralIndex >= len(decryptedData) {
-		return singular, "", nil
-	}
-	pluralNameLength := int(decryptedData[pluralIndex])
-	pluralEnd := pluralIndex + 1 + pluralNameLength
-	if pluralEnd > len(decryptedData) {
-		pluralEnd = len(decryptedData)
-	}
-	pluralBytes := decryptedData[pluralIndex:pluralEnd]
-	plural, err = encoding.DecodeStarsString(pluralBytes)
-	if err != nil {
-		return singular, "", fmt.Errorf("failed to decode plural name: %w", err)
-	}
-
-	return singular, plural, nil
-}
-
 // RepairResult contains the results of a repair operation.
 type RepairResult struct {
 	Success         bool
@@ -290,37 +228,70 @@ func RemovePasswordBytes(data []byte) ([]byte, *RepairResult, error) {
 
 	result := &RepairResult{}
 
-	// Find header for salt
-	var salt int
-	var headerBlock blocks.FileHeader
+	// Find header and player block from already-parsed blocks
+	var headerBlock *blocks.FileHeader
+	var playerBlock *blocks.PlayerBlock
 	for _, block := range blockList {
 		switch b := block.(type) {
 		case blocks.FileHeader:
-			salt = b.Salt()
-			headerBlock = b
+			headerBlock = &b
 		case *blocks.FileHeader:
-			salt = b.Salt()
-			headerBlock = *b
+			headerBlock = b
+		case blocks.PlayerBlock:
+			playerBlock = &b
+		case *blocks.PlayerBlock:
+			playerBlock = b
 		}
 	}
+
+	if headerBlock == nil {
+		return nil, nil, fmt.Errorf("no FileHeader found in file")
+	}
+	if playerBlock == nil {
+		result.Message = "no PlayerBlock found"
+		return data, result, nil
+	}
+
+	// Use already-decrypted data from the parsed PlayerBlock
+	decryptedData := make([]byte, len(playerBlock.DecryptedData()))
+	copy(decryptedData, playerBlock.DecryptedData())
+
+	// Check if password exists (bytes 12-15)
+	hasPassword := len(decryptedData) >= 16 &&
+		(decryptedData[12] != 0 || decryptedData[13] != 0 ||
+			decryptedData[14] != 0 || decryptedData[15] != 0)
+
+	if !hasPassword {
+		result.Success = true
+		result.Message = "file has no password"
+		return data, result, nil
+	}
+
+	// Remove password (bytes 12-15)
+	decryptedData[12] = 0
+	decryptedData[13] = 0
+	decryptedData[14] = 0
+	decryptedData[15] = 0
+
+	// Get race names from already-parsed PlayerBlock
+	singularName := playerBlock.NameSingular
+	pluralName := playerBlock.NamePlural
 
 	// Create output buffer
 	repaired := make([]byte, len(data))
 	copy(repaired, data)
 
-	// Set up encryption/decryption
-	decryptor := crypto.NewDecryptor()
-	decryptor.InitDecryption(salt, 0, 0, 31, 0)
-
+	// Set up encryptor using header values (same source of truth as parser)
 	encryptor := crypto.NewEncryptor()
-	encryptor.InitEncryption(salt, 0, 0, 31, 0)
+	encryptor.InitEncryption(
+		headerBlock.Salt(),
+		0, // shareware flag
+		headerBlock.PlayerIndex(),
+		int(headerBlock.Turn),
+		int(headerBlock.GameID),
+	)
 
-	// Track the decrypted data for checksum calculation
-	var decryptedPlayerData []byte
-	var singularName, pluralName string
-	var playerBlockOffset, playerBlockSize int
-
-	// Process blocks
+	// Find PlayerBlock offset in raw data and re-encrypt
 	offset := 0
 	for offset < len(repaired)-2 {
 		header := uint16(repaired[offset]) | uint16(repaired[offset+1])<<8
@@ -328,55 +299,18 @@ func RemovePasswordBytes(data []byte) ([]byte, *RepairResult, error) {
 		blockSize := int(header & 0x3FF)
 
 		if blockType == blocks.PlayerBlockType {
-			playerBlockOffset = offset
-			playerBlockSize = blockSize
-
-			// Decrypt the block
-			encryptedData := repaired[offset+2 : offset+2+blockSize]
-			decryptedData := decryptor.DecryptBytes(encryptedData)
-
-			// Check if password exists
-			hasPassword := len(decryptedData) >= 16 &&
-				(decryptedData[12] != 0 || decryptedData[13] != 0 ||
-					decryptedData[14] != 0 || decryptedData[15] != 0)
-
-			if !hasPassword {
-				result.Success = true
-				result.Message = "file has no password"
-				return data, result, nil
-			}
-
-			// Remove password (bytes 12-15)
-			decryptedData[12] = 0
-			decryptedData[13] = 0
-			decryptedData[14] = 0
-			decryptedData[15] = 0
-
-			// Parse race names for checksum
-			singularName, pluralName, err = parseRaceNamesFromData(decryptedData)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to parse race names: %w", err)
-			}
-
-			decryptedPlayerData = decryptedData
-
 			// Re-encrypt the modified data
 			reEncrypted := encryptor.EncryptBytes(decryptedData)
-			copy(repaired[offset+2:], reEncrypted)
-
+			copy(repaired[offset+2:offset+2+blockSize], reEncrypted)
 			result.PasswordRemoved = true
+			break
 		}
 
 		offset += 2 + blockSize
 	}
 
-	if !result.PasswordRemoved {
-		result.Message = "no PlayerBlock found"
-		return data, result, nil
-	}
-
 	// Calculate new checksum
-	newFooter := store.ComputeRaceFooter(decryptedPlayerData, singularName, pluralName)
+	newFooter := store.ComputeRaceFooter(decryptedData, singularName, pluralName)
 
 	// Find and update footer
 	offset = 0
@@ -401,10 +335,6 @@ func RemovePasswordBytes(data []byte) ([]byte, *RepairResult, error) {
 	result.Success = true
 	result.Message = fmt.Sprintf("password removed, footer updated from 0x%04X to 0x%04X",
 		result.OldFooter, result.NewFooter)
-
-	_ = headerBlock       // silence unused warning
-	_ = playerBlockOffset // silence unused warning
-	_ = playerBlockSize   // silence unused warning
 
 	return repaired, result, nil
 }
