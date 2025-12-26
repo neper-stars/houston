@@ -1126,7 +1126,7 @@ Race files use specific encryption parameters:
 - Player Index: 31
 - Offset: 0
 
-### Checksum Algorithm (from TotalHost)
+### Checksum Algorithm
 
 The checksum is computed from decrypted PlayerBlock data plus interleaved race names:
 
@@ -1220,14 +1220,238 @@ Verified against 39 race files in `testdata/scenario-racefiles/`:
 - Various race names (short, long, special characters)
 - Different race settings (PRT, LRT, habitat, etc.)
 
-### FileHashBlock (Type 9)
+### FileHashBlock (Type 9) - Copy Protection
 
-X files contain a FileHashBlock (Type 9) with 17 bytes of data. This is a different hash than the race file hash.
+X files contain a FileHashBlock (Type 9) with 17 bytes of copy protection data.
 
 ```
-Example from X file:
-[1] Block Type 9 (FileHashBlock), Size: 17
-  Data: 1E 00 64 42 33 00 A5 DC A6 59 7A C5 A5 DC A6 7A AA
+Offset  Size  Field
+------  ----  -----
+0-1     2     Unknown (always 0x001E observed)
+2-5     4     Serial number hash (uint32 LE)
+6-9     4     C: drive volume label hash (uint32 LE)
+10-11   2     C: drive date/time hash
+12-13   2     D: drive volume label hash
+14-15   2     D: drive date/time hash
+16      1     C: and D: drive size in 100's of MB
 ```
 
-The FileHashBlock algorithm is also not yet reverse-engineered.
+**Purpose**: Validates installation disk info to detect if a turn file was edited on a different machine. This triggers the "Copy Protection Activated When Editing an Ally's Turn File" bug.
+
+---
+
+## MessageBlock (Type 40)
+
+Player-to-player messages are stored in MessageBlocks.
+
+```
+Offset  Size  Field
+------  ----  -----
+0-1     2     Unknown
+2-3     2     Unknown
+4-5     2     Sender ID (16-bit LE)
+6-7     2     Recipient ID (16-bit LE, 0 = "Everyone")
+8-9     2     Unknown
+10-11   2     Message byte count
+12+     Var   Stars! encoded message string
+```
+
+**Notes**:
+- HST files do not contain message blocks
+- In .x files, sender is always the file's player
+- Player IDs in messages are offset: 0 = Everyone, 1-16 = Players 1-16
+
+---
+
+## Mystery Trader Items
+
+The Mystery Trader (ObjectType 3 in Block 43) can offer 13 different items, encoded as a bitmask:
+
+| Bit | Item |
+|-----|------|
+| 0 (value=0) | Research (initial state) |
+| 0 | Multi Cargo Pod |
+| 1 | Multi Function Pod |
+| 2 | Langston Shield |
+| 3 | Mega Poly Shell |
+| 4 | Alien Miner |
+| 5 | Hush-a-Boom |
+| 6 | Anti Matter Torpedo |
+| 7 | Multi Contained Munition |
+| 8 | Mini Morph |
+| 9 | Enigma Pulsar |
+| 10 | Genesis Device |
+| 11 | Jump Gate |
+| 12 | Ship/MT Lifeboat |
+
+---
+
+## Known Exploits and Bugs
+
+these exploits can be detected and fixed:
+
+### Cheap Colonizer
+**Detection**: Design block (Type 26/27) where a slot has `itemId=0, itemCategory=4096 (colonization), itemCount=0`
+**Cause**: Colonization module removed but slot left as "empty colonization" instead of truly empty
+**Effect**: Ship can colonize without colonization module
+**Fix**: Set itemCategory to 0 for the slot
+
+### Space Dock Armor Overflow
+**Detection**: Space Dock (hullId=33) with ISB+RS race traits, >21 SuperLatanium in armor slot, armor value >= 49518
+**Cause**: Buffer overflow when calculating armor
+**Effect**: Massively increased armor values
+**Fix**: Cap SuperLatanium count at 21, recalculate armor
+
+### 10th Starbase Bug
+**Detection**: Last player in game has a starbase in design slot 10 (0-indexed: slot 9)
+**Cause**: Unknown internal Stars! limitation
+**Effect**: Game crash if Player 1's Fleet 1 refuels at this starbase
+**Fix**: Cannot be fixed automatically, only warned
+
+### Friendly Fire Battle Plan
+**Detection**: Battle Plan block (Type 30) where `planNumber == 0` (Default) and `attackWho > 3`
+**Cause**: Default battle plan set to attack specific player instead of enemy/neutral
+**Effect**: Own ships fire on each other
+**Fix**: Reset attackWho to 2 (Neutral/Enemy)
+
+### SS Pop Steal
+**Detection**: Waypoint Change block (Type 5) with transport task targeting own population
+**Cause**: Exploit in transport order handling
+**Effect**: Population theft via transport orders
+**Fix**: Reset transport task to do nothing
+
+### 32k Merge Bug
+**Detection**: Fleet merge where combined ship count > 32767 for any design slot
+**Cause**: 16-bit signed integer overflow
+**Effect**: Data corruption, potential crash
+**Fix**: Cancel merge by resetting task to "No Action"
+
+### Mineral Upload Exploit
+**Detection**: Manual load/unload block transferring minerals from own planet to enemy fleet, exceeding fleet cargo capacity
+**Cause**: Improper validation of upload target ownership
+**Effect**: Free resource generation
+**Fix**: Cancel the order
+
+### Cheap Starbase
+**Detection**: Starbase design change (Type 27) for a starbase under construction (completePercent > 0)
+**Cause**: Editing starbase design while partially built
+**Effect**: Resources/items duplicated or exploited
+**Fix**: Reset starbase design slots to empty
+
+---
+
+## AI Player Configuration
+
+In PlayerBlock (Type 6), byte 7 encodes AI settings:
+
+```
+Bit 0: Always 1
+Bit 1: AI enabled (0=off, 1=on)
+Bits 2-3: AI skill level
+  00 = Easy
+  01 = Standard
+  10 = Harder
+  11 = Expert
+Bit 4: Always 0
+Bits 5-7: Mode (flip when set to Human Inactive)
+```
+
+**Special Values**:
+- AI password "viewai" = bytes [238, 171, 77, 9] (0xEEAB4D09)
+- Human(Inactive) password = [255, 255, 255, 255] (bit-inverted from blank)
+
+---
+
+## Lesser Race Traits (LRT) Bitmask
+
+14 traits encoded in 2 bytes at PlayerBlock offset 78-79:
+
+| Bit | Short | Full Name |
+|-----|-------|-----------|
+| 0 | IFE | Improved Fuel Efficiency |
+| 1 | TT | Total Terraforming |
+| 2 | ARM | Advanced Remote Mining |
+| 3 | ISB | Improved Starbases |
+| 4 | GR | Generalised Research |
+| 5 | UR | Ultimate Recycling |
+| 6 | MA | Mineral Alchemy |
+| 7 | NRSE | No Ram Scoop Engines |
+| 8 | CE | Cheap Engines |
+| 9 | OBRM | Only Basic Remote Mining |
+| 10 | NAS | No Advanced Scanners |
+| 11 | LSP | Low Starting Population |
+| 12 | BET | Bleeding Edge Technology |
+| 13 | RS | Regenerating Shields |
+| 14-15 | - | Unused |
+
+---
+
+## Serial Number Validation
+
+Stars! serial numbers use base-36 encoding (A-Z = 0-25, 0-9 = 26-35).
+
+**Format**: 8 characters, e.g., "SAH62J1E"
+
+**Valid Series Letters** (first character after processing):
+- S (18), W (22), C (2), E (4), G (6)
+
+**Valid Number Range**: 100 to 1,500,000
+
+**Character Position Processing**:
+- Positions 0, 1, 4, 7, 3 contribute to series/number
+- Positions 2, 5, 6 are checksum digits
+- XOR with 0x15 applied for values < 0x20
+
+---
+
+## Complete Block Type List
+
+| ID | Type | Notes |
+|----|------|-------|
+| 0 | FileFooterBlock | Year (.M/.HST), Checksum XOR (.R), null (.X/.H) |
+| 1 | ManualSmallLoadUnloadTaskBlock | |
+| 2 | ManualMediumLoadUnloadTaskBlock | |
+| 3 | WaypointDeleteBlock | |
+| 4 | WaypointAddBlock | |
+| 5 | WaypointChangeTaskBlock | |
+| 6 | PlayerBlock | |
+| 7 | PlanetsBlock | |
+| 8 | FileHeaderBlock | Unencrypted |
+| 9 | FileHashBlock | Copy protection |
+| 10 | WaypointRepeatOrdersBlock | |
+| 11 | Unknown | Never observed |
+| 12 | EventsBlock | |
+| 13 | PlanetBlock | Full planet data |
+| 14 | PartialPlanetBlock | Scanned planet data |
+| 15 | Unknown | Never observed |
+| 16 | FleetBlock | Full fleet data |
+| 17 | PartialFleetBlock | Scanned fleet data |
+| 18 | Unknown | Never observed |
+| 19 | WaypointTaskBlock | In .M/.HST files |
+| 20 | WaypointBlock | In .M/.HST files |
+| 21 | FleetNameBlock | Custom fleet names |
+| 22 | Unknown | Never observed |
+| 23 | MoveShipsBlock | |
+| 24 | FleetSplitBlock | |
+| 25 | ManualLargeLoadUnloadTaskBlock | |
+| 26 | DesignBlock | Ship/starbase design |
+| 27 | DesignChangeBlock | Design modification in .X |
+| 28 | ProductionQueueBlock | |
+| 29 | ProductionQueueChangeBlock | |
+| 30 | BattlePlanBlock | |
+| 31 | BattleBlock | VCR data (partially decoded) |
+| 32 | CountersBlock | Game counters |
+| 33 | MessagesFilterBlock | Message filtering prefs |
+| 34 | ResearchChangeBlock | |
+| 35 | PlanetChangeBlock | |
+| 36 | ChangePasswordBlock | .X files / Password in .HST |
+| 37 | FleetsMergeBlock | |
+| 38 | PlayersRelationChangeBlock | |
+| 39 | BattleContinuationBlock | Extended battle data (not decoded) |
+| 40 | MessageBlock | Player messages |
+| 41 | AIRecordBlock | AI records in .H files (not decoded) |
+| 42 | SetFleetBattlePlanBlock | |
+| 43 | ObjectBlock | Minefields, packets, wormholes, MT |
+| 44 | RenameFleetBlock | |
+| 45 | PlayerScoresBlock | Victory condition tracking |
+| 46 | SaveAndSubmitBlock | Turn submission |
