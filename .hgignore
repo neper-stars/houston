@@ -2,6 +2,7 @@ syntax: glob
 
 build/
 displayblocks
+houston
 
 TODOs.md
 exemple/exemple
