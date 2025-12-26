@@ -78,14 +78,38 @@ func (pcb *PlanetChangeBlock) decode() {
 }
 
 // ChangePasswordBlock represents a password change request (Type 36)
-// Structure not fully documented - preserves raw data for analysis
+//
+// Format (4 bytes):
+//
+//	Bytes 0-3: New password hash (uint32 little-endian)
+//	           Hash 0 = no password / remove password
+//
+// The hash is computed using HashRacePassword() from the password package.
 type ChangePasswordBlock struct {
 	GenericBlock
+
+	NewPasswordHash uint32 // New password hash (0 = no password)
 }
 
 // NewChangePasswordBlock creates a ChangePasswordBlock from a GenericBlock
 func NewChangePasswordBlock(b GenericBlock) *ChangePasswordBlock {
-	return &ChangePasswordBlock{GenericBlock: b}
+	cpb := &ChangePasswordBlock{GenericBlock: b}
+	cpb.decode()
+	return cpb
+}
+
+func (cpb *ChangePasswordBlock) decode() {
+	data := cpb.Decrypted
+	if len(data) < 4 {
+		return
+	}
+
+	cpb.NewPasswordHash = uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16 | uint32(data[3])<<24
+}
+
+// HasPassword returns true if this sets a password (hash != 0)
+func (cpb *ChangePasswordBlock) HasPassword() bool {
+	return cpb.NewPasswordHash != 0
 }
 
 // Diplomatic relation types

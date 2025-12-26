@@ -10,6 +10,7 @@
 //	xfile      Read and validate X (turn order) files
 //	findpass   Find race passwords by brute force
 //	race       Fix corrupted race files
+//	race-password  Remove password from race files
 //	player     View and modify player attributes
 //	merge-m    Merge M files between allied players
 //	merge-h    Merge H (history) files
@@ -45,6 +46,7 @@ func main() {
 	addXFileCommand(parser)
 	addFindPassCommand(parser)
 	addRaceCommand(parser)
+	addRacePasswordCommand(parser)
 	addPlayerCommand(parser)
 	addMergeMCommand(parser)
 	addMergeHCommand(parser)

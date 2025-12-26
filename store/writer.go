@@ -131,6 +131,25 @@ func (gs *GameStore) GenerateHFile(playerIndex int) ([]byte, error) {
 	return gs.generateHFileFromSource(sourceFile)
 }
 
+// GenerateRFile generates an R file (race file) for a specific player slot.
+// Race files are identified by their extension (.r1-.r16).
+func (gs *GameStore) GenerateRFile(playerSlot int) ([]byte, error) {
+	// Find an R file source for this player slot
+	var sourceFile *FileSource
+	for _, source := range gs.sources {
+		if source.PlayerIndex == playerSlot && source.Type == SourceTypeRFile {
+			sourceFile = source
+			break
+		}
+	}
+
+	if sourceFile == nil {
+		return nil, fmt.Errorf("%w: player slot %d", ErrNoSourceForPlayer, playerSlot)
+	}
+
+	return gs.generateRFileFromSource(sourceFile)
+}
+
 // generateFileFromSource generates a complete file from a source template.
 func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) {
 	writer := NewFileWriter()
@@ -338,6 +357,57 @@ func (gs *GameStore) generateHFileFromSource(source *FileSource) ([]byte, error)
 	return result, nil
 }
 
+// generateRFileFromSource generates an R file (race file) from a source template.
+// Race file structure: FileHeader (16 bytes) + PlayerBlock (encrypted) + FileFooter (2 bytes).
+// The footer is a checksum computed from the decrypted race data.
+func (gs *GameStore) generateRFileFromSource(source *FileSource) ([]byte, error) {
+	writer := NewFileWriter()
+	var result []byte
+
+	header := source.Header
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+
+	// Write file header (not encrypted)
+	result = append(result, writer.WriteHeader(header)...)
+
+	// Initialize encryption for race files: gameId=0, turn=0, playerIndex=31
+	writer.InitEncryption(header.Salt(), 0, 0, 31, 0)
+
+	// Find the PlayerBlock and track decrypted data for footer computation
+	var decryptedPlayerBlockData []byte
+	var singularName, pluralName string
+
+	for _, block := range source.Blocks {
+		typeID := block.BlockTypeID()
+
+		// Skip header and footer
+		if typeID == blocks.FileHeaderBlockType || typeID == blocks.FileFooterBlockType {
+			continue
+		}
+
+		decrypted := block.DecryptedData()
+		result = append(result, writer.WriteEncryptedBlock(typeID, decrypted)...)
+
+		// Capture PlayerBlock data for footer computation
+		if typeID == blocks.PlayerBlockType {
+			decryptedPlayerBlockData = decrypted
+			// Parse race names from PlayerBlock
+			if pb, ok := block.(*blocks.PlayerBlock); ok {
+				singularName = pb.NameSingular
+				pluralName = pb.NamePlural
+			}
+		}
+	}
+
+	// Write file footer with computed race checksum
+	footerData := rFileFooterData(decryptedPlayerBlockData, singularName, pluralName)
+	result = append(result, writer.WriteFooter(true, footerData)...)
+
+	return result, nil
+}
+
 // isCommandBlock returns true if the block type is a command/order block for X files.
 func isCommandBlock(typeID blocks.BlockTypeID) bool {
 	switch typeID {
@@ -378,6 +448,12 @@ func mFileFooterData(header *blocks.FileHeader) uint16 {
 // XY file footer data = PlayerCount (from PlanetsBlock).
 func xyFileFooterData(playerCount uint16) uint16 {
 	return playerCount
+}
+
+// rFileFooterData returns the footer data for an R file (race file).
+// R file footer = ComputeRaceFooter(decrypted PlayerBlock data, singular name, plural name).
+func rFileFooterData(decryptedPlayerBlockData []byte, singularName, pluralName string) uint16 {
+	return ComputeRaceFooter(decryptedPlayerBlockData, singularName, pluralName)
 }
 
 // RegenerateMFile creates a new M file with any modified entities re-encoded.

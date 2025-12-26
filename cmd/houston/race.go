@@ -107,3 +107,84 @@ func addRaceCommand(parser *flags.Parser) {
 		panic(err)
 	}
 }
+
+type racePasswordCommand struct {
+	NoBackup bool `short:"n" long:"no-backup" description:"Don't create backup file"`
+	Args     struct {
+		File string `positional-arg-name:"file" description:"Race file to remove password from" required:"true"`
+	} `positional-args:"yes"`
+}
+
+func (c *racePasswordCommand) Execute(args []string) error {
+	filename := c.Args.File
+
+	// Validate file extension
+	ext := strings.ToLower(filepath.Ext(filename))
+	if len(ext) < 2 || ext[1] != 'r' {
+		return fmt.Errorf("%s does not appear to be a race file", filename)
+	}
+
+	// Read file
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	// Analyze the file first
+	info, err := racefixer.AnalyzeBytes(filename, data)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("File: %s\n", info.Filename)
+	fmt.Printf("Race: %s (%s)\n", info.SingularName, info.PluralName)
+
+	if !info.HasPassword {
+		fmt.Println("This race file does not have a password.")
+		return nil
+	}
+
+	fmt.Println("Password detected in race file.")
+
+	// Create backup before modification
+	if !c.NoBackup {
+		backupFile := filename + ".backup"
+		if err := copyFileRace(filename, backupFile); err != nil {
+			return fmt.Errorf("error creating backup: %w", err)
+		}
+		fmt.Printf("Created backup: %s\n", backupFile)
+	}
+
+	// Remove password
+	repaired, result, err := racefixer.RemovePasswordBytes(data)
+	if err != nil {
+		return fmt.Errorf("error removing password: %w", err)
+	}
+
+	if result != nil {
+		fmt.Printf("Result: %s\n", result.Message)
+	}
+
+	// Write modified data if successful
+	if repaired != nil && result != nil && result.Success && result.PasswordRemoved {
+		if err := os.WriteFile(filename, repaired, 0644); err != nil {
+			return fmt.Errorf("error writing file: %w", err)
+		}
+		fmt.Println("Password removed successfully")
+	}
+
+	return nil
+}
+
+func addRacePasswordCommand(parser *flags.Parser) {
+	_, err := parser.AddCommand("race-password",
+		"Remove password from race files",
+		"Removes the password from a Stars! race file.\n\n"+
+			"This allows the race to be used without entering a password.\n"+
+			"The file checksum is automatically recalculated.\n\n"+
+			"A backup of the original file will be created unless --no-backup is specified.",
+		&racePasswordCommand{})
+	if err != nil {
+		panic(err)
+	}
+}

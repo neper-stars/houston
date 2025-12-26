@@ -17,6 +17,7 @@ const (
 	SourceTypeXFile                  // Orders file (.x*)
 	SourceTypeHFile                  // History file (.h*)
 	SourceTypeXYFile                 // Universe file (.xy)
+	SourceTypeRFile                  // Race file (.r*)
 )
 
 // String returns a human-readable source type name.
@@ -30,6 +31,8 @@ func (t FileSourceType) String() string {
 		return "H-File"
 	case SourceTypeXYFile:
 		return "XY-File"
+	case SourceTypeRFile:
+		return "R-File"
 	default:
 		return "Unknown"
 	}
@@ -57,7 +60,7 @@ func DetectFileType(filename string) FileSourceType {
 		return SourceTypeXYFile
 	}
 
-	// Check for .m*, .x*, .h* patterns
+	// Check for .m*, .x*, .h*, .r* patterns
 	for i := len(lower) - 1; i >= 0; i-- {
 		if lower[i] == '.' {
 			if i+1 < len(lower) {
@@ -68,6 +71,8 @@ func DetectFileType(filename string) FileSourceType {
 					return SourceTypeXFile
 				case 'h':
 					return SourceTypeHFile
+				case 'r':
+					return SourceTypeRFile
 				}
 			}
 			break
