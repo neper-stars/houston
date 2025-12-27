@@ -263,6 +263,15 @@ func (b *SVGBuilder) Wormhole(cx, cy float64) *SVGBuilder {
 	return b.CircleOutline(cx, cy, 5, "purple", 1.5)
 }
 
+// ScannerCoverage adds a semi-transparent scanner coverage circle.
+func (b *SVGBuilder) ScannerCoverage(cx, cy, radius float64, col color.RGBA) *SVGBuilder {
+	// Draw a very faint filled circle for scanner coverage
+	b.elements = append(b.elements, fmt.Sprintf(
+		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.08)" stroke="rgba(%d,%d,%d,0.2)" stroke-width="0.5"/>`,
+		cx, cy, radius, col.R, col.G, col.B, col.R, col.G, col.B))
+	return b
+}
+
 // LegendItem adds a legend entry.
 func (b *SVGBuilder) LegendItem(x, y float64, name string, col color.RGBA) *SVGBuilder {
 	b.Rect(x, y, 10, 10, fmt.Sprintf("rgb(%d,%d,%d)", col.R, col.G, col.B))
@@ -329,11 +338,14 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 func convertRGBAToIntAlpha(s string) string {
 	// Pattern: rgba(R,G,B,0.X) -> rgba(R,G,B,XXX)
 	result := s
+	searchStart := 0
 	for {
-		idx := strings.Index(result, "rgba(")
+		idx := strings.Index(result[searchStart:], "rgba(")
 		if idx == -1 {
 			break
 		}
+		idx += searchStart
+
 		endIdx := strings.Index(result[idx:], ")")
 		if endIdx == -1 {
 			break
@@ -359,12 +371,14 @@ func convertRGBAToIntAlpha(s string) string {
 					strings.TrimSpace(parts[2]),
 					alphaInt)
 				result = result[:idx] + newRGBA + result[endIdx+1:]
+				// Continue searching after the replacement
+				searchStart = idx + len(newRGBA)
 			} else {
-				// Already integer format, skip to next
-				break
+				// Already integer format, continue to next occurrence
+				searchStart = endIdx + 1
 			}
 		} else {
-			break
+			searchStart = endIdx + 1
 		}
 	}
 	return result

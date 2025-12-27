@@ -5,9 +5,8 @@ go 1.25
 require (
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/rs/zerolog v1.34.0
-	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
-	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/stretchr/testify v1.11.1
+	github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67
 )
 
 require (
@@ -24,12 +23,12 @@ require (
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 // indirect
-	github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67 // indirect
 	github.com/tdewolff/font v0.0.0-20250902141222-fb72ecc1bc0a // indirect
 	github.com/tdewolff/minify/v2 v2.24.4 // indirect
 	github.com/tdewolff/parse/v2 v2.8.4 // indirect
@@ -38,7 +37,6 @@ require (
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/knuth v0.5.5 // indirect
 	modernc.org/token v1.1.0 // indirect

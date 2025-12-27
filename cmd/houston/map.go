@@ -12,20 +12,21 @@ import (
 )
 
 type mapCommand struct {
-	Output     string `short:"o" long:"output" description:"Output filename (default: input.png or animation.gif)"`
-	Width      int    `short:"W" long:"width" description:"Image width in pixels" default:"800"`
-	Height     int    `short:"H" long:"height" description:"Image height in pixels" default:"600"`
-	SVG        bool   `short:"s" long:"svg" description:"Output as SVG instead of PNG"`
-	GIF        bool   `short:"g" long:"gif" description:"Create animated GIF from multiple files"`
-	Dir        string `short:"d" long:"dir" description:"Load all M files from directory for animation"`
-	Delay      int    `long:"delay" description:"Delay between frames in milliseconds" default:"1000"`
-	ShowNames  bool   `short:"n" long:"names" description:"Show planet names"`
-	ShowFleets bool   `short:"f" long:"fleets" description:"Show fleet indicators"`
-	FleetPaths int    `short:"p" long:"fleet-paths" description:"Show fleet projected paths (number of years)" default:"0"`
-	ShowMines  bool   `short:"m" long:"mines" description:"Show minefields"`
-	ShowWH     bool   `short:"w" long:"wormholes" description:"Show wormholes"`
-	ShowLegend bool   `short:"l" long:"legend" description:"Show player legend"`
-	Args       struct {
+	Output       string `short:"o" long:"output" description:"Output filename (default: input.png or animation.gif)"`
+	Width        int    `short:"W" long:"width" description:"Image width in pixels" default:"800"`
+	Height       int    `short:"H" long:"height" description:"Image height in pixels" default:"600"`
+	SVG          bool   `short:"s" long:"svg" description:"Output as SVG instead of PNG"`
+	GIF          bool   `short:"g" long:"gif" description:"Create animated GIF from multiple files"`
+	Dir          string `short:"d" long:"dir" description:"Load all M files from directory for animation"`
+	Delay        int    `long:"delay" description:"Delay between frames in milliseconds" default:"1000"`
+	ShowNames    bool   `short:"n" long:"names" description:"Show planet names"`
+	ShowFleets   bool   `short:"f" long:"fleets" description:"Show fleet indicators"`
+	FleetPaths   int    `short:"p" long:"fleet-paths" description:"Show fleet projected paths (number of years)" default:"0"`
+	ShowMines    bool   `short:"m" long:"mines" description:"Show minefields"`
+	ShowWH       bool   `short:"w" long:"wormholes" description:"Show wormholes"`
+	ShowLegend   bool   `short:"l" long:"legend" description:"Show player legend"`
+	ShowScanners bool   `short:"c" long:"scanners" description:"Show scanner coverage circles"`
+	Args         struct {
 		Files []string `positional-arg-name:"file" description:"Stars! game files to render"`
 	} `positional-args:"yes"`
 }
@@ -48,23 +49,30 @@ func (c *mapCommand) Execute(args []string) error {
 	}
 
 	renderOpts := &maprenderer.RenderOptions{
-		Width:          c.Width,
-		Height:         c.Height,
-		ShowNames:      c.ShowNames,
-		ShowFleets:     showFleets,
-		ShowFleetPaths: c.FleetPaths,
-		ShowMines:      c.ShowMines,
-		ShowWormholes:  showWH,
-		ShowLegend:     showLegend,
-		Padding:        20,
+		Width:               c.Width,
+		Height:              c.Height,
+		ShowNames:           c.ShowNames,
+		ShowFleets:          showFleets,
+		ShowFleetPaths:      c.FleetPaths,
+		ShowMines:           c.ShowMines,
+		ShowWormholes:       showWH,
+		ShowLegend:          showLegend,
+		ShowScannerCoverage: c.ShowScanners,
+		Padding:             20,
 	}
 
-	// Determine if we're creating a GIF
-	createGIF := c.GIF || c.Dir != "" || len(c.Args.Files) > 1
-
-	if createGIF {
+	// Determine if we're creating a GIF or a single merged image
+	// -s (SVG) or -g (GIF) are explicit format requests
+	// Multiple files without explicit format creates a GIF animation
+	// Multiple files with -s creates a single merged SVG/PNG
+	if c.GIF || c.Dir != "" {
 		return c.createAnimation(renderOpts)
 	}
+	if len(c.Args.Files) > 1 && !c.SVG {
+		// Multiple files without -s flag: create animation
+		return c.createAnimation(renderOpts)
+	}
+	// Single file, or multiple files with -s: create single merged image
 	return c.createSingleImage(renderOpts)
 }
 
@@ -73,25 +81,28 @@ func (c *mapCommand) createSingleImage(renderOpts *maprenderer.RenderOptions) er
 		return fmt.Errorf("no input file specified")
 	}
 
-	filename := c.Args.Files[0]
 	renderer := maprenderer.New()
 
-	// Use LoadFileWithXY to automatically load companion XY file for M/H files
-	if err := renderer.LoadFileWithXY(filename); err != nil {
-		return fmt.Errorf("failed to load %s: %w", filename, err)
+	// Load all files into the same renderer (merging data)
+	for _, filename := range c.Args.Files {
+		fmt.Printf("Loading %s...\n", filename)
+		// Use LoadFileWithXY to automatically load companion XY file for M/H files
+		if err := renderer.LoadFileWithXY(filename); err != nil {
+			return fmt.Errorf("failed to load %s: %w", filename, err)
+		}
 	}
 
 	output := c.Output
 	if c.SVG {
 		if output == "" {
-			output = filename + ".svg"
+			output = c.Args.Files[0] + ".svg"
 		}
 		if err := renderer.SaveSVG(output, renderOpts); err != nil {
 			return fmt.Errorf("failed to save SVG: %w", err)
 		}
 	} else {
 		if output == "" {
-			output = filename + ".png"
+			output = c.Args.Files[0] + ".png"
 		}
 		if err := renderer.SavePNG(output, renderOpts); err != nil {
 			return fmt.Errorf("failed to save PNG: %w", err)

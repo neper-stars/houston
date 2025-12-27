@@ -31,6 +31,8 @@ import (
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/data"
 	"github.com/neper-stars/houston/store"
 )
 
@@ -45,15 +47,16 @@ type Renderer struct {
 
 // RenderOptions controls how the map is rendered.
 type RenderOptions struct {
-	Width          int  // Image width in pixels (default: 800)
-	Height         int  // Image height in pixels (default: 600)
-	ShowNames      bool // Show planet names
-	ShowFleets     bool // Show fleet indicators
-	ShowFleetPaths int  // Show fleet projected paths (0=off, N=years to project)
-	ShowMines      bool // Show minefields
-	ShowWormholes  bool // Show wormholes
-	ShowLegend     bool // Show player legend
-	Padding        int  // Padding around the galaxy (default: 20)
+	Width               int  // Image width in pixels (default: 800)
+	Height              int  // Image height in pixels (default: 600)
+	ShowNames           bool // Show planet names
+	ShowFleets          bool // Show fleet indicators
+	ShowFleetPaths      int  // Show fleet projected paths (0=off, N=years to project)
+	ShowMines           bool // Show minefields
+	ShowWormholes       bool // Show wormholes
+	ShowLegend          bool // Show player legend
+	ShowScannerCoverage bool // Show scanner coverage circles
+	Padding             int  // Padding around the galaxy (default: 20)
 }
 
 // DefaultOptions returns default rendering options.
@@ -508,9 +511,68 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 		}
 	}
 
+	// Draw scanner coverage (very early so it's behind everything else)
+	// Normal scanner range shown in player color, penetrating range shown in yellow
+	if opts.ShowScannerCoverage {
+		yellowPen := color.RGBA{255, 255, 0, 255} // Yellow for penetrating scanners
+
+		// Draw planet scanner coverage first (typically larger circles)
+		for _, planet := range r.store.AllPlanets() {
+			if planet.Owner >= 0 && planet.HasScanner {
+				px, py := transform(planet.X, planet.Y)
+				col := r.GetPlayerColor(planet.Owner)
+
+				// Get scanner ranges based on owner's electronics tech level
+				normalRange, penRange := r.getPlanetScannerRanges(planet.Owner)
+
+				// Draw normal range in player color (outer circle)
+				if normalRange > 0 {
+					svg.ScannerCoverage(px, py, float64(normalRange)*scale, col)
+				}
+				// Draw penetrating range in yellow (inner circle, always <= normal)
+				if penRange > 0 {
+					svg.ScannerCoverage(px, py, float64(penRange)*scale, yellowPen)
+				}
+			}
+		}
+
+		// Draw fleet scanner coverage
+		for _, fleet := range r.store.AllFleets() {
+			px, py := transform(fleet.X, fleet.Y)
+			col := r.GetPlayerColor(fleet.Owner)
+
+			// Get best scanner ranges (combining intrinsic and equipped)
+			normalRange, penRange := r.getFleetScannerRanges(fleet)
+
+			// Draw normal range in player color (outer circle)
+			if normalRange > 0 {
+				svg.ScannerCoverage(px, py, float64(normalRange)*scale, col)
+			}
+			// Draw penetrating range in yellow (inner circle, always <= normal)
+			if penRange > 0 {
+				svg.ScannerCoverage(px, py, float64(penRange)*scale, yellowPen)
+			}
+		}
+	}
+
 	// Draw wormholes
 	if opts.ShowWormholes {
-		for _, wh := range r.store.Wormholes() {
+		wormholes := r.store.Wormholes()
+		// Build lookup map for wormhole connections
+		whByID := make(map[int]*store.ObjectEntity)
+		for _, wh := range wormholes {
+			whByID[wh.WormholeId] = wh
+		}
+		// Draw connection lines first (so wormhole circles appear on top)
+		for _, wh := range wormholes {
+			if target, ok := whByID[wh.TargetId]; ok {
+				px, py := transform(wh.X, wh.Y)
+				tx, ty := transform(target.X, target.Y)
+				svg.Line(px, py, tx, ty, "rgba(255,0,255,0.5)", 1)
+			}
+		}
+		// Draw wormhole circles
+		for _, wh := range wormholes {
 			px, py := transform(wh.X, wh.Y)
 			svg.Wormhole(px, py)
 		}
@@ -1225,6 +1287,165 @@ func drawPattern(img *image.RGBA, x, y int, pattern [5][3]bool, col color.RGBA) 
 			}
 		}
 	}
+}
+
+// Scanner coverage helpers
+
+// getFleetIntrinsicScannerRange returns the intrinsic scanner range for JoAT players.
+// JoAT ships have built-in scanners that scale with Electronics level.
+func (r *Renderer) getFleetIntrinsicScannerRange(fleet *store.FleetEntity) int {
+	if player, ok := r.store.Player(fleet.Owner); ok {
+		if player.PRT == blocks.PRTJackOfAllTrades {
+			intrinsic := data.JoATIntrinsicScanner(player.Tech.Electronics)
+			return intrinsic.NormalRange
+		}
+	}
+	return 0
+}
+
+// getFleetEquippedScannerRange returns the best equipped scanner range among all designs in a fleet.
+func (r *Renderer) getFleetEquippedScannerRange(fleet *store.FleetEntity) int {
+	bestRange := 0
+
+	// Iterate through all design slots used by the fleet
+	for i := 0; i < 16; i++ {
+		if (fleet.ShipTypes & (1 << i)) != 0 {
+			// This design slot is used
+			if design, ok := r.store.Design(fleet.Owner, i); ok {
+				// Get scanner range from this design's components
+				scanRange := r.getScannerRangeFromDesign(design)
+				if scanRange > bestRange {
+					bestRange = scanRange
+				}
+			}
+		}
+	}
+
+	return bestRange
+}
+
+// getFleetScannerRange returns the best scanner range among all designs in a fleet.
+// For JoAT players, includes intrinsic scanners that scale with Electronics level.
+func (r *Renderer) getFleetScannerRange(fleet *store.FleetEntity) int {
+	intrinsic := r.getFleetIntrinsicScannerRange(fleet)
+	equipped := r.getFleetEquippedScannerRange(fleet)
+	if intrinsic > equipped {
+		return intrinsic
+	}
+	return equipped
+}
+
+// getScannerRangeFromDesign extracts the best scanner range from a design's component slots.
+func (r *Renderer) getScannerRangeFromDesign(de *store.DesignEntity) int {
+	normal, _ := r.getScannerRangesFromDesign(de)
+	return normal
+}
+
+// getScannerRangesFromDesign extracts the best normal and penetrating scanner ranges from a design.
+func (r *Renderer) getScannerRangesFromDesign(de *store.DesignEntity) (normal, penetrating int) {
+	if de == nil {
+		return 0, 0
+	}
+
+	bestNormal := 0
+	bestPen := 0
+
+	// Get raw blocks and look for DesignBlock
+	for _, block := range de.RawBlocks() {
+		// Type assert to DesignBlock to access slots
+		if db, ok := block.(*blocks.DesignBlock); ok {
+			// Check each slot for scanner components
+			for _, slot := range db.Slots {
+				// Category 12 (0x1000 in bitmask) = Scanner
+				if slot.Category == 0x1000 || slot.Category == 4096 {
+					if stats, ok := data.ShipScannerStats[slot.ItemId]; ok {
+						if stats.NormalRange > bestNormal {
+							bestNormal = stats.NormalRange
+						}
+						if stats.PenetratingRange > bestPen {
+							bestPen = stats.PenetratingRange
+						}
+					}
+				}
+			}
+		} else if db, ok := block.(blocks.DesignBlock); ok {
+			// Handle non-pointer case
+			for _, slot := range db.Slots {
+				if slot.Category == 0x1000 || slot.Category == 4096 {
+					if stats, ok := data.ShipScannerStats[slot.ItemId]; ok {
+						if stats.NormalRange > bestNormal {
+							bestNormal = stats.NormalRange
+						}
+						if stats.PenetratingRange > bestPen {
+							bestPen = stats.PenetratingRange
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return bestNormal, bestPen
+}
+
+// DefaultPlanetScannerRange is the default scanner range for planets with scanners.
+// In Stars!, the minimum planetary scanner is Viewer 50.
+const DefaultPlanetScannerRange = 50
+
+// getPlanetScannerRange returns the planetary scanner range for a player
+// based on their electronics tech level.
+func (r *Renderer) getPlanetScannerRange(owner int) int {
+	player, ok := r.store.Player(owner)
+	if !ok {
+		return DefaultPlanetScannerRange
+	}
+
+	stats, _ := data.GetBestPlanetaryScanner(player.Tech.Electronics)
+	return stats.NormalRange
+}
+
+// getPlanetScannerRanges returns the normal and penetrating scanner ranges for a planet.
+func (r *Renderer) getPlanetScannerRanges(owner int) (normal, penetrating int) {
+	player, ok := r.store.Player(owner)
+	if !ok {
+		return DefaultPlanetScannerRange, 0
+	}
+
+	stats, _ := data.GetBestPlanetaryScanner(player.Tech.Electronics)
+	return stats.NormalRange, stats.PenetratingRange
+}
+
+// getFleetScannerRanges returns the best normal and penetrating scanner ranges for a fleet.
+// Combines intrinsic JoAT scanners with equipped scanners.
+func (r *Renderer) getFleetScannerRanges(fleet *store.FleetEntity) (normal, penetrating int) {
+	bestNormal := 0
+	bestPen := 0
+
+	// Check if owner is JoAT - they get intrinsic scanners on all ships
+	if player, ok := r.store.Player(fleet.Owner); ok {
+		if player.PRT == blocks.PRTJackOfAllTrades {
+			intrinsic := data.JoATIntrinsicScanner(player.Tech.Electronics)
+			bestNormal = intrinsic.NormalRange
+			bestPen = intrinsic.PenetratingRange
+		}
+	}
+
+	// Check equipped scanners on all ship designs in the fleet
+	for i := 0; i < 16; i++ {
+		if (fleet.ShipTypes & (1 << i)) != 0 {
+			if design, ok := r.store.Design(fleet.Owner, i); ok {
+				eqNormal, eqPen := r.getScannerRangesFromDesign(design)
+				if eqNormal > bestNormal {
+					bestNormal = eqNormal
+				}
+				if eqPen > bestPen {
+					bestPen = eqPen
+				}
+			}
+		}
+	}
+
+	return bestNormal, bestPen
 }
 
 // drawMinefieldCloud draws a minefield with diagonal line hatching

@@ -2,6 +2,16 @@ package store
 
 import "github.com/neper-stars/houston/blocks"
 
+// TechLevels holds all six technology field levels for a player.
+type TechLevels struct {
+	Energy       int
+	Weapons      int
+	Propulsion   int
+	Construction int
+	Electronics  int
+	Biotech      int
+}
+
 // PlayerEntity represents a player in the game.
 type PlayerEntity struct {
 	meta EntityMeta
@@ -21,8 +31,10 @@ type PlayerEntity struct {
 	FleetCount          int
 
 	// Race info (if full data available)
-	GrowthRate   int
-	HasFullData  bool
+	GrowthRate  int
+	HasFullData bool
+	Tech        TechLevels // Current tech levels
+	PRT         int        // Primary Race Trait (0-9, see blocks.PRT* constants)
 
 	// Diplomatic relations (from file owner's perspective)
 	PlayerRelations []byte
@@ -81,8 +93,17 @@ func newPlayerEntityFromBlock(pb *blocks.PlayerBlock, source *FileSource) *Playe
 		FleetCount:          pb.Fleets,
 		GrowthRate:          pb.GrowthRate,
 		HasFullData:         pb.FullDataFlag,
-		PlayerRelations:     pb.PlayerRelations,
-		playerBlock:         pb,
+		Tech: TechLevels{
+			Energy:       pb.Tech.Energy,
+			Weapons:      pb.Tech.Weapons,
+			Propulsion:   pb.Tech.Propulsion,
+			Construction: pb.Tech.Construction,
+			Electronics:  pb.Tech.Electronics,
+			Biotech:      pb.Tech.Biotech,
+		},
+		PRT:             pb.PRT,
+		PlayerRelations: pb.PlayerRelations,
+		playerBlock:     pb,
 	}
 	entity.meta.AddSource(source)
 	return entity
