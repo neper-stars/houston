@@ -516,42 +516,83 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 	if opts.ShowScannerCoverage {
 		yellowPen := color.RGBA{255, 255, 0, 255} // Yellow for penetrating scanners
 
-		// Draw planet scanner coverage first (typically larger circles)
+		// Collect all scanner circles (we'll filter out contained ones)
+		type scannerCircle struct {
+			x, y   int // Game coordinates (not transformed)
+			radius int // Range in ly
+			owner  int
+		}
+		var normalScanners, penScanners []scannerCircle
+
+		// Collect planet scanners
 		for _, planet := range r.store.AllPlanets() {
 			if planet.Owner >= 0 && planet.HasScanner {
-				px, py := transform(planet.X, planet.Y)
-				col := r.GetPlayerColor(planet.Owner)
-
-				// Get scanner ranges based on owner's electronics tech level
 				normalRange, penRange := r.getPlanetScannerRanges(planet.Owner)
-
-				// Draw normal range in player color (outer circle)
 				if normalRange > 0 {
-					svg.ScannerCoverage(px, py, float64(normalRange)*scale, col)
+					normalScanners = append(normalScanners, scannerCircle{planet.X, planet.Y, normalRange, planet.Owner})
 				}
-				// Draw penetrating range in yellow (inner circle, always <= normal)
 				if penRange > 0 {
-					svg.ScannerCoverage(px, py, float64(penRange)*scale, yellowPen)
+					penScanners = append(penScanners, scannerCircle{planet.X, planet.Y, penRange, planet.Owner})
 				}
 			}
 		}
 
-		// Draw fleet scanner coverage
+		// Collect fleet scanners
 		for _, fleet := range r.store.AllFleets() {
-			px, py := transform(fleet.X, fleet.Y)
-			col := r.GetPlayerColor(fleet.Owner)
-
-			// Get best scanner ranges (combining intrinsic and equipped)
 			normalRange, penRange := r.getFleetScannerRanges(fleet)
-
-			// Draw normal range in player color (outer circle)
 			if normalRange > 0 {
-				svg.ScannerCoverage(px, py, float64(normalRange)*scale, col)
+				normalScanners = append(normalScanners, scannerCircle{fleet.X, fleet.Y, normalRange, fleet.Owner})
 			}
-			// Draw penetrating range in yellow (inner circle, always <= normal)
 			if penRange > 0 {
-				svg.ScannerCoverage(px, py, float64(penRange)*scale, yellowPen)
+				penScanners = append(penScanners, scannerCircle{fleet.X, fleet.Y, penRange, fleet.Owner})
 			}
+		}
+
+		// Helper to check if circle A is contained in circle B
+		// A is contained in B if: distance(A, B) + radiusA <= radiusB
+		isContained := func(a, b scannerCircle) bool {
+			if a.owner != b.owner {
+				return false // Only friendly scanners can contain each other
+			}
+			dx := float64(a.x - b.x)
+			dy := float64(a.y - b.y)
+			dist := math.Sqrt(dx*dx + dy*dy)
+			return dist+float64(a.radius) <= float64(b.radius)
+		}
+
+		// Filter function: returns scanners not contained in any other friendly scanner
+		filterContained := func(scanners []scannerCircle) []scannerCircle {
+			var result []scannerCircle
+			for i, s := range scanners {
+				contained := false
+				for j, other := range scanners {
+					if i != j && isContained(s, other) {
+						contained = true
+						break
+					}
+				}
+				if !contained {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+
+		// Filter out contained scanners
+		normalScanners = filterContained(normalScanners)
+		penScanners = filterContained(penScanners)
+
+		// Draw normal scanners in player color
+		for _, s := range normalScanners {
+			px, py := transform(s.x, s.y)
+			col := r.GetPlayerColor(s.owner)
+			svg.ScannerCoverage(px, py, float64(s.radius)*scale, col)
+		}
+
+		// Draw penetrating scanners in yellow
+		for _, s := range penScanners {
+			px, py := transform(s.x, s.y)
+			svg.ScannerCoverage(px, py, float64(s.radius)*scale, yellowPen)
 		}
 	}
 
