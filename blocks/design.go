@@ -6,10 +6,30 @@ import (
 
 // DesignSlot represents a component slot in a ship/starbase design
 type DesignSlot struct {
-	Category uint16 // Tech category bitmask
+	Category uint16 // Slot category (see SlotCategory* constants)
 	ItemId   int    // Item within category
 	Count    int    // Quantity installed
 }
+
+// ItemCategory constants for DesignSlot.Category field.
+// These indicate the type of item equipped in the slot.
+// ItemId is 0-indexed within each category.
+const (
+	ItemCategoryEmpty      uint16 = 0x0000
+	ItemCategoryEngine     uint16 = 0x0001
+	ItemCategoryScanner    uint16 = 0x0002
+	ItemCategoryShield     uint16 = 0x0004
+	ItemCategoryArmor      uint16 = 0x0008
+	ItemCategoryBeamWeapon uint16 = 0x0010
+	ItemCategoryTorpedo    uint16 = 0x0020
+	ItemCategoryBomb       uint16 = 0x0040
+	ItemCategoryMiningRobot uint16 = 0x0080
+	ItemCategoryMineLayer  uint16 = 0x0100
+	ItemCategoryOrbital    uint16 = 0x0200
+	ItemCategoryPlanetary  uint16 = 0x0400
+	ItemCategoryElectrical uint16 = 0x0800
+	ItemCategoryMechanical uint16 = 0x1000
+)
 
 // DesignBlock represents a ship or starbase design (Type 26)
 type DesignBlock struct {

@@ -1378,8 +1378,10 @@ func (r *Renderer) getFleetScannerRange(fleet *store.FleetEntity) int {
 
 // getScannerRangeFromDesign extracts the best scanner range from a design's component slots.
 func (r *Renderer) getScannerRangeFromDesign(de *store.DesignEntity) int {
-	normal, _ := r.getScannerRangesFromDesign(de)
-	return normal
+	if de == nil {
+		return 0
+	}
+	return de.GetNormalScannerRange()
 }
 
 // getScannerRangesFromDesign extracts the best normal and penetrating scanner ranges from a design.
@@ -1387,46 +1389,7 @@ func (r *Renderer) getScannerRangesFromDesign(de *store.DesignEntity) (normal, p
 	if de == nil {
 		return 0, 0
 	}
-
-	bestNormal := 0
-	bestPen := 0
-
-	// Get raw blocks and look for DesignBlock
-	for _, block := range de.RawBlocks() {
-		// Type assert to DesignBlock to access slots
-		if db, ok := block.(*blocks.DesignBlock); ok {
-			// Check each slot for scanner components
-			for _, slot := range db.Slots {
-				// Category 12 (0x1000 in bitmask) = Scanner
-				if slot.Category == 0x1000 || slot.Category == 4096 {
-					if stats, ok := data.ShipScannerStats[slot.ItemId]; ok {
-						if stats.NormalRange > bestNormal {
-							bestNormal = stats.NormalRange
-						}
-						if stats.PenetratingRange > bestPen {
-							bestPen = stats.PenetratingRange
-						}
-					}
-				}
-			}
-		} else if db, ok := block.(blocks.DesignBlock); ok {
-			// Handle non-pointer case
-			for _, slot := range db.Slots {
-				if slot.Category == 0x1000 || slot.Category == 4096 {
-					if stats, ok := data.ShipScannerStats[slot.ItemId]; ok {
-						if stats.NormalRange > bestNormal {
-							bestNormal = stats.NormalRange
-						}
-						if stats.PenetratingRange > bestPen {
-							bestPen = stats.PenetratingRange
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return bestNormal, bestPen
+	return de.GetScannerRanges()
 }
 
 // DefaultPlanetScannerRange is the default scanner range for planets with scanners.
@@ -1457,30 +1420,42 @@ func (r *Renderer) getPlanetScannerRanges(owner int) (normal, penetrating int) {
 }
 
 // getFleetScannerRanges returns the best normal and penetrating scanner ranges for a fleet.
-// Combines intrinsic JoAT scanners with equipped scanners.
+// For JoAT:
+// - Scouts/Destroyers use INTRINSIC scanners only (ignore equipped scanners for display)
+// - Other ships use EQUIPPED scanners only (no intrinsic)
+// For non-JoAT: all ships use equipped scanners only.
 func (r *Renderer) getFleetScannerRanges(fleet *store.FleetEntity) (normal, penetrating int) {
 	bestNormal := 0
 	bestPen := 0
 
-	// Check if owner is JoAT - they get intrinsic scanners on all ships
-	if player, ok := r.store.Player(fleet.Owner); ok {
-		if player.PRT == blocks.PRTJackOfAllTrades {
-			intrinsic := data.JoATIntrinsicScanner(player.Tech.Electronics)
-			bestNormal = intrinsic.NormalRange
-			bestPen = intrinsic.PenetratingRange
-		}
+	// Get player info for JoAT check
+	player, isJoAT := r.store.Player(fleet.Owner)
+	if isJoAT {
+		isJoAT = player.PRT == blocks.PRTJackOfAllTrades
 	}
 
-	// Check equipped scanners on all ship designs in the fleet
+	// Check each ship design in the fleet
 	for i := 0; i < 16; i++ {
 		if (fleet.ShipTypes & (1 << i)) != 0 {
 			if design, ok := r.store.Design(fleet.Owner, i); ok {
-				eqNormal, eqPen := r.getScannerRangesFromDesign(design)
-				if eqNormal > bestNormal {
-					bestNormal = eqNormal
-				}
-				if eqPen > bestPen {
-					bestPen = eqPen
+				if isJoAT && data.JoATHasIntrinsicScanner(design.HullId) {
+					// JoAT Scouts/Destroyers: use intrinsic scanner only
+					intrinsic := data.JoATIntrinsicScanner(player.Tech.Electronics)
+					if intrinsic.NormalRange > bestNormal {
+						bestNormal = intrinsic.NormalRange
+					}
+					if intrinsic.PenetratingRange > bestPen {
+						bestPen = intrinsic.PenetratingRange
+					}
+				} else {
+					// Non-JoAT or non-Scout/Destroyer: use equipped scanner only
+					eqNormal, eqPen := r.getScannerRangesFromDesign(design)
+					if eqNormal > bestNormal {
+						bestNormal = eqNormal
+					}
+					if eqPen > bestPen {
+						bestPen = eqPen
+					}
 				}
 			}
 		}
