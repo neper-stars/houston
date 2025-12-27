@@ -1455,3 +1455,61 @@ Stars! serial numbers use base-36 encoding (A-Z = 0-25, 0-9 = 26-35).
 | 44 | RenameFleetBlock | |
 | 45 | PlayerScoresBlock | Victory condition tracking |
 | 46 | SaveAndSubmitBlock | Turn submission |
+
+---
+
+## Design Slot Item Categories
+
+In DesignBlock (Type 26) and DesignChangeBlock (Type 27), each slot is encoded as 4 bytes:
+
+```
+CC CC II NN
+└───┘ │  └── Count (number of items)
+  │   └───── ItemId (0-indexed within category)
+  └───────── Category (16-bit LE, item type)
+```
+
+The Category field indicates the **type of item equipped** in the slot, not the hull's slot definition:
+
+| Value | Category | Description |
+|-------|----------|-------------|
+| 0x0000 | Empty | No item equipped |
+| 0x0001 | Engine | Engines (Trans-Star 10, NHRS, Galaxy, etc.) |
+| 0x0002 | Scanner | Ship scanners (Bat, Rhino, Mole, Possum, etc.) |
+| 0x0004 | Shield | Shields (Mole-skin, Cow-hide, Bear, Gorilla, etc.) |
+| 0x0008 | Armor | Armor (Tritanium, Kelarium, Neutronium, etc.) |
+| 0x0010 | BeamWeapon | Beam weapons (Laser, X-Ray, Phaser, etc.) |
+| 0x0020 | Torpedo | Torpedoes (Alpha, Beta, Delta, Omega, etc.) |
+| 0x0040 | Bomb | Bombs (LadyFinger, M-70, Smart, etc.) |
+| 0x0080 | MiningRobot | Mining robots (Midget, Mini, Maxi, etc.) |
+| 0x0100 | MineLayer | Mine layers (Mine40, Heavy50, Speed20, etc.) |
+| 0x0200 | Orbital | Orbital devices (Stargates, Mass Drivers) |
+| 0x0400 | Planetary | Planetary scanners (Viewer, Scoper, Snooper) |
+| 0x0800 | Electrical | Electrical devices (Cloaks, Jammers, Capacitors) |
+| 0x1000 | Mechanical | Mechanical devices (Cargo Pod, Fuel Tank, Colonization Module) |
+
+### ItemId Indexing
+
+ItemId is **0-indexed** within each category. To convert to game constants (which are typically 1-indexed), add 1:
+
+```
+scannerConstant = slot.ItemId + 1
+```
+
+**Example**: A slot with `Category=0x0002, ItemId=1, Count=1` means:
+- Category 0x0002 = Scanner
+- ItemId 1 → Scanner constant 2 = Rhino Scanner
+- Count 1 = One scanner equipped
+
+### Scanner Detection Example
+
+```go
+for _, slot := range design.Slots {
+    if slot.Category == ItemCategoryScanner && slot.Count > 0 {
+        scannerID := slot.ItemId + 1  // Convert 0-indexed to 1-indexed
+        stats := ShipScannerStats[scannerID]
+        // Use stats.NormalRange, stats.PenetratingRange
+    }
+}
+```
+
