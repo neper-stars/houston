@@ -245,7 +245,8 @@ func newFleetEntityFromBlock(fb *blocks.PartialFleetBlock, source *FileSource) *
 		ironium:          fb.Ironium,
 		boranium:         fb.Boranium,
 		germanium:        fb.Germanium,
-		population:       fb.Population,
+		// Population in Stars! files is stored in 100s of colonists
+		population:       fb.Population * 100,
 		fuel:             fb.Fuel,
 		DeltaX:           fb.DeltaX,
 		DeltaY:           fb.DeltaY,
@@ -270,4 +271,107 @@ func getPrimaryDesignSlot(shipTypes uint16) int {
 		}
 	}
 	return -1
+}
+
+// GetDesigns returns all designs present in this fleet, with their ship counts.
+// Returns a map of design slot -> (design, count). Requires GameStore to look up designs.
+func (f *FleetEntity) GetDesigns(gs *GameStore) map[int]struct {
+	Design *DesignEntity
+	Count  int
+} {
+	result := make(map[int]struct {
+		Design *DesignEntity
+		Count  int
+	})
+
+	for i := 0; i < 16; i++ {
+		if (f.ShipTypes & (1 << i)) != 0 {
+			count := f.ShipCounts[i]
+			if count > 0 {
+				design, ok := gs.Design(f.Owner, i)
+				if ok {
+					result[i] = struct {
+						Design *DesignEntity
+						Count  int
+					}{design, count}
+				}
+			}
+		}
+	}
+	return result
+}
+
+// GetTotalMass returns the total mass of the fleet including cargo.
+// Requires GameStore to look up design masses from hulls.
+func (f *FleetEntity) GetTotalMass(gs *GameStore) int64 {
+	// If we have Mass from the block, use that
+	if f.Mass > 0 {
+		return f.Mass
+	}
+
+	// Otherwise calculate from designs
+	var total int64
+	designs := f.GetDesigns(gs)
+	for _, info := range designs {
+		if info.Design != nil {
+			hull := info.Design.Hull()
+			if hull != nil {
+				total += int64(hull.Mass) * int64(info.Count)
+			}
+		}
+	}
+
+	// Add cargo mass (minerals + population)
+	total += f.ironium + f.boranium + f.germanium
+	// Population mass: 1 kT per 100 colonists
+	total += f.population / 100
+
+	return total
+}
+
+// GetFleetScannerRanges returns the best scanner ranges from all ships in the fleet.
+// Returns (normal, penetrating) ranges.
+func (f *FleetEntity) GetFleetScannerRanges(gs *GameStore) (int, int) {
+	bestNormal := 0
+	bestPen := 0
+
+	designs := f.GetDesigns(gs)
+	for _, info := range designs {
+		if info.Design != nil && info.Count > 0 {
+			normal, pen := info.Design.GetScannerRanges()
+			if normal > bestNormal {
+				bestNormal = normal
+			}
+			if pen > bestPen {
+				bestPen = pen
+			}
+		}
+	}
+	return bestNormal, bestPen
+}
+
+// GetFleetTachyonCount returns the total number of Tachyon Detectors in the fleet.
+func (f *FleetEntity) GetFleetTachyonCount(gs *GameStore) int {
+	total := 0
+	designs := f.GetDesigns(gs)
+	for _, info := range designs {
+		if info.Design != nil {
+			total += info.Design.GetTachyonCount() * info.Count
+		}
+	}
+	return total
+}
+
+// GetFleetCloakUnits returns the total cloaking units for the fleet.
+// This is the sum of (ship_cloak_units × ship_count) for all ships in the fleet.
+func (f *FleetEntity) GetFleetCloakUnits(gs *GameStore) int {
+	total := 0
+	designs := f.GetDesigns(gs)
+	for _, info := range designs {
+		if info.Design != nil {
+			cloakUnits := info.Design.GetCloakPercent()
+			total += cloakUnits * info.Count
+		}
+	}
+	return total
 }

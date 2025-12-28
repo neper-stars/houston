@@ -148,7 +148,8 @@ func newPlanetEntityFromBlock(pb *blocks.PartialPlanetBlock, source *FileSource)
 		Defenses:   pb.Defenses,
 		ExcessPop:  pb.ExcessPop,
 		HasScanner: pb.HasScanner,
-		Population: pb.Population,
+		// Population in Stars! files is stored in 100s of colonists
+		Population: pb.Population * 100,
 		StarbaseDesign:  pb.StarbaseDesign,
 		RouteTarget:     pb.RouteTarget,
 		planetBlock:     pb,

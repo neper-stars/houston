@@ -183,13 +183,13 @@ func (d *DesignEntity) ItemsByCategory(category uint16) []EquippedItem {
 	return items
 }
 
-// GetCloakPercent returns the total cloaking percentage for this design.
-// Cloaking is calculated as: 100% - (100% / (cloak1% * cloak2% * ...))
-// For a single 70% cloak: 100 - (100/70) = ~98.6% visible = ~1.4% cloaked... wait
-// Actually in Stars!, cloaking percentages stack multiplicatively on visibility.
-// A 70% cloak means 30% visible. Two 70% cloaks = 30% * 30% = 9% visible.
-// The CloakPercent in data is the raw percentage value from the item.
-// Transport Cloaking (300%) only works on freighters.
+// GetCloakPercent returns the total cloaking units for this design.
+// Cloaking sources include:
+// - Electrical: Transport Cloaking (300, freighters only), Stealth (70), Super-Stealth (140), Ultra-Stealth (540)
+// - Shields: Shadow Shield (70)
+// - Armor: Depleted Neutronium (50)
+// - Scanners: Chameleon Scanner (40)
+// The returned value is "cloak units" which get weighted by ship mass in fleet calculations.
 func (d *DesignEntity) GetCloakPercent() int {
 	if d.designBlock == nil {
 		return 0
@@ -199,23 +199,43 @@ func (d *DesignEntity) GetCloakPercent() int {
 	isFreighter := d.isFreighterHull()
 
 	for _, slot := range d.designBlock.Slots {
-		if slot.Count == 0 || slot.Category != blocks.ItemCategoryElectrical {
+		if slot.Count == 0 {
 			continue
 		}
 
 		itemID := slot.ItemId + 1
-		elec := data.GetElectrical(itemID)
-		if elec == nil || elec.CloakPercent == 0 {
-			continue
-		}
+		count := int(slot.Count)
 
-		// Transport Cloaking only works on freighter hulls
-		if itemID == data.ElecTransportCloaking && !isFreighter {
-			continue
-		}
+		switch slot.Category {
+		case blocks.ItemCategoryElectrical:
+			elec := data.GetElectrical(itemID)
+			if elec == nil || elec.CloakPercent == 0 {
+				continue
+			}
+			// Transport Cloaking only works on freighter hulls
+			if itemID == data.ElecTransportCloaking && !isFreighter {
+				continue
+			}
+			totalCloak += elec.CloakPercent * count
 
-		// Sum up cloaking percentages (game applies them multiplicatively to visibility)
-		totalCloak += elec.CloakPercent * int(slot.Count)
+		case blocks.ItemCategoryShield:
+			shield := data.GetShield(itemID)
+			if shield != nil && shield.CloakPercent > 0 {
+				totalCloak += shield.CloakPercent * count
+			}
+
+		case blocks.ItemCategoryArmor:
+			armor := data.GetArmor(itemID)
+			if armor != nil && armor.CloakPercent > 0 {
+				totalCloak += armor.CloakPercent * count
+			}
+
+		case blocks.ItemCategoryScanner:
+			scanner := data.GetScanner(itemID)
+			if scanner != nil && scanner.CloakPercent > 0 {
+				totalCloak += scanner.CloakPercent * count
+			}
+		}
 	}
 
 	return totalCloak
@@ -234,6 +254,28 @@ func (d *DesignEntity) isFreighterHull() bool {
 // HasCloak returns true if this design has any cloaking device.
 func (d *DesignEntity) HasCloak() bool {
 	return d.GetCloakPercent() > 0
+}
+
+// GetTachyonCount returns the number of Tachyon Detectors equipped on this design.
+// Tachyon Detectors reduce the effective cloaking of enemy fleets.
+func (d *DesignEntity) GetTachyonCount() int {
+	if d.designBlock == nil {
+		return 0
+	}
+
+	for _, slot := range d.designBlock.Slots {
+		if slot.Count > 0 && slot.Category == blocks.ItemCategoryElectrical {
+			if slot.ItemId+1 == data.ElecTachyonDetector {
+				return int(slot.Count)
+			}
+		}
+	}
+	return 0
+}
+
+// HasTachyonDetector returns true if this design has any Tachyon Detectors.
+func (d *DesignEntity) HasTachyonDetector() bool {
+	return d.GetTachyonCount() > 0
 }
 
 // GetMinesweepRate returns the total minesweeping rate for this design.

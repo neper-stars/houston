@@ -159,6 +159,7 @@ type Scanner struct {
 	NormalRange      int  // Normal scanning range in light-years
 	PenetratingRange int  // Penetrating scanning range in light-years
 	StealsCargo      bool // Can detect enemy cargo (Pick Pocket, Robber Baron)
+	CloakPercent     int  // Cloaking percentage (for Chameleon Scanner)
 }
 
 // Scanners contains all ship scanner definitions.
@@ -196,7 +197,7 @@ var Scanners = map[int]*Scanner{
 	ScannerChameleon: {
 		ID: ScannerChameleon, Name: "Chameleon Scanner",
 		Tech: TechRequirements{Energy: 3, Electronics: 6}, Mass: 6, Cost: Cost{25, 4, 6, 4},
-		NormalRange: 160, PenetratingRange: 45,
+		NormalRange: 160, PenetratingRange: 45, CloakPercent: 40,
 	},
 	ScannerFerret: {
 		ID: ScannerFerret, Name: "Ferret Scanner",
@@ -880,13 +881,14 @@ var Engines = map[int]*Engine{
 
 // Shield represents a shield with its stats
 type Shield struct {
-	ID          int
-	Name        string
-	Tech        TechRequirements
-	Mass        int
-	Cost        Cost
-	ShieldValue int
-	ArmorValue  int // For Croby Sharmor and Langston Shell
+	ID           int
+	Name         string
+	Tech         TechRequirements
+	Mass         int
+	Cost         Cost
+	ShieldValue  int
+	ArmorValue   int // For Croby Sharmor and Langston Shell
+	CloakPercent int // Cloaking percentage (for Shadow Shield)
 }
 
 // Shields contains all shield definitions
@@ -914,7 +916,7 @@ var Shields = map[int]*Shield{
 	ShieldShadow: {
 		ID: ShieldShadow, Name: "Shadow Shield",
 		Tech: TechRequirements{Energy: 7, Electronics: 3}, Mass: 2, Cost: Cost{7, 3, 0, 3},
-		ShieldValue: 75,
+		ShieldValue: 75, CloakPercent: 70,
 	},
 	ShieldBearNeutrino: {
 		ID: ShieldBearNeutrino, Name: "Bear Neutrino Barrier",
@@ -945,12 +947,13 @@ var Shields = map[int]*Shield{
 
 // Armor represents armor with its stats
 type Armor struct {
-	ID         int
-	Name       string
-	Tech       TechRequirements
-	Mass       int
-	Cost       Cost
-	ArmorValue int
+	ID           int
+	Name         string
+	Tech         TechRequirements
+	Mass         int
+	Cost         Cost
+	ArmorValue   int
+	CloakPercent int // Cloaking percentage (for Depleted Neutronium)
 }
 
 // Armors contains all armor definitions
@@ -993,7 +996,7 @@ var Armors = map[int]*Armor{
 	ArmorDepletedNeutronium: {
 		ID: ArmorDepletedNeutronium, Name: "Depleted Neutronium",
 		Tech: TechRequirements{Construction: 10, Electronics: 3}, Mass: 50, Cost: Cost{28, 10, 0, 2},
-		ArmorValue: 200,
+		ArmorValue: 200, CloakPercent: 50,
 	},
 	ArmorNeutronium: {
 		ID: ArmorNeutronium, Name: "Neutronium",

@@ -606,14 +606,43 @@ func (gs *GameStore) AllFleets() []*FleetEntity {
 	return gs.Fleets.All()
 }
 
-// Design returns a design by owner and slot.
+// Design returns a ship design by owner and slot.
 func (gs *GameStore) Design(owner, slot int) (*DesignEntity, bool) {
 	return gs.Designs.GetByOwnerAndNumber(EntityTypeDesign, owner, slot)
 }
 
-// DesignsByOwner returns all designs owned by a player.
+// StarbaseDesign returns a starbase design by owner and slot.
+func (gs *GameStore) StarbaseDesign(owner, slot int) (*DesignEntity, bool) {
+	return gs.Designs.GetByOwnerAndNumber(EntityTypeStarbaseDesign, owner, slot)
+}
+
+// DesignsByOwner returns all designs (both ship and starbase) owned by a player.
 func (gs *GameStore) DesignsByOwner(owner int) []*DesignEntity {
 	return gs.Designs.ByOwner(owner)
+}
+
+// ShipDesignsByOwner returns only ship designs owned by a player.
+func (gs *GameStore) ShipDesignsByOwner(owner int) []*DesignEntity {
+	all := gs.Designs.ByOwner(owner)
+	result := make([]*DesignEntity, 0, len(all))
+	for _, d := range all {
+		if !d.IsStarbase {
+			result = append(result, d)
+		}
+	}
+	return result
+}
+
+// StarbaseDesignsByOwner returns only starbase designs owned by a player.
+func (gs *GameStore) StarbaseDesignsByOwner(owner int) []*DesignEntity {
+	all := gs.Designs.ByOwner(owner)
+	result := make([]*DesignEntity, 0, len(all))
+	for _, d := range all {
+		if d.IsStarbase {
+			result = append(result, d)
+		}
+	}
+	return result
 }
 
 // AllDesigns returns all designs in the store.
