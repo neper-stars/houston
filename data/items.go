@@ -364,46 +364,6 @@ func GetBestPlanetaryScanner(tech TechRequirements) (*PlanetaryScanner, int) {
 	return PlanetaryScanners[PlanetaryScannerViewer50], PlanetaryScannerViewer50
 }
 
-// JoATHasIntrinsicScanner returns true if the given hull type has
-// intrinsic scanners for JoAT PRT.
-// Only Scouts and Destroyers have intrinsic scanners.
-func JoATHasIntrinsicScanner(hullId int) bool {
-	return hullId == HullScout || hullId == HullDestroyer
-}
-
-// JoATIntrinsicScanner returns the intrinsic scanner range for Jack of All Trades ships.
-// JoAT Scouts and Destroyers have built-in scanners that improve with Electronics tech level.
-// Formula: Normal range = Electronics × 20, Penetrating range = Electronics × 10
-// Minimum ranges are 60 ly normal and 30 ly penetrating (equivalent to Electronics 3).
-// Other hull types have NO intrinsic scanners.
-func JoATIntrinsicScanner(electronicsLevel int) ScannerStats {
-	normalRange := electronicsLevel * 20
-	penRange := electronicsLevel * 10
-
-	// Apply minimums (60/30 ly, equivalent to Electronics level 3)
-	if normalRange < 60 {
-		normalRange = 60
-	}
-	if penRange < 30 {
-		penRange = 30
-	}
-
-	return ScannerStats{
-		NormalRange:      normalRange,
-		PenetratingRange: penRange,
-	}
-}
-
-// JoATIntrinsicScannerForHull returns the intrinsic scanner range for a specific hull type.
-// Only Scouts and Destroyers have intrinsic scanners (both normal and penetrating).
-// All other hull types return 0/0 (no intrinsic scanner).
-func JoATIntrinsicScannerForHull(electronicsLevel, hullId int) ScannerStats {
-	if !JoATHasIntrinsicScanner(hullId) {
-		return ScannerStats{NormalRange: 0, PenetratingRange: 0}
-	}
-	return JoATIntrinsicScanner(electronicsLevel)
-}
-
 // GetShipScannerStats returns the scanner stats for a ship scanner ID.
 func GetShipScannerStats(scannerID int) (ScannerStats, bool) {
 	s := Scanners[scannerID]

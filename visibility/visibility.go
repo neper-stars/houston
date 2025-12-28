@@ -1,9 +1,6 @@
 package visibility
 
 import (
-	"math"
-
-	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/data"
 	"github.com/neper-stars/houston/store"
 )
@@ -83,25 +80,21 @@ func GetDetectionDetails(observer, target *store.FleetEntity, gs *store.GameStor
 	return result
 }
 
-// SSIntrinsicCloakPercent is the intrinsic cloaking percentage for Super Stealth PRT ships.
-// All SS ships have a minimum 75% cloaking built-in.
-const SSIntrinsicCloakPercent = 0.75
-
 // FleetCloaking calculates a fleet's cloaking percentage.
 // This implements the Stars! cloaking formula:
 //  1. Calculate total cloak units (sum of ship cloak units × ship count)
 //  2. Divide by total fleet mass to get cloak/kT
 //  3. Apply piecewise linear curve to get percentage (max 98%)
 //
-// Special handling for Super Stealth (SS) PRT:
-//   - All ships have intrinsic 75% cloaking (not 75 units)
+// Special handling for PRTs with intrinsic cloaking (e.g., SS):
+//   - All ships have intrinsic cloaking (SS: 75%)
 //   - Additional cloaking devices can increase this further
-//   - Cargo does NOT count toward mass for cloaking calculations
+//   - If CargoAffectsCloak is false, cargo doesn't count toward mass
 func FleetCloaking(fleet *store.FleetEntity, gs *store.GameStore) float64 {
-	// Check if owner is Super Stealth PRT
-	isSS := false
+	// Get PRT data for owner
+	var prt *data.PRT
 	if player, ok := gs.Player(fleet.Owner); ok {
-		isSS = player.PRT == blocks.PRTSuperStealth
+		prt = data.GetPRT(player.PRT)
 	}
 
 	// Get total cloak units from equipped devices
@@ -111,8 +104,8 @@ func FleetCloaking(fleet *store.FleetEntity, gs *store.GameStore) float64 {
 	var equipmentCloak float64
 	if totalCloakUnits > 0 {
 		var fleetMass int64
-		if isSS {
-			// SS PRT: cargo doesn't count toward cloaking mass
+		if prt != nil && !prt.CargoAffectsCloak {
+			// PRT where cargo doesn't count toward cloaking mass (e.g., SS)
 			fleetMass = fleetMassWithoutCargo(fleet, gs)
 		} else {
 			fleetMass = fleet.GetTotalMass(gs)
@@ -124,14 +117,14 @@ func FleetCloaking(fleet *store.FleetEntity, gs *store.GameStore) float64 {
 		}
 	}
 
-	// For SS PRT, the minimum cloaking is 75%
-	// Additional equipment cloaking stacks: combined = 1 - (1 - base) * (1 - equip)
-	if isSS {
+	// Check for intrinsic cloaking from PRT
+	if prt != nil && prt.IntrinsicCloakPercent > 0 {
+		intrinsicCloak := prt.IntrinsicCloakPercent
 		if equipmentCloak > 0 {
-			// Stack SS intrinsic with equipment cloaking
-			return 1.0 - (1.0-SSIntrinsicCloakPercent)*(1.0-equipmentCloak)
+			// Stack intrinsic with equipment cloaking: combined = 1 - (1 - intrinsic) * (1 - equip)
+			return 1.0 - (1.0-intrinsicCloak)*(1.0-equipmentCloak)
 		}
-		return SSIntrinsicCloakPercent
+		return intrinsicCloak
 	}
 
 	return equipmentCloak
@@ -227,29 +220,21 @@ func PlanetScannerRanges(planet *store.PlanetEntity, gs *store.GameStore) (int, 
 			}
 		}
 
-		// 3. AR PRT intrinsic scanner: range = sqrt(population/10)
+		// 3. Check for PRT intrinsic scanner (e.g., AR: range = sqrt(population/10))
 		// Note: For AR, population location (starbase vs planet) needs verification
 		// with real data. For now, we use planet population.
 		player, ok := gs.Player(planet.Owner)
-		if ok && player.PRT == blocks.PRTAlternateReality {
-			arRange := ARIntrinsicScannerRange(planet.Population)
-			if arRange > bestNormal {
-				bestNormal = arRange
+		if ok {
+			if prt := data.GetPRT(player.PRT); prt != nil && prt.HasIntrinsicScanner {
+				intrinsicRange := prt.IntrinsicScannerRange(planet.Population)
+				if intrinsicRange > bestNormal {
+					bestNormal = intrinsicRange
+				}
 			}
 		}
 	}
 
 	return bestNormal, bestPen
-}
-
-// ARIntrinsicScannerRange calculates the intrinsic scanner range for
-// Alternate Reality (AR) PRT starbases.
-// Formula: range = sqrt(population / 10)
-func ARIntrinsicScannerRange(population int64) int {
-	if population <= 0 {
-		return 0
-	}
-	return int(math.Sqrt(float64(population) / 10.0))
 }
 
 // CanPlanetDetectFleet returns true if a planet can detect a fleet.
