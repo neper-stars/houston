@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/store"
 )
 
@@ -123,4 +124,103 @@ func TestDesignEntity_Hull(t *testing.T) {
 	require.NotNil(t, hull)
 	assert.Equal(t, "Medium Freighter", hull.Name)
 	assert.Equal(t, 210, hull.CargoCapacity)
+}
+
+func TestDesignEntity_Capabilities(t *testing.T) {
+	data, err := os.ReadFile("../testdata/scenario-map/joat-spread-fleets/Game.m1")
+	require.NoError(t, err)
+
+	gs := store.New()
+	err = gs.AddFile("Game.m1", data)
+	require.NoError(t, err)
+
+	// Long Range Scout - Scout hull with scanner
+	t.Run("Scout capabilities", func(t *testing.T) {
+		design, ok := gs.Design(0, 1)
+		require.True(t, ok)
+
+		// Should have scanner
+		assert.True(t, design.HasScanner())
+		normal, pen := design.GetScannerRanges()
+		assert.Equal(t, 50, normal)
+		assert.Equal(t, 0, pen)
+
+		// Scout hull has 50 fuel capacity
+		assert.Equal(t, 50, design.GetFuelCapacity())
+
+		// Should have engine
+		engine := design.GetEngine()
+		require.NotNil(t, engine)
+
+		// Scout has no cargo
+		assert.Equal(t, 0, design.GetCargoCapacity())
+	})
+
+	// Santa Maria - Colony Ship
+	t.Run("Colony Ship capabilities", func(t *testing.T) {
+		design, ok := gs.Design(0, 2)
+		require.True(t, ok)
+
+		// Colony ships can colonize
+		assert.True(t, design.CanColonize())
+
+		// No scanner on colony ship
+		assert.False(t, design.HasScanner())
+
+		// Colony ship hull has 25 cargo capacity
+		assert.Equal(t, 25, design.GetCargoCapacity())
+	})
+
+	// Teamster - Medium Freighter
+	t.Run("Freighter capabilities", func(t *testing.T) {
+		design, ok := gs.Design(0, 3)
+		require.True(t, ok)
+
+		// Medium Freighter has 210 cargo
+		assert.Equal(t, 210, design.GetCargoCapacity())
+
+		// Has scanner
+		assert.True(t, design.HasScanner())
+	})
+
+	// Stalwart Defender - Destroyer
+	t.Run("Destroyer capabilities", func(t *testing.T) {
+		design, ok := gs.Design(0, 4)
+		require.True(t, ok)
+
+		// Should have minesweep capability (has beam weapons)
+		sweepRate := design.GetMinesweepRate()
+		assert.Greater(t, sweepRate, 0, "Destroyer should be able to sweep mines")
+
+		// Should have shields
+		shields := design.GetTotalShieldValue()
+		assert.Greater(t, shields, 0, "Destroyer should have shields")
+
+		// Should have armor (hull + equipped)
+		armor := design.GetTotalArmorValue()
+		assert.Greater(t, armor, 0, "Destroyer should have armor")
+	})
+
+	// Test EquippedItems enumeration
+	t.Run("EquippedItems", func(t *testing.T) {
+		design, ok := gs.Design(0, 1) // Scout
+		require.True(t, ok)
+
+		items := design.EquippedItems()
+		assert.NotEmpty(t, items, "Scout should have equipped items")
+
+		// Should have at least engine and scanner
+		hasEngine := false
+		hasScanner := false
+		for _, item := range items {
+			if item.Category == blocks.ItemCategoryEngine {
+				hasEngine = true
+			}
+			if item.Category == blocks.ItemCategoryScanner {
+				hasScanner = true
+			}
+		}
+		assert.True(t, hasEngine, "Scout should have engine")
+		assert.True(t, hasScanner, "Scout should have scanner")
+	})
 }
