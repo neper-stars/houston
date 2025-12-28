@@ -91,3 +91,36 @@ func TestDesignEntity_GetScannerRanges_EmptyDesign(t *testing.T) {
 	assert.False(t, ok, "design 99 should not exist")
 	assert.Nil(t, design)
 }
+
+func TestDesignEntity_Hull(t *testing.T) {
+	data, err := os.ReadFile("../testdata/scenario-map/joat-spread-fleets/Game.m1")
+	require.NoError(t, err)
+
+	gs := store.New()
+	err = gs.AddFile("Game.m1", data)
+	require.NoError(t, err)
+
+	// Long Range Scout - should be Scout hull
+	design, ok := gs.Design(0, 1)
+	require.True(t, ok)
+	hull := design.Hull()
+	require.NotNil(t, hull, "hull should be found")
+	assert.Equal(t, "Scout", hull.Name)
+	assert.Equal(t, 50, hull.FuelCapacity)
+	assert.Len(t, hull.Slots, 3) // Scout has 3 slots
+
+	// Santa Maria - should be Colony Ship hull
+	design, ok = gs.Design(0, 2)
+	require.True(t, ok)
+	hull = design.Hull()
+	require.NotNil(t, hull)
+	assert.Equal(t, "Colony Ship", hull.Name)
+
+	// Teamster - should be Medium Freighter hull
+	design, ok = gs.Design(0, 3)
+	require.True(t, ok)
+	hull = design.Hull()
+	require.NotNil(t, hull)
+	assert.Equal(t, "Medium Freighter", hull.Name)
+	assert.Equal(t, 210, hull.CargoCapacity)
+}

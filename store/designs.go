@@ -127,5 +127,11 @@ func (d *DesignEntity) HasScanner() bool {
 	return normal > 0 || pen > 0
 }
 
+// Hull returns the hull definition for this design.
+// Returns nil if the hull ID is unknown.
+func (d *DesignEntity) Hull() *data.Hull {
+	return data.Hulls[d.HullId]
+}
+
 // DesignMap is a convenience type for looking up designs by slot.
 type DesignMap map[int]*DesignEntity
