@@ -1294,6 +1294,100 @@ var Orbitals = map[int]*Orbital{
 	16: {ID: 16, Name: "Ultra Driver 13", Tech: TechRequirements{Energy: 24}, Mass: 48, Cost: Cost{1352, 48, 40, 40}, WarpSpeed: 13, IsMassDriver: true},
 }
 
+// Terraformer item IDs
+const (
+	TerraformTotal3     = 1
+	TerraformTotal5     = 2
+	TerraformTotal7     = 3
+	TerraformTotal10    = 4
+	TerraformTotal15    = 5
+	TerraformTotal20    = 6
+	TerraformTotal25    = 7
+	TerraformTotal30    = 8
+	TerraformGravity3   = 9
+	TerraformGravity7   = 10
+	TerraformGravity11  = 11
+	TerraformGravity15  = 12
+	TerraformTemp3      = 13
+	TerraformTemp7      = 14
+	TerraformTemp11     = 15
+	TerraformTemp15     = 16
+	TerraformRadiation3  = 17
+	TerraformRadiation7  = 18
+	TerraformRadiation11 = 19
+	TerraformRadiation15 = 20
+)
+
+// Terraformer represents a terraforming technology
+type Terraformer struct {
+	ID             int
+	Name           string
+	Tech           TechRequirements
+	Cost           Cost
+	TerraformRate  int    // Amount of terraforming per click
+	TerraformType  string // "Total", "Gravity", "Temp", or "Radiation"
+}
+
+// Terraformers contains all terraforming technology definitions
+var Terraformers = map[int]*Terraformer{
+	TerraformTotal3:      {ID: TerraformTotal3, Name: "Total Terraform +3", Tech: TechRequirements{}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 3, TerraformType: "Total"},
+	TerraformTotal5:      {ID: TerraformTotal5, Name: "Total Terraform +5", Tech: TechRequirements{Biotech: 3}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 5, TerraformType: "Total"},
+	TerraformTotal7:      {ID: TerraformTotal7, Name: "Total Terraform +7", Tech: TechRequirements{Biotech: 6}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 7, TerraformType: "Total"},
+	TerraformTotal10:     {ID: TerraformTotal10, Name: "Total Terraform +10", Tech: TechRequirements{Biotech: 9}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 10, TerraformType: "Total"},
+	TerraformTotal15:     {ID: TerraformTotal15, Name: "Total Terraform +15", Tech: TechRequirements{Biotech: 13}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 15, TerraformType: "Total"},
+	TerraformTotal20:     {ID: TerraformTotal20, Name: "Total Terraform +20", Tech: TechRequirements{Biotech: 17}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 20, TerraformType: "Total"},
+	TerraformTotal25:     {ID: TerraformTotal25, Name: "Total Terraform +25", Tech: TechRequirements{Biotech: 22}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 25, TerraformType: "Total"},
+	TerraformTotal30:     {ID: TerraformTotal30, Name: "Total Terraform +30", Tech: TechRequirements{Biotech: 25}, Cost: Cost{0, 0, 0, 70}, TerraformRate: 30, TerraformType: "Total"},
+	TerraformGravity3:    {ID: TerraformGravity3, Name: "Gravity Terraform +3", Tech: TechRequirements{Propulsion: 1, Biotech: 1}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 3, TerraformType: "Gravity"},
+	TerraformGravity7:    {ID: TerraformGravity7, Name: "Gravity Terraform +7", Tech: TechRequirements{Propulsion: 5, Biotech: 2}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 7, TerraformType: "Gravity"},
+	TerraformGravity11:   {ID: TerraformGravity11, Name: "Gravity Terraform +11", Tech: TechRequirements{Propulsion: 10, Biotech: 3}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 11, TerraformType: "Gravity"},
+	TerraformGravity15:   {ID: TerraformGravity15, Name: "Gravity Terraform +15", Tech: TechRequirements{Propulsion: 16, Biotech: 4}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 15, TerraformType: "Gravity"},
+	TerraformTemp3:       {ID: TerraformTemp3, Name: "Temp Terraform +3", Tech: TechRequirements{Energy: 1, Biotech: 1}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 3, TerraformType: "Temp"},
+	TerraformTemp7:       {ID: TerraformTemp7, Name: "Temp Terraform +7", Tech: TechRequirements{Energy: 5, Biotech: 2}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 7, TerraformType: "Temp"},
+	TerraformTemp11:      {ID: TerraformTemp11, Name: "Temp Terraform +11", Tech: TechRequirements{Energy: 10, Biotech: 3}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 11, TerraformType: "Temp"},
+	TerraformTemp15:      {ID: TerraformTemp15, Name: "Temp Terraform +15", Tech: TechRequirements{Energy: 16, Biotech: 4}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 15, TerraformType: "Temp"},
+	TerraformRadiation3:  {ID: TerraformRadiation3, Name: "Radiation Terraform +3", Tech: TechRequirements{Weapons: 1, Biotech: 1}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 3, TerraformType: "Radiation"},
+	TerraformRadiation7:  {ID: TerraformRadiation7, Name: "Radiation Terraform +7", Tech: TechRequirements{Weapons: 5, Biotech: 2}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 7, TerraformType: "Radiation"},
+	TerraformRadiation11: {ID: TerraformRadiation11, Name: "Radiation Terraform +11", Tech: TechRequirements{Weapons: 10, Biotech: 3}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 11, TerraformType: "Radiation"},
+	TerraformRadiation15: {ID: TerraformRadiation15, Name: "Radiation Terraform +15", Tech: TechRequirements{Weapons: 16, Biotech: 4}, Cost: Cost{0, 0, 0, 100}, TerraformRate: 15, TerraformType: "Radiation"},
+}
+
+// GetTerraformer returns a terraformer by ID
+func GetTerraformer(id int) *Terraformer { return Terraformers[id] }
+
+// Planetary defense item IDs
+const (
+	DefenseSDI            = 10
+	DefenseMissileBattery = 11
+	DefenseLaserBattery   = 12
+	DefensePlanetaryShield = 13
+	DefenseNeutronShield  = 14
+	DefenseGenesisDevice  = 15
+)
+
+// PlanetaryDefense represents a planetary defense installation
+type PlanetaryDefense struct {
+	ID              int
+	Name            string
+	Tech            TechRequirements
+	Cost            Cost
+	DefenseValue    int  // Defense coverage percentage
+	IsGenesisDevice bool // Special - creates planets
+}
+
+// PlanetaryDefenses contains all planetary defense definitions
+var PlanetaryDefenses = map[int]*PlanetaryDefense{
+	DefenseSDI:             {ID: DefenseSDI, Name: "SDI", Tech: TechRequirements{}, Cost: Cost{15, 5, 5, 5}, DefenseValue: 10},
+	DefenseMissileBattery:  {ID: DefenseMissileBattery, Name: "Missile Battery", Tech: TechRequirements{Energy: 5}, Cost: Cost{15, 5, 5, 5}, DefenseValue: 20},
+	DefenseLaserBattery:    {ID: DefenseLaserBattery, Name: "Laser Battery", Tech: TechRequirements{Energy: 10}, Cost: Cost{15, 5, 5, 5}, DefenseValue: 24},
+	DefensePlanetaryShield: {ID: DefensePlanetaryShield, Name: "Planetary Shield", Tech: TechRequirements{Energy: 16}, Cost: Cost{15, 5, 5, 5}, DefenseValue: 30},
+	DefenseNeutronShield:   {ID: DefenseNeutronShield, Name: "Neutron Shield", Tech: TechRequirements{Energy: 23}, Cost: Cost{15, 5, 5, 5}, DefenseValue: 38},
+	DefenseGenesisDevice:   {ID: DefenseGenesisDevice, Name: "Genesis Device", Tech: TechRequirements{Energy: 20, Weapons: 10, Propulsion: 10, Construction: 20, Electronics: 10, Biotech: 20}, Cost: Cost{5000, 0, 0, 0}, IsGenesisDevice: true},
+}
+
+// GetPlanetaryDefense returns a planetary defense by ID
+func GetPlanetaryDefense(id int) *PlanetaryDefense { return PlanetaryDefenses[id] }
+
 // Lookup functions
 
 // GetEngine returns an engine by ID
