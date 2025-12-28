@@ -55,10 +55,10 @@ func GetDetectionDetails(observer, target *store.FleetEntity, gs *store.GameStor
 	result.Distance = Distance(observer.X, observer.Y, target.X, target.Y)
 
 	// Get observer's scanner ranges
-	result.NormalScannerRange, result.PenetratingScannerRange = observer.GetFleetScannerRanges(gs)
+	result.NormalScannerRange, result.PenetratingScannerRange = observer.GetScannerRanges(gs)
 
 	// Get observer's Tachyon detector count
-	result.TachyonCount = observer.GetFleetTachyonCount(gs)
+	result.TachyonCount = observer.GetTachyonCount(gs)
 
 	// Calculate target's cloaking
 	result.BaseCloakPercent = FleetCloaking(target, gs)
@@ -98,7 +98,7 @@ func FleetCloaking(fleet *store.FleetEntity, gs *store.GameStore) float64 {
 	}
 
 	// Get total cloak units from equipped devices
-	totalCloakUnits := fleet.GetFleetCloakUnits(gs)
+	totalCloakUnits := fleet.GetCloakUnits(gs)
 
 	// Calculate equipment-based cloaking
 	var equipmentCloak float64
@@ -148,18 +148,18 @@ func fleetMassWithoutCargo(fleet *store.FleetEntity, gs *store.GameStore) int64 
 
 // FleetScannerRange returns the best normal and penetrating scanner ranges for a fleet.
 func FleetScannerRange(fleet *store.FleetEntity, gs *store.GameStore) (normal, penetrating int) {
-	return fleet.GetFleetScannerRanges(gs)
+	return fleet.GetScannerRanges(gs)
 }
 
 // TachyonCount returns the total number of Tachyon Detectors in a fleet.
 func TachyonCount(fleet *store.FleetEntity, gs *store.GameStore) int {
-	return fleet.GetFleetTachyonCount(gs)
+	return fleet.GetTachyonCount(gs)
 }
 
 // CanFleetSeePosition returns true if the fleet can see a given position.
 // This doesn't account for cloaking (used for seeing planets, minefields, etc.).
 func CanFleetSeePosition(fleet *store.FleetEntity, x, y int, gs *store.GameStore) bool {
-	normalRange, _ := fleet.GetFleetScannerRanges(gs)
+	normalRange, _ := fleet.GetScannerRanges(gs)
 	distance := Distance(fleet.X, fleet.Y, x, y)
 	return distance <= float64(normalRange)
 }
@@ -167,7 +167,7 @@ func CanFleetSeePosition(fleet *store.FleetEntity, x, y int, gs *store.GameStore
 // CanFleetSeePenetrating returns true if the fleet can see a given position
 // with penetrating scanners (for seeing through planets).
 func CanFleetSeePenetrating(fleet *store.FleetEntity, x, y int, gs *store.GameStore) bool {
-	_, penRange := fleet.GetFleetScannerRanges(gs)
+	_, penRange := fleet.GetScannerRanges(gs)
 	distance := Distance(fleet.X, fleet.Y, x, y)
 	return distance <= float64(penRange)
 }
@@ -180,61 +180,12 @@ func CanFleetSeePenetrating(fleet *store.FleetEntity, x, y int, gs *store.GameSt
 // This considers:
 // - Planetary scanner (based on owner's tech level)
 // - Starbase scanner (if starbase exists)
-// - AR PRT intrinsic scanner (sqrt(population/10) for AR starbases)
+// - AR PRT intrinsic scanner (sqrt(population/10) for AR starbases, or √2 multiplier with NAS)
+// - NAS LRT effects: 2× normal scanner range, no penetrating scanners
 //
 // Returns (normal, penetrating) ranges in light-years.
 func PlanetScannerRanges(planet *store.PlanetEntity, gs *store.GameStore) (int, int) {
-	if !planet.IsOwned() {
-		return 0, 0
-	}
-
-	bestNormal := 0
-	bestPen := 0
-
-	// 1. Planetary scanner (if planet has scanner)
-	if planet.HasScanner {
-		player, ok := gs.Player(planet.Owner)
-		if ok {
-			scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
-			if scanner != nil {
-				if scanner.NormalRange > bestNormal {
-					bestNormal = scanner.NormalRange
-				}
-				if scanner.PenetratingRange > bestPen {
-					bestPen = scanner.PenetratingRange
-				}
-			}
-		}
-	}
-
-	// 2. Starbase scanner (if starbase exists)
-	if planet.HasStarbase {
-		starbase, ok := gs.StarbaseDesign(planet.Owner, planet.StarbaseDesign)
-		if ok {
-			sbNormal, sbPen := starbase.GetScannerRanges()
-			if sbNormal > bestNormal {
-				bestNormal = sbNormal
-			}
-			if sbPen > bestPen {
-				bestPen = sbPen
-			}
-		}
-
-		// 3. Check for PRT intrinsic scanner (e.g., AR: range = sqrt(population/10))
-		// Note: For AR, population location (starbase vs planet) needs verification
-		// with real data. For now, we use planet population.
-		player, ok := gs.Player(planet.Owner)
-		if ok {
-			if prt := data.GetPRT(player.PRT); prt != nil && prt.HasIntrinsicScanner {
-				intrinsicRange := prt.IntrinsicScannerRange(planet.Population)
-				if intrinsicRange > bestNormal {
-					bestNormal = intrinsicRange
-				}
-			}
-		}
-	}
-
-	return bestNormal, bestPen
+	return planet.GetScannerRanges(gs)
 }
 
 // CanPlanetDetectFleet returns true if a planet can detect a fleet.

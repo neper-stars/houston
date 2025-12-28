@@ -31,7 +31,6 @@ import (
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
-	"github.com/neper-stars/houston/data"
 	"github.com/neper-stars/houston/store"
 )
 
@@ -528,7 +527,7 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 			if planet.Owner < 0 {
 				continue
 			}
-			normalRange, penRange := r.getCombinedPlanetScannerRanges(planet)
+			normalRange, penRange := planet.GetScannerRanges(r.store)
 			if normalRange > 0 {
 				normalScanners = append(normalScanners, scannerCircle{planet.X, planet.Y, normalRange, planet.Owner})
 			}
@@ -539,7 +538,7 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 
 		// Collect fleet scanners
 		for _, fleet := range r.store.AllFleets() {
-			normalRange, penRange := r.getFleetScannerRanges(fleet)
+			normalRange, penRange := fleet.GetScannerRanges(r.store)
 			if normalRange > 0 {
 				normalScanners = append(normalScanners, scannerCircle{fleet.X, fleet.Y, normalRange, fleet.Owner})
 			}
@@ -1328,213 +1327,6 @@ func drawPattern(img *image.RGBA, x, y int, pattern [5][3]bool, col color.RGBA) 
 			}
 		}
 	}
-}
-
-// Scanner coverage helpers
-
-// getFleetIntrinsicScannerRange returns the best intrinsic scanner range for a fleet.
-// For PRTs with fleet intrinsic scanners (e.g., JOAT Scout/Frigate/Destroyer),
-// returns the intrinsic scanner range based on Electronics tech level.
-func (r *Renderer) getFleetIntrinsicScannerRange(fleet *store.FleetEntity) int {
-	player, ok := r.store.Player(fleet.Owner)
-	if !ok {
-		return 0
-	}
-	prt := data.GetPRT(player.PRT)
-	if prt == nil || !prt.HasFleetIntrinsicScanner {
-		return 0
-	}
-
-	bestRange := 0
-	// Check each ship design in the fleet for hulls with intrinsic scanners
-	for i := 0; i < 16; i++ {
-		if (fleet.ShipTypes & (1 << i)) != 0 {
-			if design, ok := r.store.Design(fleet.Owner, i); ok {
-				if prt.HasFleetIntrinsicScannerForHull(design.HullId) {
-					intrinsic := prt.FleetIntrinsicScannerRange(player.Tech.Electronics)
-					if intrinsic.NormalRange > bestRange {
-						bestRange = intrinsic.NormalRange
-					}
-				}
-			}
-		}
-	}
-	return bestRange
-}
-
-// getFleetEquippedScannerRange returns the best equipped scanner range among all designs in a fleet.
-func (r *Renderer) getFleetEquippedScannerRange(fleet *store.FleetEntity) int {
-	bestRange := 0
-
-	// Iterate through all design slots used by the fleet
-	for i := 0; i < 16; i++ {
-		if (fleet.ShipTypes & (1 << i)) != 0 {
-			// This design slot is used
-			if design, ok := r.store.Design(fleet.Owner, i); ok {
-				// Get scanner range from this design's components
-				scanRange := r.getScannerRangeFromDesign(design)
-				if scanRange > bestRange {
-					bestRange = scanRange
-				}
-			}
-		}
-	}
-
-	return bestRange
-}
-
-// getFleetScannerRange returns the best scanner range among all designs in a fleet.
-// For PRTs with fleet intrinsic scanners, includes those based on Electronics tech level.
-func (r *Renderer) getFleetScannerRange(fleet *store.FleetEntity) int {
-	intrinsic := r.getFleetIntrinsicScannerRange(fleet)
-	equipped := r.getFleetEquippedScannerRange(fleet)
-	if intrinsic > equipped {
-		return intrinsic
-	}
-	return equipped
-}
-
-// getScannerRangeFromDesign extracts the best scanner range from a design's component slots.
-func (r *Renderer) getScannerRangeFromDesign(de *store.DesignEntity) int {
-	if de == nil {
-		return 0
-	}
-	return de.GetNormalScannerRange()
-}
-
-// getScannerRangesFromDesign extracts the best normal and penetrating scanner ranges from a design.
-func (r *Renderer) getScannerRangesFromDesign(de *store.DesignEntity) (normal, penetrating int) {
-	if de == nil {
-		return 0, 0
-	}
-	return de.GetScannerRanges()
-}
-
-// DefaultPlanetScannerRange is the default scanner range for planets with scanners.
-// In Stars!, the minimum planetary scanner is Viewer 50.
-const DefaultPlanetScannerRange = 50
-
-// getPlanetScannerRange returns the planetary scanner range for a player
-// based on their electronics tech level.
-func (r *Renderer) getPlanetScannerRange(owner int) int {
-	player, ok := r.store.Player(owner)
-	if !ok {
-		return DefaultPlanetScannerRange
-	}
-
-	scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
-	return scanner.NormalRange
-}
-
-// getPlanetScannerRanges returns the normal and penetrating scanner ranges for a planet
-// based only on the planetary scanner building (tech-based).
-func (r *Renderer) getPlanetScannerRanges(owner int) (normal, penetrating int) {
-	player, ok := r.store.Player(owner)
-	if !ok {
-		return DefaultPlanetScannerRange, 0
-	}
-
-	scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
-	return scanner.NormalRange, scanner.PenetratingRange
-}
-
-// getCombinedPlanetScannerRanges returns the best scanner ranges for a planet considering:
-// 1. Planetary scanner (if planet.HasScanner)
-// 2. Starbase scanner (if planet.HasStarbase)
-// 3. AR PRT intrinsic scanner (if player is AR and has starbase) - sqrt(population/10)
-func (r *Renderer) getCombinedPlanetScannerRanges(planet *store.PlanetEntity) (normal, penetrating int) {
-	if planet.Owner < 0 {
-		return 0, 0
-	}
-
-	bestNormal := 0
-	bestPen := 0
-
-	player, ok := r.store.Player(planet.Owner)
-	if !ok {
-		return 0, 0
-	}
-
-	// 1. Planetary scanner (if planet has scanner building)
-	if planet.HasScanner {
-		scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
-		if scanner.NormalRange > bestNormal {
-			bestNormal = scanner.NormalRange
-		}
-		if scanner.PenetratingRange > bestPen {
-			bestPen = scanner.PenetratingRange
-		}
-	}
-
-	// 2. Starbase scanner (if planet has starbase)
-	if planet.HasStarbase {
-		if starbase, ok := r.store.StarbaseDesign(planet.Owner, planet.StarbaseDesign); ok {
-			sbNormal, sbPen := starbase.GetScannerRanges()
-			if sbNormal > bestNormal {
-				bestNormal = sbNormal
-			}
-			if sbPen > bestPen {
-				bestPen = sbPen
-			}
-		}
-
-		// 3. AR PRT intrinsic scanner: range = sqrt(population/10)
-		if prt := data.GetPRT(player.PRT); prt != nil && prt.HasIntrinsicScanner {
-			arRange := prt.IntrinsicScannerRange(planet.Population)
-			if arRange > bestNormal {
-				bestNormal = arRange
-			}
-		}
-	}
-
-	return bestNormal, bestPen
-}
-
-// getFleetScannerRanges returns the best normal and penetrating scanner ranges for a fleet.
-// For PRTs with fleet intrinsic scanners (e.g., JOAT):
-// - Scout/Frigate/Destroyer hulls use INTRINSIC scanners only (ignore equipped scanners for display)
-// - Other ships use EQUIPPED scanners only (no intrinsic)
-// For other PRTs: all ships use equipped scanners only.
-func (r *Renderer) getFleetScannerRanges(fleet *store.FleetEntity) (normal, penetrating int) {
-	bestNormal := 0
-	bestPen := 0
-
-	// Get player info and PRT data
-	player, ok := r.store.Player(fleet.Owner)
-	if !ok {
-		return 0, 0
-	}
-	prt := data.GetPRT(player.PRT)
-
-	// Check each ship design in the fleet
-	for i := 0; i < 16; i++ {
-		if (fleet.ShipTypes & (1 << i)) != 0 {
-			if design, ok := r.store.Design(fleet.Owner, i); ok {
-				// Check if this PRT has intrinsic scanner for this hull type
-				if prt != nil && prt.HasFleetIntrinsicScannerForHull(design.HullId) {
-					// Use intrinsic scanner for this hull
-					intrinsic := prt.FleetIntrinsicScannerRange(player.Tech.Electronics)
-					if intrinsic.NormalRange > bestNormal {
-						bestNormal = intrinsic.NormalRange
-					}
-					if intrinsic.PenetratingRange > bestPen {
-						bestPen = intrinsic.PenetratingRange
-					}
-				} else {
-					// Use equipped scanner only
-					eqNormal, eqPen := r.getScannerRangesFromDesign(design)
-					if eqNormal > bestNormal {
-						bestNormal = eqNormal
-					}
-					if eqPen > bestPen {
-						bestPen = eqPen
-					}
-				}
-			}
-		}
-	}
-
-	return bestNormal, bestPen
 }
 
 // drawMinefieldCloud draws a minefield with diagonal line hatching

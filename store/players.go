@@ -31,6 +31,7 @@ type PlayerEntity struct {
 	HasFullData bool
 	Tech        TechLevels // Current tech levels
 	PRT         int        // Primary Race Trait (0-9, see blocks.PRT* constants)
+	LRT         uint16     // Lesser Race Traits bitmask (see blocks.LRT* constants)
 
 	// Diplomatic relations (from file owner's perspective)
 	PlayerRelations []byte
@@ -66,6 +67,12 @@ func (p *PlayerEntity) GetRelationTo(playerIndex int) int {
 	return int(p.PlayerRelations[playerIndex])
 }
 
+// HasLRT returns true if the player has the specified Lesser Race Trait.
+// The lrtBitmask should be one of the blocks.LRT* constants.
+func (p *PlayerEntity) HasLRT(lrtBitmask uint16) bool {
+	return (p.LRT & lrtBitmask) != 0
+}
+
 // newPlayerEntityFromBlock creates a PlayerEntity from a PlayerBlock.
 func newPlayerEntityFromBlock(pb *blocks.PlayerBlock, source *FileSource) *PlayerEntity {
 	entity := &PlayerEntity{
@@ -98,6 +105,7 @@ func newPlayerEntityFromBlock(pb *blocks.PlayerBlock, source *FileSource) *Playe
 			Biotech:      pb.Tech.Biotech,
 		},
 		PRT:             pb.PRT,
+		LRT:             pb.LRT,
 		PlayerRelations: pb.PlayerRelations,
 		playerBlock:     pb,
 	}

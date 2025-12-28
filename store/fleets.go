@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/data"
 )
 
 // FleetEntity represents a fleet with full context and modification support.
@@ -329,29 +330,65 @@ func (f *FleetEntity) GetTotalMass(gs *GameStore) int64 {
 	return total
 }
 
-// GetFleetScannerRanges returns the best scanner ranges from all ships in the fleet.
+// GetScannerRanges returns the best scanner ranges from all ships in the fleet.
+// This handles:
+// - Equipped scanners on all ship designs
+// - PRT intrinsic scanners (e.g., JOAT Scout/Frigate/Destroyer)
+// - NAS LRT effects: 2× normal scanner range, no penetrating scanners
 // Returns (normal, penetrating) ranges.
-func (f *FleetEntity) GetFleetScannerRanges(gs *GameStore) (int, int) {
+func (f *FleetEntity) GetScannerRanges(gs *GameStore) (int, int) {
 	bestNormal := 0
 	bestPen := 0
 
+	// Get player info for PRT and LRT
+	player, hasPlayer := gs.Player(f.Owner)
+	var prt *data.PRT
+	var hasNAS bool
+	var nasLRT *data.LRT
+
+	if hasPlayer {
+		prt = data.GetPRT(player.PRT)
+		nasLRT = data.GetLRTByCode("NAS")
+		hasNAS = nasLRT != nil && player.HasLRT(nasLRT.Bitmask)
+	}
+
 	designs := f.GetDesigns(gs)
 	for _, info := range designs {
-		if info.Design != nil && info.Count > 0 {
-			normal, pen := info.Design.GetScannerRanges()
-			if normal > bestNormal {
-				bestNormal = normal
-			}
-			if pen > bestPen {
-				bestPen = pen
-			}
+		if info.Design == nil || info.Count <= 0 {
+			continue
+		}
+
+		var normal, pen int
+
+		// Check if this PRT has intrinsic scanner for this hull type (e.g., JOAT)
+		if prt != nil && prt.HasFleetIntrinsicScannerForHull(info.Design.HullId) {
+			// Use intrinsic scanner for this hull
+			intrinsic := prt.FleetIntrinsicScannerRange(player.Tech.Electronics)
+			normal = intrinsic.NormalRange
+			pen = intrinsic.PenetratingRange
+		} else {
+			// Use equipped scanner
+			normal, pen = info.Design.GetScannerRanges()
+		}
+
+		// Apply NAS effects: 2× normal range, no penetrating
+		if hasNAS && nasLRT != nil {
+			normal *= nasLRT.NormalScannerMultiplier
+			pen = 0
+		}
+
+		if normal > bestNormal {
+			bestNormal = normal
+		}
+		if pen > bestPen {
+			bestPen = pen
 		}
 	}
 	return bestNormal, bestPen
 }
 
-// GetFleetTachyonCount returns the total number of Tachyon Detectors in the fleet.
-func (f *FleetEntity) GetFleetTachyonCount(gs *GameStore) int {
+// GetTachyonCount returns the total number of Tachyon Detectors in the fleet.
+func (f *FleetEntity) GetTachyonCount(gs *GameStore) int {
 	total := 0
 	designs := f.GetDesigns(gs)
 	for _, info := range designs {
@@ -362,9 +399,9 @@ func (f *FleetEntity) GetFleetTachyonCount(gs *GameStore) int {
 	return total
 }
 
-// GetFleetCloakUnits returns the total cloaking units for the fleet.
+// GetCloakUnits returns the total cloaking units for the fleet.
 // This is the sum of (ship_cloak_units × ship_count) for all ships in the fleet.
-func (f *FleetEntity) GetFleetCloakUnits(gs *GameStore) int {
+func (f *FleetEntity) GetCloakUnits(gs *GameStore) int {
 	total := 0
 	designs := f.GetDesigns(gs)
 	for _, info := range designs {

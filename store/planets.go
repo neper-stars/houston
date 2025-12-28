@@ -1,6 +1,9 @@
 package store
 
-import "github.com/neper-stars/houston/blocks"
+import (
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/data"
+)
 
 // PlanetEntity represents a planet with full context.
 type PlanetEntity struct {
@@ -95,6 +98,91 @@ func (p *PlanetEntity) SetMinerals(c Cargo) {
 	p.Boranium = c.Boranium
 	p.Germanium = c.Germanium
 	p.SetDirty()
+}
+
+// GetScannerRanges returns the best scanner ranges for this planet.
+// This handles:
+// - Planetary scanner (based on owner's tech level, if HasScanner)
+// - Starbase scanner (if HasStarbase)
+// - AR PRT intrinsic scanner (sqrt(population/10), or √2 multiplier with NAS)
+// - NAS LRT effects: 2× normal scanner range, no penetrating scanners
+// Returns (normal, penetrating) ranges in light-years.
+func (p *PlanetEntity) GetScannerRanges(gs *GameStore) (int, int) {
+	if p.Owner < 0 {
+		return 0, 0
+	}
+
+	bestNormal := 0
+	bestPen := 0
+
+	player, ok := gs.Player(p.Owner)
+	if !ok {
+		return 0, 0
+	}
+
+	// Check for NAS LRT
+	nasLRT := data.GetLRTByCode("NAS")
+	hasNAS := nasLRT != nil && player.HasLRT(nasLRT.Bitmask)
+
+	// 1. Planetary scanner (if planet has scanner building)
+	if p.HasScanner {
+		scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
+		if scanner != nil {
+			scanNormal := scanner.NormalRange
+			scanPen := scanner.PenetratingRange
+
+			// Apply NAS effects: 2× normal range, no penetrating
+			if hasNAS {
+				scanNormal *= nasLRT.NormalScannerMultiplier
+				scanPen = 0
+			}
+
+			if scanNormal > bestNormal {
+				bestNormal = scanNormal
+			}
+			if scanPen > bestPen {
+				bestPen = scanPen
+			}
+		}
+	}
+
+	// 2. Starbase scanner (if planet has starbase)
+	if p.HasStarbase {
+		if starbase, ok := gs.StarbaseDesign(p.Owner, p.StarbaseDesign); ok {
+			sbNormal, sbPen := starbase.GetScannerRanges()
+
+			// Apply NAS effects: 2× normal range, no penetrating
+			if hasNAS {
+				sbNormal *= nasLRT.NormalScannerMultiplier
+				sbPen = 0
+			}
+
+			if sbNormal > bestNormal {
+				bestNormal = sbNormal
+			}
+			if sbPen > bestPen {
+				bestPen = sbPen
+			}
+		}
+
+		// 3. AR PRT intrinsic scanner
+		if prt := data.GetPRT(player.PRT); prt != nil && prt.HasIntrinsicScanner {
+			var arRange int
+			if hasNAS {
+				// AR + NAS: use √2 multiplier formula
+				arRange = data.ARNASScannerRange(p.Population)
+			} else {
+				// AR without NAS: normal formula sqrt(population/10)
+				arRange = prt.IntrinsicScannerRange(p.Population)
+			}
+			if arRange > bestNormal {
+				bestNormal = arRange
+			}
+			// AR intrinsic scanner is normal-only, no penetrating
+		}
+	}
+
+	return bestNormal, bestPen
 }
 
 // qualityFromPlanetBlock determines data quality from planet flags.
