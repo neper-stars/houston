@@ -1404,8 +1404,8 @@ func (r *Renderer) getPlanetScannerRange(owner int) int {
 		return DefaultPlanetScannerRange
 	}
 
-	stats, _ := data.GetBestPlanetaryScanner(player.Tech.Electronics)
-	return stats.NormalRange
+	scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
+	return scanner.NormalRange
 }
 
 // getPlanetScannerRanges returns the normal and penetrating scanner ranges for a planet.
@@ -1415,8 +1415,8 @@ func (r *Renderer) getPlanetScannerRanges(owner int) (normal, penetrating int) {
 		return DefaultPlanetScannerRange, 0
 	}
 
-	stats, _ := data.GetBestPlanetaryScanner(player.Tech.Electronics)
-	return stats.NormalRange, stats.PenetratingRange
+	scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
+	return scanner.NormalRange, scanner.PenetratingRange
 }
 
 // getFleetScannerRanges returns the best normal and penetrating scanner ranges for a fleet.

@@ -134,7 +134,7 @@ func TestDesignEntity_Capabilities(t *testing.T) {
 	err = gs.AddFile("Game.m1", data)
 	require.NoError(t, err)
 
-	// Long Range Scout - Scout hull with scanner
+	// Long Range Scout - Scout hull with scanner and fuel tank
 	t.Run("Scout capabilities", func(t *testing.T) {
 		design, ok := gs.Design(0, 1)
 		require.True(t, ok)
@@ -145,8 +145,8 @@ func TestDesignEntity_Capabilities(t *testing.T) {
 		assert.Equal(t, 50, normal)
 		assert.Equal(t, 0, pen)
 
-		// Scout hull has 50 fuel capacity
-		assert.Equal(t, 50, design.GetFuelCapacity())
+		// Scout hull (50) + Fuel Tank (250) = 300
+		assert.Equal(t, 300, design.GetFuelCapacity())
 
 		// Should have engine
 		engine := design.GetEngine()
@@ -183,7 +183,7 @@ func TestDesignEntity_Capabilities(t *testing.T) {
 		assert.True(t, design.HasScanner())
 	})
 
-	// Stalwart Defender - Destroyer
+	// Stalwart Defender - Destroyer (no shields, has fuel tank)
 	t.Run("Destroyer capabilities", func(t *testing.T) {
 		design, ok := gs.Design(0, 4)
 		require.True(t, ok)
@@ -192,13 +192,16 @@ func TestDesignEntity_Capabilities(t *testing.T) {
 		sweepRate := design.GetMinesweepRate()
 		assert.Greater(t, sweepRate, 0, "Destroyer should be able to sweep mines")
 
-		// Should have shields
+		// This design has no shields
 		shields := design.GetTotalShieldValue()
-		assert.Greater(t, shields, 0, "Destroyer should have shields")
+		assert.Equal(t, 0, shields, "Stalwart Defender has no shields")
 
 		// Should have armor (hull + equipped)
 		armor := design.GetTotalArmorValue()
 		assert.Greater(t, armor, 0, "Destroyer should have armor")
+
+		// Destroyer hull (280) + Fuel Tank (250) = 530
+		assert.Equal(t, 530, design.GetFuelCapacity())
 	})
 
 	// Test EquippedItems enumeration

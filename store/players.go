@@ -1,16 +1,12 @@
 package store
 
-import "github.com/neper-stars/houston/blocks"
+import (
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/data"
+)
 
-// TechLevels holds all six technology field levels for a player.
-type TechLevels struct {
-	Energy       int
-	Weapons      int
-	Propulsion   int
-	Construction int
-	Electronics  int
-	Biotech      int
-}
+// TechLevels is an alias for data.TechRequirements for backward compatibility.
+type TechLevels = data.TechRequirements
 
 // PlayerEntity represents a player in the game.
 type PlayerEntity struct {

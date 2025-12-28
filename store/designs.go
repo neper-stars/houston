@@ -94,14 +94,14 @@ func (d *DesignEntity) GetScannerRanges() (normal, penetrating int) {
 
 		// ItemId is 0-indexed, scanner constants are 1-indexed
 		scannerID := slot.ItemId + 1
-		stats, found := data.ShipScannerStats[scannerID]
+		scanner := data.GetScanner(scannerID)
 
-		if found {
-			if stats.NormalRange > bestNormal {
-				bestNormal = stats.NormalRange
+		if scanner != nil {
+			if scanner.NormalRange > bestNormal {
+				bestNormal = scanner.NormalRange
 			}
-			if stats.PenetratingRange > bestPen {
-				bestPen = stats.PenetratingRange
+			if scanner.PenetratingRange > bestPen {
+				bestPen = scanner.PenetratingRange
 			}
 		}
 	}

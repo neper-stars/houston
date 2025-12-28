@@ -149,32 +149,114 @@ const (
 	ScannerPeerless    = 16
 )
 
-// ScannerStats holds the range capabilities and requirements of a scanner.
+// Scanner represents a ship scanner with its stats.
+type Scanner struct {
+	ID               int
+	Name             string
+	Tech             TechRequirements
+	Mass             int
+	Cost             Cost
+	NormalRange      int  // Normal scanning range in light-years
+	PenetratingRange int  // Penetrating scanning range in light-years
+	StealsCargo      bool // Can detect enemy cargo (Pick Pocket, Robber Baron)
+}
+
+// Scanners contains all ship scanner definitions.
+var Scanners = map[int]*Scanner{
+	ScannerBat: {
+		ID: ScannerBat, Name: "Bat Scanner",
+		Tech: TechRequirements{}, Mass: 2, Cost: Cost{1, 1, 0, 1},
+		NormalRange: 0, PenetratingRange: 0,
+	},
+	ScannerRhino: {
+		ID: ScannerRhino, Name: "Rhino Scanner",
+		Tech: TechRequirements{Electronics: 1}, Mass: 5, Cost: Cost{3, 3, 0, 2},
+		NormalRange: 50, PenetratingRange: 0,
+	},
+	ScannerMole: {
+		ID: ScannerMole, Name: "Mole Scanner",
+		Tech: TechRequirements{Electronics: 4}, Mass: 2, Cost: Cost{9, 2, 0, 2},
+		NormalRange: 100, PenetratingRange: 0,
+	},
+	ScannerDNA: {
+		ID: ScannerDNA, Name: "DNA Scanner",
+		Tech: TechRequirements{Propulsion: 3, Biotech: 6}, Mass: 2, Cost: Cost{5, 1, 1, 1},
+		NormalRange: 125, PenetratingRange: 0,
+	},
+	ScannerPossum: {
+		ID: ScannerPossum, Name: "Possum Scanner",
+		Tech: TechRequirements{Electronics: 5}, Mass: 3, Cost: Cost{18, 3, 0, 3},
+		NormalRange: 150, PenetratingRange: 0,
+	},
+	ScannerPickPocket: {
+		ID: ScannerPickPocket, Name: "Pick Pocket Scanner",
+		Tech: TechRequirements{Energy: 4, Electronics: 4, Biotech: 4}, Mass: 15, Cost: Cost{35, 8, 10, 6},
+		NormalRange: 80, PenetratingRange: 0, StealsCargo: true,
+	},
+	ScannerChameleon: {
+		ID: ScannerChameleon, Name: "Chameleon Scanner",
+		Tech: TechRequirements{Energy: 3, Electronics: 6}, Mass: 6, Cost: Cost{25, 4, 6, 4},
+		NormalRange: 160, PenetratingRange: 45,
+	},
+	ScannerFerret: {
+		ID: ScannerFerret, Name: "Ferret Scanner",
+		Tech: TechRequirements{Energy: 3, Electronics: 7, Biotech: 2}, Mass: 2, Cost: Cost{36, 2, 0, 8},
+		NormalRange: 185, PenetratingRange: 50,
+	},
+	ScannerDolphin: {
+		ID: ScannerDolphin, Name: "Dolphin Scanner",
+		Tech: TechRequirements{Energy: 5, Electronics: 10, Biotech: 4}, Mass: 4, Cost: Cost{40, 5, 5, 10},
+		NormalRange: 220, PenetratingRange: 100,
+	},
+	ScannerGazelle: {
+		ID: ScannerGazelle, Name: "Gazelle Scanner",
+		Tech: TechRequirements{Energy: 4, Electronics: 8}, Mass: 5, Cost: Cost{24, 4, 0, 5},
+		NormalRange: 225, PenetratingRange: 0,
+	},
+	ScannerRNA: {
+		ID: ScannerRNA, Name: "RNA Scanner",
+		Tech: TechRequirements{Propulsion: 5, Biotech: 10}, Mass: 2, Cost: Cost{20, 1, 1, 2},
+		NormalRange: 230, PenetratingRange: 0,
+	},
+	ScannerCheetah: {
+		ID: ScannerCheetah, Name: "Cheetah Scanner",
+		Tech: TechRequirements{Energy: 5, Electronics: 11}, Mass: 4, Cost: Cost{50, 3, 1, 13},
+		NormalRange: 275, PenetratingRange: 0,
+	},
+	ScannerElephant: {
+		ID: ScannerElephant, Name: "Elephant Scanner",
+		Tech: TechRequirements{Energy: 6, Electronics: 16, Biotech: 7}, Mass: 6, Cost: Cost{70, 8, 5, 14},
+		NormalRange: 300, PenetratingRange: 200,
+	},
+	ScannerEagleEye: {
+		ID: ScannerEagleEye, Name: "Eagle Eye Scanner",
+		Tech: TechRequirements{Energy: 6, Electronics: 14}, Mass: 3, Cost: Cost{64, 3, 2, 21},
+		NormalRange: 335, PenetratingRange: 0,
+	},
+	ScannerRobberBaron: {
+		ID: ScannerRobberBaron, Name: "Robber Baron Scanner",
+		Tech: TechRequirements{Energy: 10, Electronics: 15, Biotech: 10}, Mass: 20, Cost: Cost{90, 10, 10, 10},
+		NormalRange: 220, PenetratingRange: 120, StealsCargo: true,
+	},
+	ScannerPeerless: {
+		ID: ScannerPeerless, Name: "Peerless Scanner",
+		Tech: TechRequirements{Energy: 7, Electronics: 24}, Mass: 4, Cost: Cost{90, 3, 2, 30},
+		NormalRange: 500, PenetratingRange: 0,
+	},
+}
+
+// GetScanner returns the scanner for a given ID, or nil if not found.
+func GetScanner(id int) *Scanner {
+	return Scanners[id]
+}
+
+// ScannerStats holds the range capabilities of a scanner.
+// Used for planetary scanners and JoAT intrinsic scanners.
 type ScannerStats struct {
 	NormalRange      int  // Normal scanning range in light-years
 	PenetratingRange int  // Penetrating scanning range in light-years
 	StealsCargo      bool // Can detect enemy cargo (Pick Pocket, Robber Baron)
-	ElectronicsLevel int  // Electronics tech level required
-}
-
-// ShipScannerStats maps ship scanner item IDs to their stats.
-var ShipScannerStats = map[int]ScannerStats{
-	ScannerBat:         {NormalRange: 0, PenetratingRange: 0},
-	ScannerRhino:       {NormalRange: 50, PenetratingRange: 0},
-	ScannerMole:        {NormalRange: 100, PenetratingRange: 0},
-	ScannerDNA:         {NormalRange: 125, PenetratingRange: 0},
-	ScannerPossum:      {NormalRange: 150, PenetratingRange: 0},
-	ScannerPickPocket:  {NormalRange: 80, PenetratingRange: 0, StealsCargo: true},
-	ScannerChameleon:   {NormalRange: 160, PenetratingRange: 45},
-	ScannerFerret:      {NormalRange: 185, PenetratingRange: 50},
-	ScannerDolphin:     {NormalRange: 220, PenetratingRange: 100},
-	ScannerGazelle:     {NormalRange: 225, PenetratingRange: 0},
-	ScannerRNA:         {NormalRange: 230, PenetratingRange: 0},
-	ScannerCheetah:     {NormalRange: 275, PenetratingRange: 0},
-	ScannerElephant:    {NormalRange: 300, PenetratingRange: 200},
-	ScannerEagleEye:    {NormalRange: 335, PenetratingRange: 0},
-	ScannerRobberBaron: {NormalRange: 220, PenetratingRange: 120, StealsCargo: true},
-	ScannerPeerless:    {NormalRange: 500, PenetratingRange: 0},
+	ElectronicsLevel int  // Electronics tech level required (for planetary scanners)
 }
 
 // Planetary scanner item IDs
@@ -190,24 +272,73 @@ const (
 	PlanetaryScannerSnooper620 = 9
 )
 
-// PlanetaryScannerStats maps planetary scanner item IDs to their stats.
-// ElectronicsLevel is the tech required to build this scanner.
-// For Snooper scanners, the name refers to the normal range; penetrating is half that.
-var PlanetaryScannerStats = map[int]ScannerStats{
-	PlanetaryScannerViewer50:   {NormalRange: 50, PenetratingRange: 0, ElectronicsLevel: 0},
-	PlanetaryScannerViewer90:   {NormalRange: 90, PenetratingRange: 0, ElectronicsLevel: 1},
-	PlanetaryScannerScoper150:  {NormalRange: 150, PenetratingRange: 0, ElectronicsLevel: 3},
-	PlanetaryScannerScoper220:  {NormalRange: 220, PenetratingRange: 0, ElectronicsLevel: 6},
-	PlanetaryScannerScoper280:  {NormalRange: 280, PenetratingRange: 0, ElectronicsLevel: 8},
-	PlanetaryScannerSnooper320: {NormalRange: 320, PenetratingRange: 160, ElectronicsLevel: 10},
-	PlanetaryScannerSnooper400: {NormalRange: 400, PenetratingRange: 200, ElectronicsLevel: 13},
-	PlanetaryScannerSnooper500: {NormalRange: 500, PenetratingRange: 250, ElectronicsLevel: 16},
-	PlanetaryScannerSnooper620: {NormalRange: 620, PenetratingRange: 310, ElectronicsLevel: 20},
+// PlanetaryScanner represents a planetary scanner with its stats.
+type PlanetaryScanner struct {
+	ID               int
+	Name             string
+	Tech             TechRequirements
+	Cost             Cost
+	NormalRange      int // Normal scanning range in light-years
+	PenetratingRange int // Penetrating scanning range in light-years
 }
 
-// GetBestPlanetaryScanner returns the best planetary scanner available at the given electronics tech level.
-// Returns the scanner stats and the scanner ID.
-func GetBestPlanetaryScanner(electronicsLevel int) (ScannerStats, int) {
+// PlanetaryScanners contains all planetary scanner definitions.
+var PlanetaryScanners = map[int]*PlanetaryScanner{
+	PlanetaryScannerViewer50: {
+		ID: PlanetaryScannerViewer50, Name: "Viewer 50",
+		Tech: TechRequirements{}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 50, PenetratingRange: 0,
+	},
+	PlanetaryScannerViewer90: {
+		ID: PlanetaryScannerViewer90, Name: "Viewer 90",
+		Tech: TechRequirements{Electronics: 1}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 90, PenetratingRange: 0,
+	},
+	PlanetaryScannerScoper150: {
+		ID: PlanetaryScannerScoper150, Name: "Scoper 150",
+		Tech: TechRequirements{Electronics: 3}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 150, PenetratingRange: 0,
+	},
+	PlanetaryScannerScoper220: {
+		ID: PlanetaryScannerScoper220, Name: "Scoper 220",
+		Tech: TechRequirements{Electronics: 6}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 220, PenetratingRange: 0,
+	},
+	PlanetaryScannerScoper280: {
+		ID: PlanetaryScannerScoper280, Name: "Scoper 280",
+		Tech: TechRequirements{Electronics: 8}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 280, PenetratingRange: 0,
+	},
+	PlanetaryScannerSnooper320: {
+		ID: PlanetaryScannerSnooper320, Name: "Snooper 320X",
+		Tech: TechRequirements{Energy: 3, Electronics: 10, Biotech: 3}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 320, PenetratingRange: 160,
+	},
+	PlanetaryScannerSnooper400: {
+		ID: PlanetaryScannerSnooper400, Name: "Snooper 400X",
+		Tech: TechRequirements{Energy: 4, Electronics: 13, Biotech: 6}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 400, PenetratingRange: 200,
+	},
+	PlanetaryScannerSnooper500: {
+		ID: PlanetaryScannerSnooper500, Name: "Snooper 500X",
+		Tech: TechRequirements{Energy: 5, Electronics: 16, Biotech: 7}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 500, PenetratingRange: 250,
+	},
+	PlanetaryScannerSnooper620: {
+		ID: PlanetaryScannerSnooper620, Name: "Snooper 620X",
+		Tech: TechRequirements{Energy: 7, Electronics: 23, Biotech: 9}, Cost: Cost{100, 10, 10, 70},
+		NormalRange: 620, PenetratingRange: 310,
+	},
+}
+
+// GetPlanetaryScanner returns the planetary scanner for a given ID, or nil if not found.
+func GetPlanetaryScanner(id int) *PlanetaryScanner {
+	return PlanetaryScanners[id]
+}
+
+// GetBestPlanetaryScanner returns the best planetary scanner available at the given tech levels.
+// Returns the scanner definition and the scanner ID.
+func GetBestPlanetaryScanner(tech TechRequirements) (*PlanetaryScanner, int) {
 	// Ordered from best to worst
 	scanners := []int{
 		PlanetaryScannerSnooper620,
@@ -222,14 +353,14 @@ func GetBestPlanetaryScanner(electronicsLevel int) (ScannerStats, int) {
 	}
 
 	for _, id := range scanners {
-		stats := PlanetaryScannerStats[id]
-		if electronicsLevel >= stats.ElectronicsLevel {
-			return stats, id
+		scanner := PlanetaryScanners[id]
+		if scanner.Tech.CanBuildWith(tech) {
+			return scanner, id
 		}
 	}
 
 	// Fallback to Viewer 50 (always available)
-	return PlanetaryScannerStats[PlanetaryScannerViewer50], PlanetaryScannerViewer50
+	return PlanetaryScanners[PlanetaryScannerViewer50], PlanetaryScannerViewer50
 }
 
 // JoATHasIntrinsicScanner returns true if the given hull type has
@@ -272,29 +403,30 @@ func JoATIntrinsicScannerForHull(electronicsLevel, hullId int) ScannerStats {
 	return JoATIntrinsicScanner(electronicsLevel)
 }
 
-// PlanetaryScannerNames maps planetary scanner IDs to display names.
-var PlanetaryScannerNames = map[int]string{
-	PlanetaryScannerViewer50:   "Viewer 50",
-	PlanetaryScannerViewer90:   "Viewer 90",
-	PlanetaryScannerScoper150:  "Scoper 150",
-	PlanetaryScannerScoper220:  "Scoper 220",
-	PlanetaryScannerScoper280:  "Scoper 280",
-	PlanetaryScannerSnooper320: "Snooper 320X",
-	PlanetaryScannerSnooper400: "Snooper 400X",
-	PlanetaryScannerSnooper500: "Snooper 500X",
-	PlanetaryScannerSnooper620: "Snooper 620X",
-}
-
 // GetShipScannerStats returns the scanner stats for a ship scanner ID.
 func GetShipScannerStats(scannerID int) (ScannerStats, bool) {
-	stats, ok := ShipScannerStats[scannerID]
-	return stats, ok
+	s := Scanners[scannerID]
+	if s == nil {
+		return ScannerStats{}, false
+	}
+	return ScannerStats{
+		NormalRange:      s.NormalRange,
+		PenetratingRange: s.PenetratingRange,
+		StealsCargo:      s.StealsCargo,
+	}, true
 }
 
 // GetPlanetaryScannerStats returns the scanner stats for a planetary scanner ID.
 func GetPlanetaryScannerStats(scannerID int) (ScannerStats, bool) {
-	stats, ok := PlanetaryScannerStats[scannerID]
-	return stats, ok
+	s := PlanetaryScanners[scannerID]
+	if s == nil {
+		return ScannerStats{}, false
+	}
+	return ScannerStats{
+		NormalRange:      s.NormalRange,
+		PenetratingRange: s.PenetratingRange,
+		ElectronicsLevel: s.Tech.Electronics,
+	}, true
 }
 
 // Armor item IDs
@@ -612,6 +744,16 @@ type TechRequirements struct {
 	Construction int
 	Electronics  int
 	Biotech      int
+}
+
+// CanBuildWith returns true if the given tech levels meet all requirements.
+func (t TechRequirements) CanBuildWith(have TechRequirements) bool {
+	return have.Energy >= t.Energy &&
+		have.Weapons >= t.Weapons &&
+		have.Propulsion >= t.Propulsion &&
+		have.Construction >= t.Construction &&
+		have.Electronics >= t.Electronics &&
+		have.Biotech >= t.Biotech
 }
 
 // Cost represents the mineral and resource cost of an item
