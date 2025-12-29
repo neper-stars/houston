@@ -26,8 +26,10 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
@@ -41,6 +43,11 @@ type Renderer struct {
 	// Map bounds (computed from entities)
 	minX, maxX int
 	minY, maxY int
+
+	// Cached filtered collections (lazily populated)
+	cachedMinefields []*store.ObjectEntity
+	cachedWormholes  []*store.ObjectEntity
+	cacheValid       bool
 }
 
 // RenderOptions controls how the map is rendered.
@@ -145,6 +152,11 @@ func (r *Renderer) computeBounds() {
 	r.minY = math.MaxInt32
 	r.maxY = math.MinInt32
 
+	// Invalidate cache when bounds are recomputed (data changed)
+	r.cacheValid = false
+	r.cachedMinefields = nil
+	r.cachedWormholes = nil
+
 	// Bounds from planets
 	for _, planet := range r.store.AllPlanets() {
 		r.updateBounds(planet.X, planet.Y)
@@ -156,14 +168,30 @@ func (r *Renderer) computeBounds() {
 	}
 
 	// Bounds from minefields
-	for _, mf := range r.store.Minefields() {
+	for _, mf := range r.minefields() {
 		r.updateBounds(mf.X, mf.Y)
 	}
 
 	// Bounds from wormholes
-	for _, wh := range r.store.Wormholes() {
+	for _, wh := range r.wormholes() {
 		r.updateBounds(wh.X, wh.Y)
 	}
+}
+
+// minefields returns cached minefields or fetches them from store.
+func (r *Renderer) minefields() []*store.ObjectEntity {
+	if r.cachedMinefields == nil {
+		r.cachedMinefields = r.store.Minefields()
+	}
+	return r.cachedMinefields
+}
+
+// wormholes returns cached wormholes or fetches them from store.
+func (r *Renderer) wormholes() []*store.ObjectEntity {
+	if r.cachedWormholes == nil {
+		r.cachedWormholes = r.store.Wormholes()
+	}
+	return r.cachedWormholes
 }
 
 func (r *Renderer) updateBounds(x, y int) {
@@ -260,7 +288,7 @@ func (r *Renderer) Render(opts *RenderOptions) *image.RGBA {
 
 	// Draw minefields first (background) as cloud of dots
 	if opts.ShowMines {
-		for _, mf := range r.store.Minefields() {
+		for _, mf := range r.minefields() {
 			px, py := transform(mf.X, mf.Y)
 			radius := int(math.Sqrt(float64(mf.MineCount)) * scale / 10)
 			if radius < 2 {
@@ -275,7 +303,7 @@ func (r *Renderer) Render(opts *RenderOptions) *image.RGBA {
 	// Draw wormholes
 	if opts.ShowWormholes {
 		purple := color.RGBA{128, 0, 128, 255}
-		wormholes := r.store.Wormholes()
+		wormholes := r.wormholes()
 		// Build lookup map for wormhole connections
 		whByID := make(map[int]*store.ObjectEntity)
 		for _, wh := range wormholes {
@@ -438,19 +466,34 @@ func (r *Renderer) RenderSVG(opts *RenderOptions) string {
 
 // renderSVGForRasterization renders an SVG compatible with oksvg rasterization.
 func (r *Renderer) renderSVGForRasterization(opts *RenderOptions) string {
-	svg := r.buildSVG(opts)
-	return svg.StringForRasterization()
+	svg := r.buildSVGForRasterization(opts)
+	return svg.String() // Already optimized for rasterization
 }
 
-// buildSVG builds the SVG structure (shared between RenderSVG and rasterization).
+// buildSVG builds the SVG structure for normal output (with patterns/markers).
 func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
+	return r.buildSVGInternal(opts, false)
+}
+
+// buildSVGForRasterization builds the SVG structure optimized for rasterization.
+func (r *Renderer) buildSVGForRasterization(opts *RenderOptions) *SVGBuilder {
+	return r.buildSVGInternal(opts, true)
+}
+
+// buildSVGInternal builds the SVG structure (shared implementation).
+func (r *Renderer) buildSVGInternal(opts *RenderOptions, forRasterization bool) *SVGBuilder {
 	if opts == nil {
 		opts = DefaultOptions()
 	}
 
-	svg := NewSVGBuilder(opts.Width, opts.Height)
+	var svg *SVGBuilder
+	if forRasterization {
+		svg = NewSVGBuilderForRasterization(opts.Width, opts.Height)
+	} else {
+		svg = NewSVGBuilder(opts.Width, opts.Height)
+	}
 
-	// Add patterns and markers
+	// Add patterns and markers (skipped automatically if forRasterization)
 	svg.AddMinefieldHatchPattern()
 
 	// Calculate scale and transform
@@ -498,7 +541,7 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 
 	// Draw minefields
 	if opts.ShowMines {
-		for _, mf := range r.store.Minefields() {
+		for _, mf := range r.minefields() {
 			px, py := transform(mf.X, mf.Y)
 			radius := math.Sqrt(float64(mf.MineCount)) * scale / 10
 			if radius < 2 {
@@ -547,25 +590,39 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 			}
 		}
 
-		// Helper to check if circle A is contained in circle B
-		// A is contained in B if: distance(A, B) + radiusA <= radiusB
-		isContained := func(a, b scannerCircle) bool {
-			if a.owner != b.owner {
-				return false // Only friendly scanners can contain each other
-			}
-			dx := float64(a.x - b.x)
-			dy := float64(a.y - b.y)
-			dist := math.Sqrt(dx*dx + dy*dy)
-			return dist+float64(a.radius) <= float64(b.radius)
-		}
-
-		// Filter function: returns scanners not contained in any other friendly scanner
+		// Optimized filter: sort by radius descending, then check only against
+		// larger circles. Uses squared distances to avoid sqrt in hot path.
 		filterContained := func(scanners []scannerCircle) []scannerCircle {
-			var result []scannerCircle
-			for i, s := range scanners {
+			if len(scanners) <= 1 {
+				return scanners
+			}
+
+			// Sort by radius descending - larger circles checked first
+			sort.Slice(scanners, func(i, j int) bool {
+				return scanners[i].radius > scanners[j].radius
+			})
+
+			result := make([]scannerCircle, 0, len(scanners))
+			for _, s := range scanners {
 				contained := false
-				for j, other := range scanners {
-					if i != j && isContained(s, other) {
+				// Only check against larger (or equal) circles already in result
+				for _, other := range result {
+					if s.owner != other.owner {
+						continue
+					}
+					// Check if s is contained in other using squared distance
+					// A is contained in B if: dist(A,B) + radiusA <= radiusB
+					// Rearranged: dist(A,B) <= radiusB - radiusA
+					// If radiusB < radiusA, can't be contained (and other is smaller anyway)
+					radiusDiff := other.radius - s.radius
+					if radiusDiff < 0 {
+						continue
+					}
+					dx := s.x - other.x
+					dy := s.y - other.y
+					distSq := dx*dx + dy*dy
+					// Compare squared: distSq <= radiusDiff^2
+					if distSq <= radiusDiff*radiusDiff {
 						contained = true
 						break
 					}
@@ -597,7 +654,7 @@ func (r *Renderer) buildSVG(opts *RenderOptions) *SVGBuilder {
 
 	// Draw wormholes
 	if opts.ShowWormholes {
-		wormholes := r.store.Wormholes()
+		wormholes := r.wormholes()
 		// Build lookup map for wormhole connections
 		whByID := make(map[int]*store.ObjectEntity)
 		for _, wh := range wormholes {
@@ -846,6 +903,9 @@ type Animator struct {
 	// renderers is the sorted list of frames (built from framesByYear)
 	renderers []*Renderer
 	opts      *RenderOptions
+	// palette is an optional shared color palette for GIF frames.
+	// Using a shared palette improves consistency and reduces per-frame work.
+	palette color.Palette
 }
 
 // NewAnimator creates a new Animator.
@@ -859,6 +919,72 @@ func NewAnimator() *Animator {
 // SetOptions sets the rendering options for all frames.
 func (a *Animator) SetOptions(opts *RenderOptions) {
 	a.opts = opts
+}
+
+// SetPalette sets a shared color palette for all GIF frames.
+// Using a shared palette improves visual consistency across frames
+// and eliminates per-frame palette computation overhead.
+func (a *Animator) SetPalette(p color.Palette) {
+	a.palette = p
+}
+
+// DefaultGIFPalette returns a 256-color palette suitable for Stars! maps.
+// The palette includes black background, common player colors, and grayscale gradients.
+func DefaultGIFPalette() color.Palette {
+	palette := make(color.Palette, 0, 256)
+
+	// Black background (most common)
+	palette = append(palette, color.RGBA{0, 0, 0, 255})
+
+	// Standard player colors with variations for alpha blending
+	playerColors := []color.RGBA{
+		{255, 0, 0, 255},     // Red
+		{0, 255, 0, 255},     // Green
+		{0, 0, 255, 255},     // Blue
+		{255, 255, 0, 255},   // Yellow
+		{255, 0, 255, 255},   // Magenta
+		{0, 255, 255, 255},   // Cyan
+		{255, 128, 0, 255},   // Orange
+		{128, 0, 255, 255},   // Purple
+		{0, 128, 255, 255},   // Sky blue
+		{255, 128, 128, 255}, // Light red
+		{128, 255, 128, 255}, // Light green
+		{128, 128, 255, 255}, // Light blue
+		{255, 255, 128, 255}, // Light yellow
+		{128, 128, 128, 255}, // Gray
+		{192, 192, 192, 255}, // Light gray
+		{255, 255, 255, 255}, // White
+	}
+	for _, c := range playerColors {
+		palette = append(palette, c)
+	}
+
+	// Add alpha-blended versions (simulated with darker colors)
+	for _, c := range playerColors {
+		// 50% blend with black
+		palette = append(palette, color.RGBA{c.R / 2, c.G / 2, c.B / 2, 255})
+		// 25% blend with black
+		palette = append(palette, color.RGBA{c.R / 4, c.G / 4, c.B / 4, 255})
+		// 75% blend with black (for scanner coverage)
+		palette = append(palette, color.RGBA{c.R * 3 / 4, c.G * 3 / 4, c.B * 3 / 4, 255})
+	}
+
+	// Grayscale ramp for anti-aliasing
+	for i := 0; i < 32; i++ {
+		v := uint8(i * 8)
+		palette = append(palette, color.RGBA{v, v, v, 255})
+	}
+
+	// Fill remaining slots with color cube
+	for r := 0; r < 6 && len(palette) < 256; r++ {
+		for g := 0; g < 6 && len(palette) < 256; g++ {
+			for b := 0; b < 6 && len(palette) < 256; b++ {
+				palette = append(palette, color.RGBA{uint8(r * 51), uint8(g * 51), uint8(b * 51), 255})
+			}
+		}
+	}
+
+	return palette[:256]
 }
 
 // AddFile adds a game file. Files from the same year are merged into a single frame.
@@ -960,29 +1086,71 @@ func (a *Animator) SaveGIF(filename string, delayMs int) error {
 
 // WriteGIF writes all frames as an animated GIF to an io.Writer.
 // Uses SVG-based rendering for higher quality anti-aliased output.
+// Frames are rendered in parallel for better performance on multi-core systems.
 func (a *Animator) WriteGIF(w io.Writer, delayMs int) error {
 	if len(a.renderers) == 0 {
 		return fmt.Errorf("no frames to save")
 	}
 
-	// delay is in 100ths of a second
+	n := len(a.renderers)
 	delay := delayMs / 10
 
-	anim := gif.GIF{
-		LoopCount: 0, // Loop forever
+	// Pre-allocate result slice for parallel rendering
+	results := make([]*image.Paletted, n)
+	errors := make([]error, n)
+
+	// Use worker pool to limit concurrency (rendering is memory-bound)
+	workers := runtime.GOMAXPROCS(0)
+	if workers > n {
+		workers = n
+	}
+	sem := make(chan struct{}, workers)
+
+	var wg sync.WaitGroup
+	for i, r := range a.renderers {
+		wg.Add(1)
+		sem <- struct{}{} // Acquire semaphore
+
+		go func(idx int, renderer *Renderer) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release semaphore
+
+			// Render frame
+			img, err := renderer.RenderSVGToImage(a.opts)
+			if err != nil {
+				// Fall back to bitmap rendering
+				fmt.Fprintf(os.Stderr, "Warning: SVG rendering failed for frame %d (year %d): %v, using bitmap fallback\n",
+					idx, renderer.Year(), err)
+				img = renderer.Render(a.opts)
+			}
+
+			// Convert to paletted image
+			if a.palette != nil {
+				// Use shared palette (faster, more consistent)
+				results[idx] = imageToPalettedWithPalette(img, a.palette)
+			} else {
+				// Compute per-frame palette
+				results[idx] = imageToPaletted(img)
+			}
+		}(i, r)
+	}
+	wg.Wait()
+
+	// Check for any errors
+	for i, err := range errors {
+		if err != nil {
+			return fmt.Errorf("frame %d render failed: %w", i, err)
+		}
 	}
 
-	for i, r := range a.renderers {
-		// Use SVG-based rendering for better quality
-		img, err := r.RenderSVGToImage(a.opts)
-		if err != nil {
-			// Log the error and fall back to basic rendering
-			fmt.Fprintf(os.Stderr, "Warning: SVG rendering failed for frame %d (year %d): %v, using bitmap fallback\n", i, r.Year(), err)
-			img = r.Render(a.opts)
-		}
-		paletted := imageToPaletted(img)
-		anim.Image = append(anim.Image, paletted)
-		anim.Delay = append(anim.Delay, delay)
+	// Assemble GIF in order
+	anim := gif.GIF{
+		LoopCount: 0,
+		Image:     results,
+		Delay:     make([]int, n),
+	}
+	for i := range anim.Delay {
+		anim.Delay[i] = delay
 	}
 
 	if err := gif.EncodeAll(w, &anim); err != nil {
@@ -1002,65 +1170,144 @@ func (a *Animator) RenderGIFBytes(delayMs int) ([]byte, error) {
 }
 
 // imageToPaletted converts an RGBA image to a paletted image.
+// Uses direct pixel buffer access for better performance.
 func imageToPaletted(img *image.RGBA) *image.Paletted {
 	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	width := bounds.Dx()
+	height := bounds.Dy()
 
-	// Create a color palette with the most common colors
-	colorMap := make(map[color.RGBA]int)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, a := img.At(x, y).RGBA()
-			c := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
-			colorMap[c]++
+	// Use uint32 keys for faster map operations (pack RGBA into single value)
+	colorMap := make(map[uint32]int, 1024) // Pre-size estimate
+
+	// Direct buffer access - much faster than img.At()
+	for y := 0; y < height; y++ {
+		rowStart := y * stride
+		for x := 0; x < width; x++ {
+			i := rowStart + x*4
+			// Pack RGBA into uint32 for faster map key
+			key := uint32(pix[i])<<24 | uint32(pix[i+1])<<16 | uint32(pix[i+2])<<8 | uint32(pix[i+3])
+			colorMap[key]++
 		}
 	}
 
 	// Sort colors by frequency and take top 256
 	type colorCount struct {
-		c     color.RGBA
+		key   uint32
 		count int
 	}
-	var colors []colorCount
-	for c, count := range colorMap {
-		colors = append(colors, colorCount{c, count})
+	colors := make([]colorCount, 0, len(colorMap))
+	for k, count := range colorMap {
+		colors = append(colors, colorCount{k, count})
 	}
 	sort.Slice(colors, func(i, j int) bool {
 		return colors[i].count > colors[j].count
 	})
 
+	// Build palette from top 256 colors
 	palette := make(color.Palette, 0, 256)
 	for i := 0; i < len(colors) && i < 256; i++ {
-		palette = append(palette, colors[i].c)
+		k := colors[i].key
+		palette = append(palette, color.RGBA{
+			R: uint8(k >> 24),
+			G: uint8(k >> 16),
+			B: uint8(k >> 8),
+			A: uint8(k),
+		})
 	}
 
-	// Create paletted image
+	// Create paletted image with Floyd-Steinberg dithering
 	paletted := image.NewPaletted(bounds, palette)
 	draw.FloydSteinberg.Draw(paletted, bounds, img, bounds.Min)
 
 	return paletted
 }
 
+// imageToPalettedWithPalette converts an RGBA image using a pre-defined palette.
+// This is faster than imageToPaletted since it skips palette computation.
+func imageToPalettedWithPalette(img *image.RGBA, palette color.Palette) *image.Paletted {
+	bounds := img.Bounds()
+	paletted := image.NewPaletted(bounds, palette)
+	draw.FloydSteinberg.Draw(paletted, bounds, img, bounds.Min)
+	return paletted
+}
+
 // Drawing helper functions
+// These use direct pixel buffer access for better performance.
+
+// setPixel sets a pixel directly in the image buffer with bounds checking.
+func setPixel(img *image.RGBA, x, y int, col color.RGBA) {
+	bounds := img.Bounds()
+	if x < bounds.Min.X || x >= bounds.Max.X || y < bounds.Min.Y || y >= bounds.Max.Y {
+		return
+	}
+	i := (y-bounds.Min.Y)*img.Stride + (x-bounds.Min.X)*4
+	img.Pix[i] = col.R
+	img.Pix[i+1] = col.G
+	img.Pix[i+2] = col.B
+	img.Pix[i+3] = col.A
+}
 
 func drawFilledCircle(img *image.RGBA, cx, cy, radius int, col color.RGBA) {
-	for y := -radius; y <= radius; y++ {
-		for x := -radius; x <= radius; x++ {
-			if x*x+y*y <= radius*radius {
-				img.Set(cx+x, cy+y, col)
+	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	rgba := [4]byte{col.R, col.G, col.B, col.A}
+	radiusSq := radius * radius
+
+	for dy := -radius; dy <= radius; dy++ {
+		py := cy + dy
+		if py < bounds.Min.Y || py >= bounds.Max.Y {
+			continue
+		}
+		rowStart := (py - bounds.Min.Y) * stride
+		for dx := -radius; dx <= radius; dx++ {
+			px := cx + dx
+			if px < bounds.Min.X || px >= bounds.Max.X {
+				continue
+			}
+			if dx*dx+dy*dy <= radiusSq {
+				i := rowStart + (px-bounds.Min.X)*4
+				copy(pix[i:i+4], rgba[:])
 			}
 		}
 	}
 }
 
 func drawCircleOutline(img *image.RGBA, cx, cy, radius int, col color.RGBA) {
-	for angle := 0.0; angle < 2*math.Pi; angle += 0.1 {
-		x := cx + int(float64(radius)*math.Cos(angle))
-		y := cy + int(float64(radius)*math.Sin(angle))
-		img.Set(x, y, col)
+	// Bresenham's circle algorithm - more efficient than trig
+	x := radius
+	y := 0
+	err := 0
+
+	for x >= y {
+		setPixel(img, cx+x, cy+y, col)
+		setPixel(img, cx+y, cy+x, col)
+		setPixel(img, cx-y, cy+x, col)
+		setPixel(img, cx-x, cy+y, col)
+		setPixel(img, cx-x, cy-y, col)
+		setPixel(img, cx-y, cy-x, col)
+		setPixel(img, cx+y, cy-x, col)
+		setPixel(img, cx+x, cy-y, col)
+
+		y++
+		if err <= 0 {
+			err += 2*y + 1
+		}
+		if err > 0 {
+			x--
+			err -= 2*x + 1
+		}
 	}
 }
 
 func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col color.RGBA) {
+	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	rgba := [4]byte{col.R, col.G, col.B, col.A}
+
 	dx := abs(x1 - x0)
 	dy := abs(y1 - y0)
 	sx := -1
@@ -1074,7 +1321,12 @@ func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col color.RGBA) {
 	err := dx - dy
 
 	for {
-		img.Set(x0, y0, col)
+		// Direct pixel access with bounds check
+		if x0 >= bounds.Min.X && x0 < bounds.Max.X && y0 >= bounds.Min.Y && y0 < bounds.Max.Y {
+			i := (y0-bounds.Min.Y)*stride + (x0-bounds.Min.X)*4
+			copy(pix[i:i+4], rgba[:])
+		}
+
 		if x0 == x1 && y0 == y1 {
 			break
 		}
@@ -1210,13 +1462,22 @@ func drawDigit(img *image.RGBA, x, y, digit int, col color.RGBA) {
 		return
 	}
 	pattern := digitPatterns[digit]
+	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	rgba := [4]byte{col.R, col.G, col.B, col.A}
+
 	for dy := 0; dy < 5; dy++ {
 		for dx := 0; dx < 3; dx++ {
 			if pattern[dy][dx] {
 				// Draw 2x2 pixels for each "pixel" in the pattern
 				for py := 0; py < 2; py++ {
 					for px := 0; px < 2; px++ {
-						img.Set(x+dx*2+px, y+dy*2+py, col)
+						px2, py2 := x+dx*2+px, y+dy*2+py
+						if px2 >= bounds.Min.X && px2 < bounds.Max.X && py2 >= bounds.Min.Y && py2 < bounds.Max.Y {
+							i := (py2-bounds.Min.Y)*stride + (px2-bounds.Min.X)*4
+							copy(pix[i:i+4], rgba[:])
+						}
 					}
 				}
 			}
@@ -1315,13 +1576,22 @@ func drawText(img *image.RGBA, x, y int, text string, col color.RGBA) {
 
 // drawPattern draws a 3x5 pattern at the given position
 func drawPattern(img *image.RGBA, x, y int, pattern [5][3]bool, col color.RGBA) {
+	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	rgba := [4]byte{col.R, col.G, col.B, col.A}
+
 	for dy := 0; dy < 5; dy++ {
 		for dx := 0; dx < 3; dx++ {
 			if pattern[dy][dx] {
 				// Draw 2x2 pixels for each "pixel" in the pattern
 				for py := 0; py < 2; py++ {
 					for px := 0; px < 2; px++ {
-						img.Set(x+dx*2+px, y+dy*2+py, col)
+						px2, py2 := x+dx*2+px, y+dy*2+py
+						if px2 >= bounds.Min.X && px2 < bounds.Max.X && py2 >= bounds.Min.Y && py2 < bounds.Max.Y {
+							i := (py2-bounds.Min.Y)*stride + (px2-bounds.Min.X)*4
+							copy(pix[i:i+4], rgba[:])
+						}
 					}
 				}
 			}
@@ -1331,18 +1601,23 @@ func drawPattern(img *image.RGBA, x, y int, pattern [5][3]bool, col color.RGBA) 
 
 // drawMinefieldCloud draws a minefield with diagonal line hatching
 func drawMinefieldCloud(img *image.RGBA, cx, cy, radius int, col color.RGBA, seed int) {
+	bounds := img.Bounds()
+	pix := img.Pix
+	stride := img.Stride
+	rgba := [4]byte{col.R, col.G, col.B, col.A}
 	radiusSq := radius * radius
 	spacing := 3 // Spacing between diagonal lines
 
 	// Draw diagonal lines (going from top-left to bottom-right)
-	// For each diagonal line offset
 	for offset := -radius * 2; offset <= radius*2; offset += spacing {
-		// Draw points along the diagonal where x + y = offset (relative to center)
 		for dy := -radius; dy <= radius; dy++ {
 			dx := offset - dy
-			// Check if within circle
 			if dx >= -radius && dx <= radius && dx*dx+dy*dy <= radiusSq {
-				img.Set(cx+dx, cy+dy, col)
+				px, py := cx+dx, cy+dy
+				if px >= bounds.Min.X && px < bounds.Max.X && py >= bounds.Min.Y && py < bounds.Max.Y {
+					i := (py-bounds.Min.Y)*stride + (px-bounds.Min.X)*4
+					copy(pix[i:i+4], rgba[:])
+				}
 			}
 		}
 	}

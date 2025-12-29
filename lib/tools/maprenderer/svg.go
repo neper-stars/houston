@@ -9,29 +9,51 @@ import (
 
 // SVGBuilder provides a fluent interface for building SVG documents.
 type SVGBuilder struct {
-	width, height int
-	elements      []string
-	defs          []string
+	width, height    int
+	elements         []string
+	defs             []string
+	forRasterization bool // If true, skip markers and patterns during element creation
 }
 
 // NewSVGBuilder creates a new SVG builder with the given dimensions.
+// Pre-allocates slices for typical map rendering (500+ elements).
 func NewSVGBuilder(width, height int) *SVGBuilder {
 	return &SVGBuilder{
 		width:    width,
 		height:   height,
-		elements: make([]string, 0),
-		defs:     make([]string, 0),
+		elements: make([]string, 0, 512), // Pre-allocate for typical map
+		defs:     make([]string, 0, 16),
+	}
+}
+
+// NewSVGBuilderForRasterization creates an SVG builder optimized for rasterization.
+// It skips adding markers and patterns that aren't supported by rasterizers.
+func NewSVGBuilderForRasterization(width, height int) *SVGBuilder {
+	return &SVGBuilder{
+		width:            width,
+		height:           height,
+		elements:         make([]string, 0, 512),
+		defs:             make([]string, 0, 4),
+		forRasterization: true,
 	}
 }
 
 // AddDef adds a definition (pattern, gradient, marker, etc.) to the defs section.
+// Skipped when forRasterization is true.
 func (b *SVGBuilder) AddDef(def string) *SVGBuilder {
+	if b.forRasterization {
+		return b
+	}
 	b.defs = append(b.defs, def)
 	return b
 }
 
 // AddMinefieldHatchPattern adds the standard minefield hatching pattern.
+// Skipped when forRasterization is true (patterns not supported by rasterizers).
 func (b *SVGBuilder) AddMinefieldHatchPattern() *SVGBuilder {
+	if b.forRasterization {
+		return b
+	}
 	b.defs = append(b.defs, `<pattern id="minefield-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
     <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1" stroke-opacity="0.7"/>
   </pattern>`)
@@ -39,7 +61,11 @@ func (b *SVGBuilder) AddMinefieldHatchPattern() *SVGBuilder {
 }
 
 // AddArrowMarker adds an arrow marker for fleet speed lines.
+// Skipped when forRasterization is true (markers not supported by rasterizers).
 func (b *SVGBuilder) AddArrowMarker(id string, col color.RGBA) *SVGBuilder {
+	if b.forRasterization {
+		return b
+	}
 	b.defs = append(b.defs, fmt.Sprintf(`<marker id="%s" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
     <path d="M0,0 L0,6 L6,3 z" fill="rgba(%d,%d,%d,0.6)"/>
   </marker>`, id, col.R, col.G, col.B))
@@ -76,15 +102,24 @@ func (b *SVGBuilder) CircleOutline(cx, cy, r float64, stroke string, strokeWidth
 }
 
 // Minefield adds a minefield with semi-transparent fill and hatching.
+// Hatching overlay is skipped when forRasterization is true.
 func (b *SVGBuilder) Minefield(cx, cy, r float64, col color.RGBA) *SVGBuilder {
-	// Semi-transparent fill
-	b.elements = append(b.elements, fmt.Sprintf(
-		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.15)" stroke="rgba(%d,%d,%d,0.4)" stroke-width="1"/>`,
-		cx, cy, r, col.R, col.G, col.B, col.R, col.G, col.B))
-	// Hatching overlay
-	b.elements = append(b.elements, fmt.Sprintf(
-		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,0.5)"/>`,
-		cx, cy, r, col.R, col.G, col.B))
+	// Semi-transparent fill (use integer alpha for rasterization compatibility)
+	if b.forRasterization {
+		const alphaFill = 38   // 0.15 * 255
+		const alphaStroke = 102 // 0.4 * 255
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,%d)" stroke="rgba(%d,%d,%d,%d)" stroke-width="1"/>`,
+			cx, cy, r, col.R, col.G, col.B, alphaFill, col.R, col.G, col.B, alphaStroke))
+	} else {
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.15)" stroke="rgba(%d,%d,%d,0.4)" stroke-width="1"/>`,
+			cx, cy, r, col.R, col.G, col.B, col.R, col.G, col.B))
+		// Hatching overlay - only for non-rasterization output
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,0.5)"/>`,
+			cx, cy, r, col.R, col.G, col.B))
+	}
 	return b
 }
 
@@ -137,7 +172,13 @@ func (b *SVGBuilder) Diamond(cx, cy, size float64, col color.RGBA) *SVGBuilder {
 		{cx, cy + size},
 		{cx - size, cy},
 	}
-	stroke := fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
+	var stroke string
+	if b.forRasterization {
+		const alpha = 204 // 0.8 * 255
+		stroke = fmt.Sprintf("rgba(%d,%d,%d,%d)", col.R, col.G, col.B, alpha)
+	} else {
+		stroke = fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
+	}
 	return b.Polygon(points, "none", stroke, 1)
 }
 
@@ -155,7 +196,13 @@ func (b *SVGBuilder) Triangle(cx, cy, size, angle float64, col color.RGBA) *SVGB
 		{base1X, base1Y},
 		{base2X, base2Y},
 	}
-	stroke := fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
+	var stroke string
+	if b.forRasterization {
+		const alpha = 204 // 0.8 * 255
+		stroke = fmt.Sprintf("rgba(%d,%d,%d,%d)", col.R, col.G, col.B, alpha)
+	} else {
+		stroke = fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
+	}
 	return b.Polygon(points, "none", stroke, 1)
 }
 
@@ -168,7 +215,12 @@ func (b *SVGBuilder) Line(x1, y1, x2, y2 float64, stroke string, strokeWidth flo
 }
 
 // LineWithMarker adds a line with an arrow marker.
+// Marker is skipped when forRasterization is true.
 func (b *SVGBuilder) LineWithMarker(x1, y1, x2, y2 float64, stroke string, strokeWidth float64, markerID string) *SVGBuilder {
+	if b.forRasterization {
+		// Just draw the line without marker
+		return b.Line(x1, y1, x2, y2, stroke, strokeWidth)
+	}
 	b.elements = append(b.elements, fmt.Sprintf(
 		`<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.1f" marker-end="url(#%s)"/>`,
 		x1, y1, x2, y2, stroke, strokeWidth, markerID))
@@ -176,6 +228,7 @@ func (b *SVGBuilder) LineWithMarker(x1, y1, x2, y2 float64, stroke string, strok
 }
 
 // Path adds a path element with optional marker.
+// Markers are skipped when forRasterization is true.
 func (b *SVGBuilder) Path(d string, stroke string, strokeWidth float64, fill string, markerMid, markerEnd string) *SVGBuilder {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf(`<path d="%s"`, d))
@@ -185,16 +238,23 @@ func (b *SVGBuilder) Path(d string, stroke string, strokeWidth float64, fill str
 		s.WriteString(` fill="none"`)
 	}
 	if stroke != "" {
+		// Convert decimal alpha to integer for rasterization compatibility
+		if b.forRasterization {
+			stroke = convertRGBAToIntAlpha(stroke)
+		}
 		s.WriteString(fmt.Sprintf(` stroke="%s"`, stroke))
 	}
 	if strokeWidth > 0 {
 		s.WriteString(fmt.Sprintf(` stroke-width="%.1f"`, strokeWidth))
 	}
-	if markerMid != "" {
-		s.WriteString(fmt.Sprintf(` marker-mid="url(#%s)"`, markerMid))
-	}
-	if markerEnd != "" {
-		s.WriteString(fmt.Sprintf(` marker-end="url(#%s)"`, markerEnd))
+	// Skip markers for rasterization
+	if !b.forRasterization {
+		if markerMid != "" {
+			s.WriteString(fmt.Sprintf(` marker-mid="url(#%s)"`, markerMid))
+		}
+		if markerEnd != "" {
+			s.WriteString(fmt.Sprintf(` marker-end="url(#%s)"`, markerEnd))
+		}
 	}
 	s.WriteString("/>")
 	b.elements = append(b.elements, s.String())
@@ -266,9 +326,17 @@ func (b *SVGBuilder) Wormhole(cx, cy float64) *SVGBuilder {
 // ScannerCoverage adds a semi-transparent scanner coverage circle.
 func (b *SVGBuilder) ScannerCoverage(cx, cy, radius float64, col color.RGBA) *SVGBuilder {
 	// Draw a very faint filled circle for scanner coverage
-	b.elements = append(b.elements, fmt.Sprintf(
-		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.08)" stroke="rgba(%d,%d,%d,0.2)" stroke-width="0.5"/>`,
-		cx, cy, radius, col.R, col.G, col.B, col.R, col.G, col.B))
+	if b.forRasterization {
+		const alphaFill = 20   // 0.08 * 255
+		const alphaStroke = 51 // 0.2 * 255
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,%d)" stroke="rgba(%d,%d,%d,%d)" stroke-width="0.5"/>`,
+			cx, cy, radius, col.R, col.G, col.B, alphaFill, col.R, col.G, col.B, alphaStroke))
+	} else {
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.08)" stroke="rgba(%d,%d,%d,0.2)" stroke-width="0.5"/>`,
+			cx, cy, radius, col.R, col.G, col.B, col.R, col.G, col.B))
+	}
 	return b
 }
 
@@ -286,13 +354,18 @@ func (b *SVGBuilder) String() string {
 
 // StringForRasterization generates an SVG compatible with oksvg rasterization.
 // It omits unsupported elements like <pattern>, <marker>, and their references.
+// Note: For best performance, use NewSVGBuilderForRasterization() which skips
+// markers/patterns at creation time, avoiding string replacements here.
 func (b *SVGBuilder) StringForRasterization() string {
 	return b.buildSVG(true)
 }
 
 // buildSVG generates the SVG document, optionally simplifying for rasterization.
 func (b *SVGBuilder) buildSVG(forRasterization bool) string {
+	// Pre-allocate builder with estimated capacity
+	estimatedSize := 200 + len(b.elements)*100 + len(b.defs)*200
 	var svg strings.Builder
+	svg.Grow(estimatedSize)
 
 	// Header (use absolute values for rect to support oksvg rasterization)
 	svg.WriteString(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -311,9 +384,16 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 		svg.WriteString("</defs>\n")
 	}
 
-	// Elements
-	for _, elem := range b.elements {
-		if forRasterization {
+	// Elements - if builder was created with forRasterization, elements are already clean
+	if b.forRasterization || !forRasterization {
+		// Fast path: no string processing needed
+		for _, elem := range b.elements {
+			svg.WriteString(elem)
+			svg.WriteString("\n")
+		}
+	} else {
+		// Slow path: builder wasn't created for rasterization, need to clean elements
+		for _, elem := range b.elements {
 			// Remove marker references for rasterization
 			elem = strings.ReplaceAll(elem, ` marker-mid="url(#arrow-0)"`, "")
 			elem = strings.ReplaceAll(elem, ` marker-mid="url(#arrow-1)"`, "")
@@ -325,9 +405,9 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 			}
 			// Convert rgba with decimal alpha to integer alpha (0-255)
 			elem = convertRGBAToIntAlpha(elem)
+			svg.WriteString(elem)
+			svg.WriteString("\n")
 		}
-		svg.WriteString(elem)
-		svg.WriteString("\n")
 	}
 
 	svg.WriteString("</svg>")
