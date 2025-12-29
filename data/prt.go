@@ -10,6 +10,9 @@ type PRT struct {
 	Name     string // Full name: "Hyper Expansion", etc.
 	Desc     string // Description text
 
+	// Race builder point cost (negative = advantage, positive = costs points)
+	PointCost int
+
 	// Population modifiers
 	GrowthRateModifier    float64 // Multiplier for growth rate (HE: 2.0)
 	MaxPopulationModifier float64 // Multiplier for max population (HE: 0.5, JOAT: 1.2)
@@ -102,6 +105,7 @@ var AllPRTs = []PRT{
 		Code:                  "HE",
 		Name:                  "Hyper Expansion",
 		Desc:                  "Growth rate doubled, max population halved. Special colony ship and engine.",
+		PointCost:             -40,
 		GrowthRateModifier:    2.0,
 		MaxPopulationModifier: 0.5,
 		WeaponsCostModifier:   1.0,
@@ -122,6 +126,7 @@ var AllPRTs = []PRT{
 		Code:                  "SS",
 		Name:                  "Super Stealth",
 		Desc:                  "All ships have 75% built-in cloaking. Cargo doesn't affect cloak. +1 warp in mine fields.",
+		PointCost:             -95,
 		GrowthRateModifier:    1.0,
 		MaxPopulationModifier: 1.0,
 		WeaponsCostModifier:   1.0,
@@ -142,6 +147,7 @@ var AllPRTs = []PRT{
 		Code:                  "WM",
 		Name:                  "War Monger",
 		Desc:                  "Weapons 25% cheaper. Cannot build mine fields or advanced defenses.",
+		PointCost:             -45,
 		GrowthRateModifier:    1.0,
 		MaxPopulationModifier: 1.0,
 		WeaponsCostModifier:   0.75, // 25% cheaper
@@ -165,6 +171,7 @@ var AllPRTs = []PRT{
 		Code:                      "CA",
 		Name:                      "Claim Adjuster",
 		Desc:                      "Free terraforming. 10% yearly improvement chance. Planets revert when abandoned.",
+		PointCost:                 -10,
 		GrowthRateModifier:        1.0,
 		MaxPopulationModifier:     1.0,
 		WeaponsCostModifier:       1.0,
@@ -189,6 +196,7 @@ var AllPRTs = []PRT{
 		Code:                              "IS",
 		Name:                              "Inner Strength",
 		Desc:                              "Defenses 40% cheaper, weapons 25% more expensive. Cannot build smart bombs. Colonists reproduce during transport.",
+		PointCost:                         100,
 		GrowthRateModifier:                1.0,
 		MaxPopulationModifier:             1.0,
 		WeaponsCostModifier:               1.25, // 25% more expensive
@@ -210,6 +218,7 @@ var AllPRTs = []PRT{
 		Code:                     "SD",
 		Name:                     "Space Demolition",
 		Desc:                     "Mine field expert. Mine fields act as scanners. +2 warp in enemy mines. Can remote detonate mines.",
+		PointCost:                150,
 		GrowthRateModifier:       1.0,
 		MaxPopulationModifier:    1.0,
 		WeaponsCostModifier:      1.0,
@@ -234,6 +243,7 @@ var AllPRTs = []PRT{
 		Code:                     "PP",
 		Name:                     "Packet Physics",
 		Desc:                     "Packet expert. Can fling packets up to warp 13. Packets have penetrating scanners.",
+		PointCost:                -120,
 		GrowthRateModifier:       1.0,
 		MaxPopulationModifier:    1.0,
 		WeaponsCostModifier:      1.0,
@@ -257,6 +267,7 @@ var AllPRTs = []PRT{
 		Code:                     "IT",
 		Name:                     "Interstellar Traveler",
 		Desc:                     "Stargate expert. Stargates 25% cheaper. Can scan enemy stargates. Safer stargate exceeding.",
+		PointCost:                -180,
 		GrowthRateModifier:       1.0,
 		MaxPopulationModifier:    1.0,
 		WeaponsCostModifier:      1.0,
@@ -281,6 +292,7 @@ var AllPRTs = []PRT{
 		Code:                       "AR",
 		Name:                       "Alternate Reality",
 		Desc:                       "Live on starbases, not planets. Starbases 20% cheaper. Intrinsic scanner based on population.",
+		PointCost:                  -90,
 		GrowthRateModifier:         1.0,
 		MaxPopulationModifier:      1.0, // Max pop determined by starbase type
 		WeaponsCostModifier:        1.0,
@@ -303,6 +315,7 @@ var AllPRTs = []PRT{
 		Code:                     "JOAT",
 		Name:                     "Jack of All Trades",
 		Desc:                     "No specialization. Start with tech 3 in all areas. Max population 20% greater. Scout/Frigate/Destroyer have intrinsic scanners.",
+		PointCost:                66,
 		GrowthRateModifier:       1.0,
 		MaxPopulationModifier:    1.20, // 20% greater
 		WeaponsCostModifier:      1.0,
