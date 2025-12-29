@@ -17,12 +17,8 @@ func Validate(r *Race) []ValidationError {
 		})
 	}
 
-	if r.PluralName == "" {
-		errors = append(errors, ValidationError{
-			Field:   "PluralName",
-			Message: "plural name is required",
-		})
-	} else if len(r.PluralName) > 32 {
+	// Plural name is optional (Stars! allows empty plural names in predefined races)
+	if len(r.PluralName) > 32 {
 		errors = append(errors, ValidationError{
 			Field:   "PluralName",
 			Message: "plural name must be at most 32 characters",
@@ -91,13 +87,7 @@ func Validate(r *Race) []ValidationError {
 		}
 	}
 
-	// At least one habitability dimension must be non-immune
-	if r.GravityImmune && r.TemperatureImmune && r.RadiationImmune {
-		errors = append(errors, ValidationError{
-			Field:   "Habitability",
-			Message: "at least one habitability dimension must be non-immune",
-		})
-	}
+	// Note: All three immunities are allowed (e.g., Silicanoid predefined race)
 
 	// Growth rate validation
 	if r.GrowthRate < 1 || r.GrowthRate > 20 {
