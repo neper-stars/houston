@@ -94,6 +94,39 @@ func (bpb *BattlePlanBlock) decode() {
 	}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (bpb *BattlePlanBlock) Encode() []byte {
+	// Build word0: owner (4 bits) | planId (4 bits) | tactic (4 bits) | reserved (3 bits) | dumpCargo (1 bit)
+	var word0 uint16 = uint16(bpb.OwnerPlayerId & 0x0F)
+	word0 |= uint16((bpb.PlanId & 0x0F) << 4)
+	word0 |= uint16((bpb.Tactic & 0x0F) << 8)
+	if bpb.DumpCargo {
+		word0 |= 0x8000
+	}
+
+	// Build word1: primaryTarget (4 bits) | secondaryTarget (4 bits) | attackWho (8 bits)
+	var word1 uint16 = uint16(bpb.PrimaryTarget & 0x0F)
+	word1 |= uint16((bpb.SecondaryTarget & 0x0F) << 4)
+	word1 |= uint16((bpb.AttackWho & 0xFF) << 8)
+
+	// If deleted, only return the 4-byte header
+	if bpb.Deleted {
+		data := make([]byte, 4)
+		encoding.Write16(data, 0, word0)
+		encoding.Write16(data, 2, word1)
+		return data
+	}
+
+	// Encode the plan name
+	nameEncoded := encoding.EncodeStarsString(bpb.Name)
+	data := make([]byte, 4+len(nameEncoded))
+	encoding.Write16(data, 0, word0)
+	encoding.Write16(data, 2, word1)
+	copy(data[4:], nameEncoded)
+
+	return data
+}
+
 // TacticName returns a human-readable name for the tactic
 func (bpb *BattlePlanBlock) TacticName() string {
 	switch bpb.Tactic {
@@ -667,6 +700,15 @@ func NewBattleContinuationBlock(b GenericBlock) *BattleContinuationBlock {
 	return &BattleContinuationBlock{GenericBlock: b}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (bcb *BattleContinuationBlock) Encode() []byte {
+	// Preserve raw data since structure is not fully documented
+	if bcb.Decrypted != nil {
+		return bcb.Decrypted
+	}
+	return bcb.Data
+}
+
 // SetFleetBattlePlanBlock represents setting a fleet's battle plan (Type 42)
 // Found in X files when player assigns a battle plan to a fleet
 // Format: 4 bytes
@@ -696,4 +738,14 @@ func (sfbp *SetFleetBattlePlanBlock) decode() {
 	sfbp.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
 	// Battle plan index
 	sfbp.BattlePlanIndex = int(data[2]&0xFF) + (int(data[3]) << 8)
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (sfbp *SetFleetBattlePlanBlock) Encode() []byte {
+	data := make([]byte, 4)
+	data[0] = byte(sfbp.FleetNumber & 0xFF)
+	data[1] = byte((sfbp.FleetNumber >> 8) & 0x01)
+	data[2] = byte(sfbp.BattlePlanIndex & 0xFF)
+	data[3] = byte((sfbp.BattlePlanIndex >> 8) & 0xFF)
+	return data
 }

@@ -133,6 +133,29 @@ func (wb *WaypointBlock) decode() {
 	}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wb *WaypointBlock) Encode() []byte {
+	size := 8 + len(wb.AdditionalBytes)
+	data := make([]byte, size)
+
+	encoding.Write16(data, 0, uint16(wb.X))
+	encoding.Write16(data, 2, uint16(wb.Y))
+	encoding.Write16(data, 4, uint16(wb.PositionObject))
+	data[6] = byte((wb.Warp&0x0F)<<4) | byte(wb.WaypointTask&0x0F)
+	data[7] = byte(wb.PositionObjectType)
+
+	if len(wb.AdditionalBytes) > 0 {
+		copy(data[8:], wb.AdditionalBytes)
+	}
+
+	// Set transport action in byte 15 if applicable
+	if len(data) >= 16 && wb.WaypointTask == WaypointTaskTransport {
+		data[15] = byte(wb.TransportAction)
+	}
+
+	return data
+}
+
 // UsesStargate returns true if this waypoint uses stargate travel
 func (wb *WaypointBlock) UsesStargate() bool {
 	return wb.Warp == WarpStargate
@@ -162,6 +185,11 @@ func NewWaypointTaskBlock(b GenericBlock) *WaypointTaskBlock {
 	}
 	wtb.decode()
 	return wtb
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wtb *WaypointTaskBlock) Encode() []byte {
+	return wtb.WaypointBlock.Encode()
 }
 
 // Patrol range constants
@@ -264,6 +292,65 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 	}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wctb *WaypointChangeTaskBlock) Encode() []byte {
+	// Determine size based on task type
+	size := 12
+	if wctb.WaypointTask == WaypointTaskTransport {
+		size = 20 // 12 base + 8 for transport orders
+	} else if wctb.WaypointTask == WaypointTaskPatrol {
+		size = 15 // 12 base + 1 sub-task + 2 for patrol range
+	} else if wctb.SubTaskIndex > 0 {
+		size = 13 // 12 base + 1 sub-task index
+	}
+
+	data := make([]byte, size)
+
+	// Bytes 0-1: Fleet number (9 bits)
+	data[0] = byte(wctb.FleetNumber & 0xFF)
+	data[1] = byte((wctb.FleetNumber >> 8) & 0x01)
+
+	// Byte 2: Waypoint number
+	data[2] = byte(wctb.WaypointNumber)
+
+	// Byte 3: Unknown
+	data[3] = byte(wctb.UnknownByte3)
+
+	// Bytes 4-5: X coordinate
+	encoding.Write16(data, 4, uint16(wctb.X))
+
+	// Bytes 6-7: Y coordinate
+	encoding.Write16(data, 6, uint16(wctb.Y))
+
+	// Bytes 8-9: Target (9 bits)
+	data[8] = byte(wctb.Target & 0xFF)
+	data[9] = byte((wctb.Target >> 8) & 0x01)
+
+	// Byte 10: Warp (upper nibble) | WaypointTask (lower nibble)
+	data[10] = byte((wctb.Warp&0x0F)<<4) | byte(wctb.WaypointTask&0x0F)
+
+	// Byte 11: Unknown bits (upper nibble) | TargetType (lower nibble)
+	data[11] = byte((wctb.UnknownBitsWithTargetType&0x0F)<<4) | byte(wctb.TargetType&0x0F)
+
+	// Encode task-specific data
+	if wctb.WaypointTask == WaypointTaskTransport && size >= 20 {
+		// Transport orders: 2 bytes per cargo type
+		for i := 0; i < 4; i++ {
+			offset := 12 + (i * 2)
+			data[offset] = byte(wctb.TransportOrders[i].Value)
+			data[offset+1] = byte((wctb.TransportOrders[i].Action & 0x0F) << 4)
+		}
+	} else if wctb.WaypointTask == WaypointTaskPatrol && size >= 15 {
+		data[12] = byte(wctb.SubTaskIndex)
+		data[13] = 0
+		data[14] = byte(wctb.PatrolRange)
+	} else if size >= 13 {
+		data[12] = byte(wctb.SubTaskIndex)
+	}
+
+	return data
+}
+
 // UsesStargate returns true if this waypoint uses stargate travel
 func (wctb *WaypointChangeTaskBlock) UsesStargate() bool {
 	return wctb.Warp == WarpStargate
@@ -283,6 +370,11 @@ func NewWaypointAddBlock(b GenericBlock) *WaypointAddBlock {
 	}
 	wab.decode()
 	return wab
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wab *WaypointAddBlock) Encode() []byte {
+	return wab.WaypointChangeTaskBlock.Encode()
 }
 
 // WaypointDeleteBlock represents deleting a waypoint from a fleet (Type 3)
@@ -310,4 +402,13 @@ func (wdb *WaypointDeleteBlock) decode() {
 
 	wdb.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
 	wdb.WaypointNumber = int(data[2] & 0xFF)
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wdb *WaypointDeleteBlock) Encode() []byte {
+	data := make([]byte, 3)
+	data[0] = byte(wdb.FleetNumber & 0xFF)
+	data[1] = byte((wdb.FleetNumber >> 8) & 0x01)
+	data[2] = byte(wdb.WaypointNumber)
+	return data
 }

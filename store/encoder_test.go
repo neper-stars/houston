@@ -89,7 +89,7 @@ func TestComputeRaceFooter(t *testing.T) {
 			actualFooterVal := uint16(actualFooter[0]) | uint16(actualFooter[1])<<8
 
 			// Compute expected footer using race names
-			computedFooter := ComputeRaceFooter(decryptedData, singularName, pluralName)
+			computedFooter := blocks.ComputeRaceFooter(decryptedData, singularName, pluralName)
 
 			if computedFooter != actualFooterVal {
 				t.Errorf("Footer mismatch for %s: computed=0x%04X, actual=0x%04X (singular=%q, plural=%q)",

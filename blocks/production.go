@@ -97,6 +97,23 @@ func (pqb *ProductionQueueBlock) GetItem(index int) *QueueItem {
 	return nil
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+// Each queue item is packed into 4 bytes.
+func (pqb *ProductionQueueBlock) Encode() []byte {
+	data := make([]byte, len(pqb.Items)*4)
+	for i, item := range pqb.Items {
+		// Pack into 4 bytes:
+		// chunk1: ItemId (6 bits) << 10 | Count (10 bits)
+		// chunk2: CompletePercent (12 bits) << 4 | ItemType (4 bits)
+		chunk1 := uint16((item.ItemId&0x3F)<<10) | uint16(item.Count&0x3FF)
+		chunk2 := uint16((item.CompletePercent&0xFFF)<<4) | uint16(item.ItemType&0x0F)
+
+		encoding.Write16(data, i*4, chunk1)
+		encoding.Write16(data, i*4+2, chunk2)
+	}
+	return data
+}
+
 // ProductionQueueChangeBlock represents a production queue modification (Type 29)
 // It includes the planet ID and the new queue contents
 type ProductionQueueChangeBlock struct {
@@ -152,4 +169,24 @@ func (pqcb *ProductionQueueChangeBlock) GetItem(index int) *QueueItem {
 		return &pqcb.Items[index]
 	}
 	return nil
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+// First 2 bytes are the planet ID, then 4 bytes per queue item.
+func (pqcb *ProductionQueueChangeBlock) Encode() []byte {
+	data := make([]byte, 2+len(pqcb.Items)*4)
+
+	// Planet ID (11 bits)
+	encoding.Write16(data, 0, uint16(pqcb.PlanetId&0x7FF))
+
+	// Queue items
+	for i, item := range pqcb.Items {
+		offset := 2 + i*4
+		chunk1 := uint16((item.ItemId&0x3F)<<10) | uint16(item.Count&0x3FF)
+		chunk2 := uint16((item.CompletePercent&0xFFF)<<4) | uint16(item.ItemType&0x0F)
+
+		encoding.Write16(data, offset, chunk1)
+		encoding.Write16(data, offset+2, chunk2)
+	}
+	return data
 }

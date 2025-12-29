@@ -231,6 +231,11 @@ type PlayerBlock struct {
 
 	// Mystery Trader items owned (bitmask, always 0 in race files)
 	MTItems uint16
+
+	// PasswordHash stores the hashed password for encoding.
+	// When decoding, use HashedPass() to read from raw data.
+	// When encoding, set this field before calling Encode().
+	PasswordHash uint32
 }
 
 // HashedPass returns the hashed password from inside the PlayerBlock
@@ -480,4 +485,180 @@ func (p *PlayerBlock) PRTFullName() string {
 // LRTNames returns a list of all LRT short names for this player
 func (p *PlayerBlock) LRTNames() []string {
 	return LRTNames(p.LRT)
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+// This encodes all PlayerBlock fields back to the binary format.
+func (p *PlayerBlock) Encode() ([]byte, error) {
+	singularEncoded := encoding.EncodeStarsString(p.NameSingular)
+	pluralEncoded := encoding.EncodeStarsString(p.NamePlural)
+
+	// Calculate total size
+	var totalSize int
+	if p.FullDataFlag {
+		// 8 header + 104 full data + 1 relations length + relations + names
+		totalSize = 8 + 104 + 1 + len(p.PlayerRelations) + len(singularEncoded) + len(pluralEncoded)
+	} else {
+		// 8 header + names
+		totalSize = 8 + len(singularEncoded) + len(pluralEncoded)
+	}
+	// Add padding byte if plural name is empty (for 16-bit alignment)
+	if len(pluralEncoded) == 1 {
+		totalSize++
+	}
+
+	data := make([]byte, totalSize)
+	index := 0
+
+	// Byte 0: Player number
+	data[index] = byte(p.PlayerNumber)
+	index++
+
+	// Byte 1: Ship design count
+	data[index] = byte(p.ShipDesignCount)
+	index++
+
+	// Bytes 2-3: Planets (10 bits)
+	data[index] = byte(p.Planets & 0xFF)
+	index++
+	data[index] = byte((p.Planets >> 8) & 0x03)
+	index++
+
+	// Bytes 4-5: Fleets (10 bits) + Starbase design count (4 bits in high nibble of byte 5)
+	data[index] = byte(p.Fleets & 0xFF)
+	index++
+	data[index] = byte((p.Fleets>>8)&0x03) | byte((p.StarbaseDesignCount&0x0F)<<4)
+	index++
+
+	// Byte 6: Logo (5 bits) << 3 | FullDataFlag (bit 2) | fixed bits (bits 0-1 = 3)
+	byte6 := byte((p.Logo&0x1F)<<3) | 0x03
+	if p.FullDataFlag {
+		byte6 |= 0x04
+	}
+	data[index] = byte6
+	index++
+
+	// Byte 7: AI settings
+	data[index] = p.Byte7
+	index++
+
+	if p.FullDataFlag {
+		// Full data section (104 bytes starting at index 8)
+		fullDataStart := index
+
+		// Bytes 8-9: Homeworld
+		encoding.Write16(data, fullDataStart, uint16(p.Homeworld))
+		// Bytes 10-11: Rank
+		encoding.Write16(data, fullDataStart+2, uint16(p.Rank))
+		// Bytes 12-15: Password hash
+		encoding.Write32(data, fullDataStart+4, p.PasswordHash)
+
+		// Bytes 16-24: Habitability (9 bytes)
+		data[fullDataStart+8] = byte(p.Hab.GravityCenter)
+		data[fullDataStart+9] = byte(p.Hab.TemperatureCenter)
+		data[fullDataStart+10] = byte(p.Hab.RadiationCenter)
+		data[fullDataStart+11] = byte(p.Hab.GravityLow)
+		data[fullDataStart+12] = byte(p.Hab.TemperatureLow)
+		data[fullDataStart+13] = byte(p.Hab.RadiationLow)
+		data[fullDataStart+14] = byte(p.Hab.GravityHigh)
+		data[fullDataStart+15] = byte(p.Hab.TemperatureHigh)
+		data[fullDataStart+16] = byte(p.Hab.RadiationHigh)
+
+		// Byte 25: Growth rate
+		data[fullDataStart+17] = byte(p.GrowthRate)
+
+		// Bytes 26-31: Tech levels
+		data[fullDataStart+18] = byte(p.Tech.Energy)
+		data[fullDataStart+19] = byte(p.Tech.Weapons)
+		data[fullDataStart+20] = byte(p.Tech.Propulsion)
+		data[fullDataStart+21] = byte(p.Tech.Construction)
+		data[fullDataStart+22] = byte(p.Tech.Electronics)
+		data[fullDataStart+23] = byte(p.Tech.Biotech)
+
+		// Bytes 32-55: Tech points (24 bytes, preserved from FullDataBytes if available)
+		if len(p.FullDataBytes) >= 48 {
+			copy(data[fullDataStart+24:fullDataStart+48], p.FullDataBytes[24:48])
+		}
+
+		// Bytes 56-57: Research settings
+		data[fullDataStart+48] = byte(p.ResearchPercentage)
+		data[fullDataStart+49] = byte((p.CurrentResearchField&0x0F)<<4) | byte(p.NextResearchField&0x0F)
+
+		// Bytes 58-61: Reserved (preserved from FullDataBytes if available)
+		if len(p.FullDataBytes) >= 54 {
+			copy(data[fullDataStart+50:fullDataStart+54], p.FullDataBytes[50:54])
+		}
+
+		// Bytes 62-68: Production settings
+		data[fullDataStart+54] = byte(p.Production.ResourcePerColonist)
+		data[fullDataStart+55] = byte(p.Production.FactoryProduction)
+		data[fullDataStart+56] = byte(p.Production.FactoryCost)
+		data[fullDataStart+57] = byte(p.Production.FactoriesOperate)
+		data[fullDataStart+58] = byte(p.Production.MineProduction)
+		data[fullDataStart+59] = byte(p.Production.MineCost)
+		data[fullDataStart+60] = byte(p.Production.MinesOperate)
+
+		// Byte 69: Leftover points
+		data[fullDataStart+61] = byte(p.SpendLeftoverPoints)
+
+		// Bytes 70-75: Research costs
+		data[fullDataStart+62] = byte(p.ResearchCost.Energy)
+		data[fullDataStart+63] = byte(p.ResearchCost.Weapons)
+		data[fullDataStart+64] = byte(p.ResearchCost.Propulsion)
+		data[fullDataStart+65] = byte(p.ResearchCost.Construction)
+		data[fullDataStart+66] = byte(p.ResearchCost.Electronics)
+		data[fullDataStart+67] = byte(p.ResearchCost.Biotech)
+
+		// Bytes 76-77: PRT
+		data[fullDataStart+68] = byte(p.PRT)
+		data[fullDataStart+69] = 0
+
+		// Bytes 78-79: LRT
+		encoding.Write16(data, fullDataStart+70, p.LRT)
+
+		// Byte 80: Reserved
+		data[fullDataStart+72] = 0
+
+		// Byte 81: Checkboxes
+		var checkBoxes byte = 0
+		if p.ExpensiveTechStartsAt3 {
+			checkBoxes |= 0x20 // bit 5
+		}
+		if p.FactoriesCost1LessGerm {
+			checkBoxes |= 0x80 // bit 7
+		}
+		data[fullDataStart+73] = checkBoxes
+
+		// Bytes 82-83: MT Items
+		encoding.Write16(data, fullDataStart+74, p.MTItems)
+
+		// Bytes 84-103: Remaining (preserved from FullDataBytes if available)
+		if len(p.FullDataBytes) >= 96 {
+			copy(data[fullDataStart+76:fullDataStart+96], p.FullDataBytes[76:96])
+		}
+
+		index = fullDataStart + 104
+
+		// Player relations
+		data[index] = byte(len(p.PlayerRelations))
+		index++
+		copy(data[index:], p.PlayerRelations)
+		index += len(p.PlayerRelations)
+	}
+
+	// Singular name
+	copy(data[index:], singularEncoded)
+	index += len(singularEncoded)
+
+	// Plural name
+	copy(data[index:], pluralEncoded)
+	index += len(pluralEncoded)
+
+	// Padding if plural name is empty
+	if len(pluralEncoded) == 1 {
+		data[index] = 0
+		index++
+	}
+
+	return data[:index], nil
 }

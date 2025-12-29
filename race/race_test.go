@@ -54,15 +54,15 @@ func TestDefault(t *testing.T) {
 		t.Errorf("expected LRT 0, got %d", r.LRT)
 	}
 
-	// Check habitability defaults
-	if r.GravityCenter != 50 || r.GravityWidth != 25 {
-		t.Errorf("expected gravity 50±25, got %d±%d", r.GravityCenter, r.GravityWidth)
+	// Check habitability defaults (Humanoid values: 50±35, range 15-85)
+	if r.GravityCenter != 50 || r.GravityWidth != 35 {
+		t.Errorf("expected gravity 50±35, got %d±%d", r.GravityCenter, r.GravityWidth)
 	}
-	if r.TemperatureCenter != 50 || r.TemperatureWidth != 25 {
-		t.Errorf("expected temperature 50±25, got %d±%d", r.TemperatureCenter, r.TemperatureWidth)
+	if r.TemperatureCenter != 50 || r.TemperatureWidth != 35 {
+		t.Errorf("expected temperature 50±35, got %d±%d", r.TemperatureCenter, r.TemperatureWidth)
 	}
-	if r.RadiationCenter != 50 || r.RadiationWidth != 25 {
-		t.Errorf("expected radiation 50±25, got %d±%d", r.RadiationCenter, r.RadiationWidth)
+	if r.RadiationCenter != 50 || r.RadiationWidth != 35 {
+		t.Errorf("expected radiation 50±35, got %d±%d", r.RadiationCenter, r.RadiationWidth)
 	}
 
 	// Check economy defaults
@@ -94,14 +94,15 @@ func TestClone(t *testing.T) {
 func TestHabLowHigh(t *testing.T) {
 	r := Default()
 
-	if r.GravityLow() != 25 || r.GravityHigh() != 75 {
-		t.Errorf("expected gravity 25-75, got %d-%d", r.GravityLow(), r.GravityHigh())
+	// Default (Humanoid) has range 15-85 (center 50, width 35)
+	if r.GravityLow() != 15 || r.GravityHigh() != 85 {
+		t.Errorf("expected gravity 15-85, got %d-%d", r.GravityLow(), r.GravityHigh())
 	}
-	if r.TemperatureLow() != 25 || r.TemperatureHigh() != 75 {
-		t.Errorf("expected temperature 25-75, got %d-%d", r.TemperatureLow(), r.TemperatureHigh())
+	if r.TemperatureLow() != 15 || r.TemperatureHigh() != 85 {
+		t.Errorf("expected temperature 15-85, got %d-%d", r.TemperatureLow(), r.TemperatureHigh())
 	}
-	if r.RadiationLow() != 25 || r.RadiationHigh() != 75 {
-		t.Errorf("expected radiation 25-75, got %d-%d", r.RadiationLow(), r.RadiationHigh())
+	if r.RadiationLow() != 15 || r.RadiationHigh() != 85 {
+		t.Errorf("expected radiation 15-85, got %d-%d", r.RadiationLow(), r.RadiationHigh())
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/encoding"
+	"github.com/neper-stars/houston/password"
 	"github.com/neper-stars/houston/race"
 )
 
@@ -39,7 +40,7 @@ func CreateRaceFile(r *race.Race, playerSlot int) ([]byte, error) {
 	result = append(result, writer.WriteEncryptedBlock(blocks.PlayerBlockType, playerBlockData)...)
 
 	// 4. Compute and write footer
-	footerData := ComputeRaceFooter(playerBlockData, r.SingularName, r.PluralName)
+	footerData := blocks.ComputeRaceFooter(playerBlockData, r.SingularName, r.PluralName)
 	result = append(result, writer.WriteFooter(true, footerData)...)
 
 	return result, nil
@@ -61,9 +62,8 @@ func createRaceFileHeaderData(playerSlot int) []byte {
 	// GameID: 0 for race files
 	binary.LittleEndian.PutUint32(data[4:8], 0)
 
-	// VersionData: v2.7.1 = (2 << 12) | (7 << 5) | 1 = 0x20E1
-	versionData := uint16((2 << 12) | (7 << 5) | 1)
-	binary.LittleEndian.PutUint16(data[8:10], versionData)
+	// VersionData: v2.83.0 (Stars! 2.60j RC4)
+	binary.LittleEndian.PutUint16(data[8:10], blocks.StarsVersionData())
 
 	// Turn: 0 for race files
 	binary.LittleEndian.PutUint16(data[10:12], 0)
@@ -146,8 +146,8 @@ func encodeRaceToPlayerBlock(r *race.Race, playerSlot int) []byte {
 	binary.LittleEndian.PutUint16(data[fullDataStart+2:], 0)
 	// Bytes 12-15: Password hash (0 for no password, or encode password)
 	if r.Password != "" {
-		// TODO: Implement password hashing
-		binary.LittleEndian.PutUint32(data[fullDataStart+4:], 0)
+		hash := password.HashRacePassword(r.Password)
+		binary.LittleEndian.PutUint32(data[fullDataStart+4:], hash)
 	} else {
 		binary.LittleEndian.PutUint32(data[fullDataStart+4:], 0)
 	}

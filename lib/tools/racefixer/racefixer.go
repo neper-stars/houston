@@ -45,7 +45,6 @@ import (
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/crypto"
 	"github.com/neper-stars/houston/parser"
-	"github.com/neper-stars/houston/store"
 )
 
 // FileInfo contains information about a race file.
@@ -139,7 +138,7 @@ func AnalyzeBytes(name string, fileBytes []byte) (*FileInfo, error) {
 		info.PluralName = playerBlock.NamePlural
 
 		// Compute expected footer
-		info.ExpectedFooter = store.ComputeRaceFooter(decryptedData, info.SingularName, info.PluralName)
+		info.ExpectedFooter = blocks.ComputeRaceFooter(decryptedData, info.SingularName, info.PluralName)
 
 		// Get current footer from file
 		info.CurrentFooter = uint16(footerData[0]) | uint16(footerData[1])<<8
@@ -310,7 +309,7 @@ func RemovePasswordBytes(data []byte) ([]byte, *RepairResult, error) {
 	}
 
 	// Calculate new checksum
-	newFooter := store.ComputeRaceFooter(decryptedData, singularName, pluralName)
+	newFooter := blocks.ComputeRaceFooter(decryptedData, singularName, pluralName)
 
 	// Find and update footer
 	offset = 0

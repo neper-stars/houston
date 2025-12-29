@@ -14,6 +14,16 @@ func Read32(bytes []byte, offset int) uint32 {
 	return binary.LittleEndian.Uint32(bytes[offset:])
 }
 
+// Write16 writes a little-endian uint16 to bytes at the given offset
+func Write16(data []byte, offset int, value uint16) {
+	binary.LittleEndian.PutUint16(data[offset:], value)
+}
+
+// Write32 writes a little-endian uint32 to bytes at the given offset
+func Write32(data []byte, offset int, value uint32) {
+	binary.LittleEndian.PutUint32(data[offset:], value)
+}
+
 // SubArray returns a slice of the input array from startIdx to endIdx (inclusive)
 func SubArray(input []byte, startIdx int, endIdx int) []byte {
 	size := endIdx - startIdx + 1

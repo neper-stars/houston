@@ -34,6 +34,14 @@ func (rcb *ResearchChangeBlock) decode() {
 	rcb.CurrentField = int(data[1] & 0x0F)
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (rcb *ResearchChangeBlock) Encode() []byte {
+	data := make([]byte, 2)
+	data[0] = byte(rcb.BudgetPercent)
+	data[1] = byte((rcb.NextField&0x0F)<<4) | byte(rcb.CurrentField&0x0F)
+	return data
+}
+
 // PlanetChangeBlock represents planet settings changes (Type 35)
 //
 // Format (6 bytes):
@@ -77,6 +85,21 @@ func (pcb *PlanetChangeBlock) decode() {
 	}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (pcb *PlanetChangeBlock) Encode() []byte {
+	data := make([]byte, 6)
+	data[0] = byte(pcb.PlanetId & 0xFF)
+	data[1] = byte((pcb.PlanetId >> 8) & 0x07)
+	data[2] = byte(pcb.Flags)
+	if pcb.ContributeOnlyLeftover {
+		data[2] |= 0x80
+	}
+	data[3] = byte(pcb.RouteDestinationPlanetId & 0xFF)
+	data[4] = byte((pcb.RouteDestinationPlanetId >> 8) & 0xFF)
+	data[5] = 0
+	return data
+}
+
 // ChangePasswordBlock represents a password change request (Type 36)
 //
 // Format (4 bytes):
@@ -105,6 +128,16 @@ func (cpb *ChangePasswordBlock) decode() {
 	}
 
 	cpb.NewPasswordHash = uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16 | uint32(data[3])<<24
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (cpb *ChangePasswordBlock) Encode() []byte {
+	data := make([]byte, 4)
+	data[0] = byte(cpb.NewPasswordHash & 0xFF)
+	data[1] = byte((cpb.NewPasswordHash >> 8) & 0xFF)
+	data[2] = byte((cpb.NewPasswordHash >> 16) & 0xFF)
+	data[3] = byte((cpb.NewPasswordHash >> 24) & 0xFF)
+	return data
 }
 
 // HasPassword returns true if this sets a password (hash != 0)
@@ -147,6 +180,14 @@ func (prc *PlayersRelationChangeBlock) decode() {
 
 	prc.Relation = int(data[0])
 	prc.TargetPlayer = int(data[1])
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (prc *PlayersRelationChangeBlock) Encode() []byte {
+	data := make([]byte, 2)
+	data[0] = byte(prc.Relation)
+	data[1] = byte(prc.TargetPlayer)
+	return data
 }
 
 // RelationName returns the human-readable name of the relation

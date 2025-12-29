@@ -87,6 +87,48 @@ func decodeHexAscii(hexChars string, byteSize int) string {
 	return string(bytes[:byteSize])
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (mb *MessageBlock) Encode() []byte {
+	// Encode the message text
+	messageEncoded := encodeStarsMessage(mb.Message)
+
+	data := make([]byte, 10+len(messageEncoded))
+
+	encoding.Write16(data, 0, uint16(mb.UnknownWord0))
+	encoding.Write16(data, 2, uint16(mb.UnknownWord2))
+	encoding.Write16(data, 4, uint16(mb.SenderId))
+	encoding.Write16(data, 6, uint16(mb.ReceiverId))
+	encoding.Write16(data, 8, uint16(mb.UnknownWord8))
+
+	copy(data[10:], messageEncoded)
+
+	return data
+}
+
+// encodeStarsMessage encodes a message string to Stars! format.
+func encodeStarsMessage(message string) []byte {
+	if message == "" {
+		return []byte{0, 0} // Empty message
+	}
+
+	// Encode as Stars! string
+	textBytes := encoding.EncodeStarsString(message)
+
+	// Build header: byteSize in lower 10 bits
+	byteSize := len(textBytes)
+	if byteSize > 0x3FF {
+		byteSize = 0x3FF
+	}
+
+	header := uint16(byteSize)
+
+	result := make([]byte, 2+len(textBytes))
+	encoding.Write16(result, 0, header)
+	copy(result[2:], textBytes)
+
+	return result
+}
+
 // IsBroadcast returns true if the message was sent to everyone
 func (mb *MessageBlock) IsBroadcast() bool {
 	return mb.ReceiverId == 0

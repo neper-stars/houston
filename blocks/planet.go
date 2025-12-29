@@ -234,10 +234,81 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 	}
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+// Note: Planet blocks have complex variable-length encoding. This preserves raw data
+// for blocks that were decoded, or builds from scratch for new blocks.
+func (pb *PartialPlanetBlock) Encode() []byte {
+	// If we have the original decrypted data, preserve it
+	if pb.Decrypted != nil && len(pb.Decrypted) > 0 {
+		return pb.Decrypted
+	}
+
+	// Build minimal planet header (requires implementing full encoding)
+	// For now, return the original data if available
+	if pb.Data != nil {
+		return pb.Data
+	}
+
+	// Minimal encoding: just the 4-byte header
+	data := make([]byte, 4)
+
+	// Bytes 0-1: Planet number and owner
+	data[0] = byte(pb.PlanetNumber & 0xFF)
+	ownerBits := 31 // No owner
+	if pb.Owner >= 0 && pb.Owner <= 15 {
+		ownerBits = pb.Owner
+	}
+	data[1] = byte((pb.PlanetNumber>>8)&0x07) | byte(ownerBits<<3)
+
+	// Bytes 2-3: Flags
+	var flags uint16
+	if pb.IsInUseOrRobberBaron {
+		flags |= 0x04
+	}
+	if pb.HasEnvironmentInfo {
+		flags |= 0x02
+	}
+	if pb.BitWhichIsOffForRemoteMiningAndRobberBaron {
+		flags |= 0x01
+	}
+	if pb.WeirdBit {
+		flags |= 0x8000
+	}
+	if pb.HasRoute {
+		flags |= 0x4000
+	}
+	if pb.HasSurfaceMinerals {
+		flags |= 0x2000
+	}
+	if pb.HasArtifact {
+		flags |= 0x1000
+	}
+	if pb.HasInstallations {
+		flags |= 0x0800
+	}
+	if pb.IsTerraformed {
+		flags |= 0x0400
+	}
+	if pb.HasStarbase {
+		flags |= 0x0200
+	}
+	if pb.IsHomeworld {
+		flags |= 0x0080
+	}
+	encoding.Write16(data, 2, flags)
+
+	return data
+}
+
 // PlanetBlock represents a full planet with all information (Type 13)
 // It extends PartialPlanetBlock with additional data
 type PlanetBlock struct {
 	PartialPlanetBlock
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (pb *PlanetBlock) Encode() []byte {
+	return pb.PartialPlanetBlock.Encode()
 }
 
 // NewPlanetBlock creates a PlanetBlock from a GenericBlock

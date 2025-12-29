@@ -168,13 +168,14 @@ func TestCreateRaceFileRoundTrip(t *testing.T) {
 }
 
 func TestCreateRaceFileWithLRTs(t *testing.T) {
-	// Create a race with LRTs
+	// Create a race with LRTs using a valid combination
+	// WM (War Monger) with CE (Cheap Engines) and RS (Regenerating Shields)
 	builder := race.New()
 	builder.Name("Warrior", "Warriors")
 	builder.PRT(2) // WM
-	builder.AddLRT(0)  // IFE
-	builder.AddLRT(7)  // NRSE
-	builder.GrowthRate(18)
+	builder.AddLRT(8)  // CE - Cheap Engines
+	builder.AddLRT(13) // RS - Regenerating Shields
+	builder.GrowthRate(10) // Moderate growth rate
 
 	r, err := builder.Finish()
 	if err != nil {
@@ -209,11 +210,11 @@ func TestCreateRaceFileWithLRTs(t *testing.T) {
 	if playerBlock.LRT != r.LRT {
 		t.Errorf("Expected LRT 0x%04X, got 0x%04X", r.LRT, playerBlock.LRT)
 	}
-	if !playerBlock.HasLRT(blocks.LRTImprovedFuelEfficiency) {
-		t.Error("Expected IFE LRT")
+	if !playerBlock.HasLRT(blocks.LRTCheapEngines) {
+		t.Error("Expected CE LRT")
 	}
-	if !playerBlock.HasLRT(blocks.LRTNoRamScoopEngines) {
-		t.Error("Expected NRSE LRT")
+	if !playerBlock.HasLRT(blocks.LRTRegeneratingShields) {
+		t.Error("Expected RS LRT")
 	}
 
 	t.Logf("LRTs verified: %v", blocks.LRTNames(playerBlock.LRT))

@@ -537,9 +537,9 @@ func xyFileFooterData(playerCount uint16) uint16 {
 }
 
 // rFileFooterData returns the footer data for an R file (race file).
-// R file footer = ComputeRaceFooter(decrypted PlayerBlock data, singular name, plural name).
+// R file footer = blocks.ComputeRaceFooter(decrypted PlayerBlock data, singular name, plural name).
 func rFileFooterData(decryptedPlayerBlockData []byte, singularName, pluralName string) uint16 {
-	return ComputeRaceFooter(decryptedPlayerBlockData, singularName, pluralName)
+	return blocks.ComputeRaceFooter(decryptedPlayerBlockData, singularName, pluralName)
 }
 
 // RegenerateMFile creates a new M file with any modified entities re-encoded.

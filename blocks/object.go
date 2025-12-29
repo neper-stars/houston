@@ -221,6 +221,104 @@ func (ob *ObjectBlock) decodeMysteryTrader(data []byte) {
 	ob.TurnNo = int(encoding.Read16(data, 16))
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (ob *ObjectBlock) Encode() []byte {
+	if ob.IsCountObject {
+		data := make([]byte, 2)
+		encoding.Write16(data, 0, uint16(ob.Count))
+		return data
+	}
+
+	// Encode based on object type
+	switch ob.ObjectType {
+	case ObjectTypeMinefield:
+		return ob.encodeMinefield()
+	case ObjectTypePacketSalvage:
+		return ob.encodePacket()
+	case ObjectTypeWormhole:
+		return ob.encodeWormhole()
+	case ObjectTypeMysteryTrader:
+		return ob.encodeMysteryTrader()
+	default:
+		// Fallback: return minimal object data
+		data := make([]byte, 6)
+		objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ob.ObjectType<<13)
+		encoding.Write16(data, 0, objectId)
+		encoding.Write16(data, 2, uint16(ob.X))
+		encoding.Write16(data, 4, uint16(ob.Y))
+		return data
+	}
+}
+
+func (ob *ObjectBlock) encodeMinefield() []byte {
+	data := make([]byte, 16)
+	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypeMinefield<<13)
+	encoding.Write16(data, 0, objectId)
+	encoding.Write16(data, 2, uint16(ob.X))
+	encoding.Write16(data, 4, uint16(ob.Y))
+	encoding.Write32(data, 6, uint32(ob.MineCount))
+	// Bytes 10-11: unknown (set to 0)
+	data[12] = byte(ob.MinefieldType)
+	if ob.Detonating {
+		data[13] = 1
+	}
+	// Bytes 14-15: player visibility mask (preserve if available)
+	return data
+}
+
+func (ob *ObjectBlock) encodePacket() []byte {
+	data := make([]byte, 18)
+	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypePacketSalvage<<13)
+	encoding.Write16(data, 0, objectId)
+	encoding.Write16(data, 2, uint16(ob.X))
+	encoding.Write16(data, 4, uint16(ob.Y))
+
+	if ob.IsSalvageObject {
+		data[6] = 0xFF
+		data[7] = byte(ob.SourceFleetID & 0x0F)
+	} else {
+		data[6] = byte(ob.DestinationPlanetID)
+		data[7] = byte(ob.PacketSpeed)
+	}
+
+	encoding.Write16(data, 8, uint16(ob.Ironium))
+	encoding.Write16(data, 10, uint16(ob.Boranium))
+	encoding.Write16(data, 12, uint16(ob.Germanium))
+	// Bytes 14-17: unknown
+	return data
+}
+
+func (ob *ObjectBlock) encodeWormhole() []byte {
+	data := make([]byte, 16)
+	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypeWormhole<<13)
+	encoding.Write16(data, 0, objectId)
+	encoding.Write16(data, 2, uint16(ob.X))
+	encoding.Write16(data, 4, uint16(ob.Y))
+	data[6] = byte(ob.Stability)
+	// Byte 7: unknown
+	encoding.Write16(data, 8, ob.BeenThroughBits)
+	encoding.Write16(data, 10, ob.CanSeeBits)
+	encoding.Write16(data, 12, uint16(ob.TargetId&0x0FFF))
+	// Bytes 14-15: unknown
+	return data
+}
+
+func (ob *ObjectBlock) encodeMysteryTrader() []byte {
+	data := make([]byte, 18)
+	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypeMysteryTrader<<13)
+	encoding.Write16(data, 0, objectId)
+	encoding.Write16(data, 2, uint16(ob.X))
+	encoding.Write16(data, 4, uint16(ob.Y))
+	encoding.Write16(data, 6, uint16(ob.XDest))
+	encoding.Write16(data, 8, uint16(ob.YDest))
+	data[10] = byte(ob.Warp & 0x0F)
+	// Byte 11: unknown
+	encoding.Write16(data, 12, ob.MetBits)
+	encoding.Write16(data, 14, ob.ItemBits)
+	encoding.Write16(data, 16, uint16(ob.TurnNo))
+	return data
+}
+
 // IsMinefield returns true if this is a minefield object
 func (ob *ObjectBlock) IsMinefield() bool {
 	return !ob.IsCountObject && ob.ObjectType == ObjectTypeMinefield

@@ -194,6 +194,89 @@ func (db *DesignBlock) ShipCount() int64 {
 	return db.TotalRemaining
 }
 
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (db *DesignBlock) Encode() []byte {
+	// Encode the design name
+	nameEncoded := encoding.EncodeStarsString(db.Name)
+
+	// Calculate size based on whether this is a full design
+	var size int
+	if db.IsFullDesign {
+		size = 17 + len(db.Slots)*4 + len(nameEncoded)
+	} else {
+		size = 6 + len(nameEncoded)
+	}
+
+	data := make([]byte, size)
+
+	// Byte 0: First control byte
+	// Bits 0-1: Must be 0b11 (0x03)
+	// Bit 2: isFullDesign flag
+	data[0] = 0x03
+	if db.IsFullDesign {
+		data[0] |= 0x04
+	}
+
+	// Byte 1: Second control byte
+	// Bit 0: Must be 1
+	// Bits 2-5: designNumber (0-15)
+	// Bit 6: isStarbase flag
+	// Bit 7: isTransferred flag
+	data[1] = 0x01 // Bit 0 always set
+	data[1] |= byte((db.DesignNumber & 0x0F) << 2)
+	if db.IsStarbase {
+		data[1] |= 0x40
+	}
+	if db.IsTransferred {
+		data[1] |= 0x80
+	}
+
+	// Byte 2: Hull ID
+	data[2] = byte(db.HullId)
+
+	// Byte 3: Picture ID
+	data[3] = byte(db.Pic)
+
+	index := 4
+
+	if db.IsFullDesign {
+		// Bytes 4-5: Armor (16-bit)
+		encoding.Write16(data, 4, uint16(db.Armor))
+
+		// Byte 6: Slot count
+		data[6] = byte(len(db.Slots))
+
+		// Bytes 7-8: Turn designed (16-bit)
+		encoding.Write16(data, 7, uint16(db.TurnDesigned))
+
+		// Bytes 9-12: Total built (32-bit)
+		encoding.Write32(data, 9, uint32(db.TotalBuilt))
+
+		// Bytes 13-16: Total remaining (32-bit)
+		encoding.Write32(data, 13, uint32(db.TotalRemaining))
+
+		index = 17
+
+		// Component slots (4 bytes each)
+		for _, slot := range db.Slots {
+			encoding.Write16(data, index, slot.Category)
+			data[index+2] = byte(slot.ItemId)
+			data[index+3] = byte(slot.Count)
+			index += 4
+		}
+	} else {
+		// Brief design: just mass
+		// Bytes 4-5: Mass (16-bit)
+		encoding.Write16(data, 4, uint16(db.Mass))
+		index = 6
+	}
+
+	// Design name (variable length Stars! encoded string)
+	copy(data[index:], nameEncoded)
+
+	return data
+}
+
 // DesignChangeBlock represents a design modification or deletion (Type 27)
 // It has 2 extra bytes at the beginning compared to DesignBlock
 type DesignChangeBlock struct {
@@ -259,4 +342,36 @@ func (dcb *DesignChangeBlock) decode() error {
 	var err error
 	dcb.Design, err = NewDesignBlock(designGenericBlock)
 	return err
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (dcb *DesignChangeBlock) Encode() []byte {
+	if dcb.IsDelete {
+		// Deletion format: 2 bytes
+		// Byte 0: 0 (first nibble = 0 indicates deletion)
+		// Byte 1: (isStarbase << 4) | designNumber
+		data := make([]byte, 2)
+		data[0] = 0
+		data[1] = byte(dcb.DesignToDelete & 0x0F)
+		if dcb.IsStarbase {
+			data[1] |= 0x10
+		}
+		return data
+	}
+
+	// Design change format: 2 prefix bytes + DesignBlock data
+	if dcb.Design == nil {
+		return nil
+	}
+
+	designData := dcb.Design.Encode()
+	data := make([]byte, 2+len(designData))
+
+	// Prefix bytes - the first byte's low nibble is non-zero for design changes
+	// Using 0x03 as a reasonable default
+	data[0] = 0x03
+	data[1] = 0x00
+
+	copy(data[2:], designData)
+	return data
 }

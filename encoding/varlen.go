@@ -70,3 +70,42 @@ func ExtractVarLenField(contentsByte byte, bitOffset int) int {
 func ExtractVarLenField16(contentsWord uint16, bitOffset int) int {
 	return int((contentsWord >> bitOffset) & 0x03)
 }
+
+// WriteVarLen writes a variable-length encoded integer and returns the new index.
+// The number of bytes written is determined by ByteLengthForInt:
+//   - 0 bytes if value is 0
+//   - 1 byte if value <= 0xFF
+//   - 2 bytes if value <= 0xFFFF
+//   - 4 bytes otherwise
+func WriteVarLen(data []byte, index int, value int64) int {
+	byteLen := ByteLengthForInt(value)
+	switch byteLen {
+	case 0:
+		// Zero uses no bytes
+		return index
+	case 1:
+		data[index] = byte(value & 0xFF)
+		return index + 1
+	case 2:
+		Write16(data, index, uint16(value))
+		return index + 2
+	case 3: // 3 means 4 bytes
+		Write32(data, index, uint32(value))
+		return index + 4
+	}
+	return index
+}
+
+// PackVarLenIndicators packs multiple 2-bit length indicators into a uint16.
+// Each value's byte length is determined and packed at 2-bit intervals.
+// Up to 8 values can be packed (16 bits / 2 bits per value).
+func PackVarLenIndicators(values ...int64) uint16 {
+	var result uint16
+	for i, v := range values {
+		if i >= 8 {
+			break
+		}
+		result |= uint16(ByteLengthForInt(v)) << (i * 2)
+	}
+	return result
+}

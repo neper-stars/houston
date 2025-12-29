@@ -130,47 +130,9 @@ const (
 	ResearchCostLess     = 2 // Costs 50% less
 )
 
-// Default returns a new Race with sensible defaults for the race builder.
-// This provides a good starting point for creating custom races.
-// For the exact Stars! predefined Humanoid race, use Humanoid() instead.
+// Default returns the Humanoids default race from Stars!
 func Default() *Race {
-	return &Race{
-		SingularName: "Humanoid",
-		PluralName:   "Humanoids",
-
-		PRT: PRTJackOfAllTrades,
-		LRT: 0, // No LRTs
-
-		// Habitability - centered at 50, range 25-75
-		GravityCenter:     50,
-		GravityWidth:      25,
-		TemperatureCenter: 50,
-		TemperatureWidth:  25,
-		RadiationCenter:   50,
-		RadiationWidth:    25,
-
-		GrowthRate:           15,   // 15%
-		ColonistsPerResource: 1000, // 1000 colonists per resource
-
-		FactoryOutput:        10, // 10 resources per 10 factories
-		FactoryCost:          10, // 10 resources to build 1 factory
-		FactoryCount:         10, // 10 factories per 10k colonists
-		FactoriesUseLessGerm: false,
-
-		MineOutput: 10, // 10 kT per 10 mines
-		MineCost:   5,  // 5 resources to build 1 mine
-		MineCount:  10, // 10 mines per 10k colonists
-
-		ResearchEnergy:       ResearchCostStandard,
-		ResearchWeapons:      ResearchCostStandard,
-		ResearchPropulsion:   ResearchCostStandard,
-		ResearchConstruction: ResearchCostStandard,
-		ResearchElectronics:  ResearchCostStandard,
-		ResearchBiotech:      ResearchCostStandard,
-		TechsStartHigh:       false,
-
-		LeftoverPointsOn: LeftoverSurfaceMinerals,
-	}
+	return Humanoid()
 }
 
 // Humanoid returns the predefined Humanoid race from Stars! race wizard.
@@ -484,12 +446,12 @@ func Antetheral() *Race {
 		MineCost:   10, // 10 resources to build 1 mine
 		MineCount:  10, // 10 mines per 10k colonists
 
-		ResearchEnergy:       ResearchCostLess,     // 50% less expensive
-		ResearchWeapons:      ResearchCostExtra,    // 75% more expensive
-		ResearchPropulsion:   ResearchCostLess,     // 50% less expensive
-		ResearchConstruction: ResearchCostLess,     // 50% less expensive
-		ResearchElectronics:  ResearchCostLess,     // 50% less expensive
-		ResearchBiotech:      ResearchCostLess,     // 50% less expensive
+		ResearchEnergy:       ResearchCostLess,  // 50% less expensive
+		ResearchWeapons:      ResearchCostExtra, // 75% more expensive
+		ResearchPropulsion:   ResearchCostLess,  // 50% less expensive
+		ResearchConstruction: ResearchCostLess,  // 50% less expensive
+		ResearchElectronics:  ResearchCostLess,  // 50% less expensive
+		ResearchBiotech:      ResearchCostLess,  // 50% less expensive
 		TechsStartHigh:       false,
 
 		LeftoverPointsOn: LeftoverSurfaceMinerals,

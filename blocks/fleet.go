@@ -427,3 +427,191 @@ func (b *RenameFleetBlock) decode() {
 		}
 	}
 }
+
+// Encode returns the raw block data bytes for FleetSplitBlock.
+func (fsb *FleetSplitBlock) Encode() []byte {
+	data := make([]byte, 2)
+	data[0] = byte(fsb.FleetNumber & 0xFF)
+	data[1] = byte((fsb.FleetNumber >> 8) & 0x01)
+	return data
+}
+
+// Encode returns the raw block data bytes for FleetsMergeBlock.
+func (fmb *FleetsMergeBlock) Encode() []byte {
+	data := make([]byte, 2+len(fmb.FleetsToMerge)*2)
+	data[0] = byte(fmb.FleetNumber & 0xFF)
+	data[1] = byte((fmb.FleetNumber >> 8) & 0x01)
+
+	for i, fleet := range fmb.FleetsToMerge {
+		offset := 2 + i*2
+		data[offset] = byte(fleet & 0xFF)
+		data[offset+1] = byte((fleet >> 8) & 0x01)
+	}
+	return data
+}
+
+// Encode returns the raw block data bytes for FleetNameBlock.
+func (fnb *FleetNameBlock) Encode() []byte {
+	return encoding.EncodeStarsString(fnb.Name)
+}
+
+// Encode returns the raw block data bytes for MoveShipsBlock.
+func (b *MoveShipsBlock) Encode() []byte {
+	// Calculate size: 4 bytes header + transfer info
+	size := 4 + len(b.TransferInfo)
+	data := make([]byte, size)
+
+	encoding.Write16(data, 0, uint16(b.DestFleetNumber))
+	encoding.Write16(data, 2, uint16(b.SourceFleetNumber))
+	copy(data[4:], b.TransferInfo)
+
+	return data
+}
+
+// Encode returns the raw block data bytes for RenameFleetBlock.
+func (b *RenameFleetBlock) Encode() []byte {
+	encodedName := encoding.EncodeStarsString(b.NewName)
+	data := make([]byte, 4+len(encodedName))
+
+	encoding.Write16(data, 0, uint16(b.FleetNumber))
+	encoding.Write16(data, 2, uint16(b.FleetNumber)) // Unknown field, typically matches fleet number
+	copy(data[4:], encodedName)
+
+	return data
+}
+
+// Encode returns the raw block data bytes for PartialFleetBlock.
+// This handles the complex variable-length encoding of ship counts and cargo.
+func (fb *PartialFleetBlock) Encode() []byte {
+	// Calculate the size needed
+	size := 14 // Fixed header
+
+	// Ship counts (variable length)
+	shipCountBytes := 0
+	for bit := 0; bit < 16; bit++ {
+		if (fb.ShipTypes & (1 << bit)) != 0 {
+			if fb.ShipCountTwoBytes {
+				shipCountBytes += 2
+			} else {
+				shipCountBytes++
+			}
+		}
+	}
+	size += shipCountBytes
+
+	// Cargo (if applicable)
+	if fb.HasCargo() {
+		size += 2 // Contents lengths word
+		size += encoding.VarLenByteCount(encoding.ByteLengthForInt(fb.Ironium))
+		size += encoding.VarLenByteCount(encoding.ByteLengthForInt(fb.Boranium))
+		size += encoding.VarLenByteCount(encoding.ByteLengthForInt(fb.Germanium))
+		size += encoding.VarLenByteCount(encoding.ByteLengthForInt(fb.Population))
+		size += encoding.VarLenByteCount(encoding.ByteLengthForInt(fb.Fuel))
+	}
+
+	// Full fleet vs partial fleet specific data
+	if fb.KindByte == FleetKindFull {
+		size += 2 // Damaged ship types
+		for bit := 0; bit < 16; bit++ {
+			if (fb.DamagedShipTypes & (1 << bit)) != 0 {
+				size += 2
+			}
+		}
+		size += 2 // Battle plan and waypoint count
+	} else {
+		size += 8 // Delta X, Delta Y, Warp, padding, Mass
+	}
+
+	data := make([]byte, size)
+	index := 0
+
+	// Bytes 0-1: Fleet number and owner
+	data[index] = byte(fb.FleetNumber & 0xFF)
+	index++
+	data[index] = byte(((fb.FleetNumber >> 8) & 0x01) | (fb.Owner << 1))
+	index++
+
+	// Bytes 2-5: Control bytes
+	data[index] = fb.Byte2
+	index++
+	data[index] = fb.Byte3
+	index++
+	data[index] = fb.KindByte
+	index++
+	data[index] = fb.Byte5
+	index++
+
+	// Bytes 6-13: Position and ship types
+	encoding.Write16(data, index, uint16(fb.PositionObjectId))
+	index += 2
+	encoding.Write16(data, index, uint16(fb.X))
+	index += 2
+	encoding.Write16(data, index, uint16(fb.Y))
+	index += 2
+	encoding.Write16(data, index, fb.ShipTypes)
+	index += 2
+
+	// Variable-length ship counts
+	for bit := 0; bit < 16; bit++ {
+		if (fb.ShipTypes & (1 << bit)) != 0 {
+			if fb.ShipCountTwoBytes {
+				encoding.Write16(data, index, uint16(fb.ShipCount[bit]))
+				index += 2
+			} else {
+				data[index] = byte(fb.ShipCount[bit])
+				index++
+			}
+		}
+	}
+
+	// Cargo section
+	if fb.HasCargo() {
+		contentsLengths := encoding.PackVarLenIndicators(
+			fb.Ironium, fb.Boranium, fb.Germanium, fb.Population, fb.Fuel,
+		)
+		encoding.Write16(data, index, contentsLengths)
+		index += 2
+
+		index = encoding.WriteVarLen(data, index, fb.Ironium)
+		index = encoding.WriteVarLen(data, index, fb.Boranium)
+		index = encoding.WriteVarLen(data, index, fb.Germanium)
+		index = encoding.WriteVarLen(data, index, fb.Population)
+		index = encoding.WriteVarLen(data, index, fb.Fuel)
+	}
+
+	// Full fleet vs partial fleet specific data
+	if fb.KindByte == FleetKindFull {
+		encoding.Write16(data, index, fb.DamagedShipTypes)
+		index += 2
+
+		for bit := 0; bit < 16; bit++ {
+			if (fb.DamagedShipTypes & (1 << bit)) != 0 {
+				encoding.Write16(data, index, fb.DamagedShipInfo[bit])
+				index += 2
+			}
+		}
+
+		data[index] = byte(fb.BattlePlan)
+		index++
+		data[index] = byte(fb.WaypointCount)
+		index++
+	} else {
+		data[index] = byte(int8(fb.DeltaX))
+		index++
+		data[index] = byte(int8(fb.DeltaY))
+		index++
+		data[index] = byte(fb.Warp&0x0F) | byte(fb.UnknownBitsWithWarp&0xF0)
+		index++
+		data[index] = 0 // Padding
+		index++
+		encoding.Write32(data, index, uint32(fb.Mass))
+		index += 4
+	}
+
+	return data[:index]
+}
+
+// Encode returns the raw block data bytes for FleetBlock.
+func (fb *FleetBlock) Encode() []byte {
+	return fb.PartialFleetBlock.Encode()
+}
