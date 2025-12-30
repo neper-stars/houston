@@ -1,5 +1,11 @@
 package race
 
+import (
+	"fmt"
+
+	"github.com/neper-stars/houston/blocks"
+)
+
 const (
 	// MinHabWidth is the minimum habitability width allowed by the Stars! Race Wizard.
 	// The narrowest range the GUI allows is 0.12g to 0.31g (internal 0-19), which is width 10.
@@ -64,6 +70,19 @@ func Validate(r *Race) []ValidationError {
 				Message: "gravity width must be between 10 and 50",
 			})
 		}
+		// Range edge constraints: the habitable range [center-width, center+width] must stay within [0, 100]
+		if lowEdge := r.GravityCenter - r.GravityWidth; lowEdge < 0 {
+			errors = append(errors, ValidationError{
+				Field:   "GravityCenter",
+				Message: fmt.Sprintf("gravity range low edge would be %.2fg (below minimum 0.12g)", blocks.GravityToDisplay(lowEdge)),
+			})
+		}
+		if highEdge := r.GravityCenter + r.GravityWidth; highEdge > 100 {
+			errors = append(errors, ValidationError{
+				Field:   "GravityCenter",
+				Message: fmt.Sprintf("gravity range high edge would be %.2fg (above maximum 8.00g)", blocks.GravityToDisplay(highEdge)),
+			})
+		}
 	}
 
 	if !r.TemperatureImmune {
@@ -79,6 +98,19 @@ func Validate(r *Race) []ValidationError {
 				Message: "temperature width must be between 10 and 50",
 			})
 		}
+		// Range edge constraints: the habitable range [center-width, center+width] must stay within [0, 100]
+		if lowEdge := r.TemperatureCenter - r.TemperatureWidth; lowEdge < 0 {
+			errors = append(errors, ValidationError{
+				Field:   "TemperatureCenter",
+				Message: fmt.Sprintf("temperature range low edge would be %d°C (below minimum -200°C)", blocks.TemperatureToDisplay(lowEdge)),
+			})
+		}
+		if highEdge := r.TemperatureCenter + r.TemperatureWidth; highEdge > 100 {
+			errors = append(errors, ValidationError{
+				Field:   "TemperatureCenter",
+				Message: fmt.Sprintf("temperature range high edge would be %d°C (above maximum 200°C)", blocks.TemperatureToDisplay(highEdge)),
+			})
+		}
 	}
 
 	if !r.RadiationImmune {
@@ -92,6 +124,19 @@ func Validate(r *Race) []ValidationError {
 			errors = append(errors, ValidationError{
 				Field:   "RadiationWidth",
 				Message: "radiation width must be between 10 and 50",
+			})
+		}
+		// Range edge constraints: the habitable range [center-width, center+width] must stay within [0, 100]
+		if lowEdge := r.RadiationCenter - r.RadiationWidth; lowEdge < 0 {
+			errors = append(errors, ValidationError{
+				Field:   "RadiationCenter",
+				Message: fmt.Sprintf("radiation range low edge would be %dmR (below minimum 0mR)", blocks.RadiationToDisplay(lowEdge)),
+			})
+		}
+		if highEdge := r.RadiationCenter + r.RadiationWidth; highEdge > 100 {
+			errors = append(errors, ValidationError{
+				Field:   "RadiationCenter",
+				Message: fmt.Sprintf("radiation range high edge would be %dmR (above maximum 100mR)", blocks.RadiationToDisplay(highEdge)),
 			})
 		}
 	}

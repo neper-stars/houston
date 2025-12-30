@@ -491,6 +491,15 @@ func RandomWithSeed(seed int64) *Race {
 	temperatureImmune := rng.Intn(5) == 0
 	radiationImmune := rng.Intn(5) == 0
 
+	// Generate width first, then constrain center so edges stay within [0, 100]
+	// For a given width, center must be in range [width, 100-width]
+	gravityWidth := randRange(MinHabWidth, MaxHabWidth)
+	gravityCenter := randRange(gravityWidth, 100-gravityWidth)
+	temperatureWidth := randRange(MinHabWidth, MaxHabWidth)
+	temperatureCenter := randRange(temperatureWidth, 100-temperatureWidth)
+	radiationWidth := randRange(MinHabWidth, MaxHabWidth)
+	radiationCenter := randRange(radiationWidth, 100-radiationWidth)
+
 	return &Race{
 		SingularName: "Random",
 		PluralName:   "Randoms",
@@ -500,14 +509,14 @@ func RandomWithSeed(seed int64) *Race {
 		LRT: lrt,
 
 		GravityImmune:     gravityImmune,
-		GravityCenter:     randRange(0, 100),
-		GravityWidth:      randRange(MinHabWidth, MaxHabWidth),
+		GravityCenter:     gravityCenter,
+		GravityWidth:      gravityWidth,
 		TemperatureImmune: temperatureImmune,
-		TemperatureCenter: randRange(0, 100),
-		TemperatureWidth:  randRange(MinHabWidth, MaxHabWidth),
+		TemperatureCenter: temperatureCenter,
+		TemperatureWidth:  temperatureWidth,
 		RadiationImmune:   radiationImmune,
-		RadiationCenter:   randRange(0, 100),
-		RadiationWidth:    randRange(MinHabWidth, MaxHabWidth),
+		RadiationCenter:   radiationCenter,
+		RadiationWidth:    radiationWidth,
 
 		GrowthRate:           randRange(1, 20),
 		ColonistsPerResource: randRange(700, 2500),
