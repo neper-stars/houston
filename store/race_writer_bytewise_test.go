@@ -1,0 +1,450 @@
+package store
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"testing"
+
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/parser"
+	"github.com/neper-stars/houston/race"
+)
+
+// predefinedRaceTestCase defines a test case for byte-wise comparison
+type predefinedRaceTestCase struct {
+	name         string
+	raceFunc     func() *race.Race
+	expectedFile string
+}
+
+// TestPredefinedRacesBytewise compares generated race files byte-for-byte
+// with the reference files produced by Stars!
+func TestPredefinedRacesBytewise(t *testing.T) {
+	testCases := []predefinedRaceTestCase{
+		{"Humanoid", race.Humanoid, "../testdata/scenario-racebuilder/predefined-races/humanoids/race.r1"},
+		{"Rabbitoid", race.Rabbitoid, "../testdata/scenario-racebuilder/predefined-races/rabbitoids/race.r1"},
+		{"Insectoid", race.Insectoid, "../testdata/scenario-racebuilder/predefined-races/insectoids/race.r1"},
+		{"Nucleotid", race.Nucleotid, "../testdata/scenario-racebuilder/predefined-races/nucleotids/race.r1"},
+		{"Silicanoid", race.Silicanoid, "../testdata/scenario-racebuilder/predefined-races/silicanoids/race.r1"},
+		{"Antetheral", race.Antetheral, "../testdata/scenario-racebuilder/predefined-races/antetherals/race.r1"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testPredefinedRaceBytewise(t, tc)
+		})
+	}
+}
+
+func testPredefinedRaceBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	// Read the expected race file produced by Stars!
+	expectedData, err := os.ReadFile(tc.expectedFile)
+	if err != nil {
+		t.Fatalf("Failed to read expected race file: %v", err)
+	}
+
+	// Build the race using the predefined race function
+	r := tc.raceFunc()
+
+	// Create a race file using our encoder
+	generatedData, err := CreateRaceFile(r, 1)
+	if err != nil {
+		t.Fatalf("Failed to create race file: %v", err)
+	}
+
+	// Parse both files to get the blocks
+	expectedFd := parser.FileData(expectedData)
+	expectedBlocks, err := expectedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse expected race file: %v", err)
+	}
+
+	generatedFd := parser.FileData(generatedData)
+	generatedBlocks, err := generatedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse generated race file: %v", err)
+	}
+
+	// Compare block counts
+	if len(expectedBlocks) != len(generatedBlocks) {
+		t.Errorf("Block count mismatch: expected %d, got %d", len(expectedBlocks), len(generatedBlocks))
+	}
+
+	// Compare each block byte-by-byte
+	minBlocks := len(expectedBlocks)
+	if len(generatedBlocks) < minBlocks {
+		minBlocks = len(generatedBlocks)
+	}
+
+	for i := 0; i < minBlocks; i++ {
+		expectedBlock := expectedBlocks[i]
+		generatedBlock := generatedBlocks[i]
+
+		// Check block types match
+		if expectedBlock.BlockTypeID() != generatedBlock.BlockTypeID() {
+			t.Errorf("Block %d: type mismatch - expected %d (%s), got %d (%s)",
+				i,
+				expectedBlock.BlockTypeID(), blocks.BlockTypeName(expectedBlock.BlockTypeID()),
+				generatedBlock.BlockTypeID(), blocks.BlockTypeName(generatedBlock.BlockTypeID()))
+			continue
+		}
+
+		// Get decrypted data from both blocks
+		expectedDecrypted := expectedBlock.DecryptedData()
+		generatedDecrypted := generatedBlock.DecryptedData()
+
+		// Compare sizes
+		if len(expectedDecrypted) != len(generatedDecrypted) {
+			t.Errorf("Block %d (%s): size mismatch - expected %d bytes, got %d bytes",
+				i, blocks.BlockTypeName(expectedBlock.BlockTypeID()),
+				len(expectedDecrypted), len(generatedDecrypted))
+		}
+
+		// Byte-by-byte comparison
+		minLen := len(expectedDecrypted)
+		if len(generatedDecrypted) < minLen {
+			minLen = len(generatedDecrypted)
+		}
+
+		differences := []byteDifference{}
+		for j := 0; j < minLen; j++ {
+			if expectedDecrypted[j] != generatedDecrypted[j] {
+				differences = append(differences, byteDifference{
+					offset:   j,
+					expected: expectedDecrypted[j],
+					actual:   generatedDecrypted[j],
+				})
+			}
+		}
+
+		if len(differences) > 0 {
+			t.Errorf("Block %d (%s): %d byte differences found",
+				i, blocks.BlockTypeName(expectedBlock.BlockTypeID()), len(differences))
+
+			// Log first few differences in detail
+			maxDiffs := 10
+			if len(differences) < maxDiffs {
+				maxDiffs = len(differences)
+			}
+			for _, diff := range differences[:maxDiffs] {
+				t.Logf("  Offset %d (0x%02X): expected 0x%02X, got 0x%02X",
+					diff.offset, diff.offset, diff.expected, diff.actual)
+			}
+			if len(differences) > 10 {
+				t.Logf("  ... and %d more differences", len(differences)-10)
+			}
+
+			// Show hex dump of both for the affected region
+			if len(differences) > 0 {
+				firstDiff := differences[0].offset
+				lastDiff := differences[len(differences)-1].offset
+				start := firstDiff - 4
+				if start < 0 {
+					start = 0
+				}
+				end := lastDiff + 8
+				if end > minLen {
+					end = minLen
+				}
+
+				t.Logf("  Expected bytes [%d-%d]: %s", start, end-1, formatHexRange(expectedDecrypted, start, end))
+				t.Logf("  Generated bytes [%d-%d]: %s", start, end-1, formatHexRange(generatedDecrypted, start, end))
+			}
+		}
+	}
+
+	// Final summary
+	t.Logf("Compared %d blocks for %s race", minBlocks, tc.name)
+}
+
+type byteDifference struct {
+	offset   int
+	expected byte
+	actual   byte
+}
+
+func formatHexRange(data []byte, start, end int) string {
+	if start >= len(data) {
+		return "(out of range)"
+	}
+	if end > len(data) {
+		end = len(data)
+	}
+	var buf bytes.Buffer
+	for i := start; i < end; i++ {
+		if i > start {
+			buf.WriteString(" ")
+		}
+		fmt.Fprintf(&buf, "%02X", data[i])
+	}
+	return buf.String()
+}
+
+// TestPredefinedRacePlayerBlockBytewise focuses on the PlayerBlock specifically
+// since that's where all the race data is encoded
+func TestPredefinedRacePlayerBlockBytewise(t *testing.T) {
+	testCases := []predefinedRaceTestCase{
+		{"Humanoid", race.Humanoid, "../testdata/scenario-racebuilder/predefined-races/humanoids/race.r1"},
+		{"Rabbitoid", race.Rabbitoid, "../testdata/scenario-racebuilder/predefined-races/rabbitoids/race.r1"},
+		{"Insectoid", race.Insectoid, "../testdata/scenario-racebuilder/predefined-races/insectoids/race.r1"},
+		{"Nucleotid", race.Nucleotid, "../testdata/scenario-racebuilder/predefined-races/nucleotids/race.r1"},
+		{"Silicanoid", race.Silicanoid, "../testdata/scenario-racebuilder/predefined-races/silicanoids/race.r1"},
+		{"Antetheral", race.Antetheral, "../testdata/scenario-racebuilder/predefined-races/antetherals/race.r1"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testPlayerBlockBytewise(t, tc)
+		})
+	}
+}
+
+func testPlayerBlockBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	// Read the expected race file produced by Stars!
+	expectedData, err := os.ReadFile(tc.expectedFile)
+	if err != nil {
+		t.Fatalf("Failed to read expected race file: %v", err)
+	}
+
+	// Build the race using the predefined race function
+	r := tc.raceFunc()
+
+	// Create a race file using our encoder
+	generatedData, err := CreateRaceFile(r, 1)
+	if err != nil {
+		t.Fatalf("Failed to create race file: %v", err)
+	}
+
+	// Parse both files
+	expectedFd := parser.FileData(expectedData)
+	expectedBlocks, err := expectedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse expected race file: %v", err)
+	}
+
+	generatedFd := parser.FileData(generatedData)
+	generatedBlocks, err := generatedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse generated race file: %v", err)
+	}
+
+	// Find PlayerBlocks
+	var expectedPlayer, generatedPlayer *blocks.PlayerBlock
+	for _, block := range expectedBlocks {
+		if pb, ok := block.(blocks.PlayerBlock); ok {
+			expectedPlayer = &pb
+			break
+		}
+	}
+	for _, block := range generatedBlocks {
+		if pb, ok := block.(blocks.PlayerBlock); ok {
+			generatedPlayer = &pb
+			break
+		}
+	}
+
+	if expectedPlayer == nil {
+		t.Fatal("No PlayerBlock found in expected file")
+	}
+	if generatedPlayer == nil {
+		t.Fatal("No PlayerBlock found in generated file")
+	}
+
+	// Compare decrypted data byte-by-byte
+	expectedDecrypted := expectedPlayer.Decrypted
+	generatedDecrypted := generatedPlayer.Decrypted
+
+	t.Logf("Expected PlayerBlock: %d bytes", len(expectedDecrypted))
+	t.Logf("Generated PlayerBlock: %d bytes", len(generatedDecrypted))
+
+	// Size check
+	if len(expectedDecrypted) != len(generatedDecrypted) {
+		t.Errorf("PlayerBlock size mismatch: expected %d, got %d",
+			len(expectedDecrypted), len(generatedDecrypted))
+	}
+
+	// Byte-by-byte comparison with detailed field analysis
+	minLen := len(expectedDecrypted)
+	if len(generatedDecrypted) < minLen {
+		minLen = len(generatedDecrypted)
+	}
+
+	// Define known field regions for better error reporting
+	fieldRegions := []struct {
+		start int
+		end   int
+		name  string
+	}{
+		{0, 2, "PlayerNumber/Flags"},
+		{2, 4, "LRT"},
+		{4, 6, "PRT/Hab flags"},
+		{6, 8, "Flags/Logo"},
+		{8, 14, "Habitability"},
+		{14, 16, "Growth rate/CPR"},
+		{16, 24, "Factory/Mine settings"},
+		{24, 32, "Research costs"},
+		{32, 56, "Tech progress"},
+		{56, 62, "Reserved/Unknown"},
+		{62, 104, "More race data"},
+	}
+
+	differences := make(map[string][]byteDifference)
+	for j := 0; j < minLen; j++ {
+		if expectedDecrypted[j] != generatedDecrypted[j] {
+			// Find which field region this byte belongs to
+			fieldName := "Unknown"
+			for _, region := range fieldRegions {
+				if j >= region.start && j < region.end {
+					fieldName = region.name
+					break
+				}
+			}
+			if j >= 104 {
+				fieldName = "Names/Extended"
+			}
+
+			differences[fieldName] = append(differences[fieldName], byteDifference{
+				offset:   j,
+				expected: expectedDecrypted[j],
+				actual:   generatedDecrypted[j],
+			})
+		}
+	}
+
+	if len(differences) > 0 {
+		totalDiffs := 0
+		for field, diffs := range differences {
+			totalDiffs += len(diffs)
+			t.Errorf("Field '%s': %d byte differences", field, len(diffs))
+			for _, diff := range diffs {
+				t.Logf("  Offset %d (0x%02X): expected 0x%02X, got 0x%02X",
+					diff.offset, diff.offset, diff.expected, diff.actual)
+			}
+		}
+		t.Errorf("Total: %d byte differences in PlayerBlock", totalDiffs)
+
+		// Full hex dump for comparison
+		t.Logf("Expected PlayerBlock hex dump (first 104 bytes - FullDataBytes):")
+		dumpHex(t, expectedDecrypted, 0, 104)
+		t.Logf("Generated PlayerBlock hex dump (first 104 bytes - FullDataBytes):")
+		dumpHex(t, generatedDecrypted, 0, 104)
+	} else {
+		t.Logf("PlayerBlock matches byte-for-byte!")
+	}
+}
+
+func dumpHex(t *testing.T, data []byte, start, end int) {
+	if end > len(data) {
+		end = len(data)
+	}
+	for i := start; i < end; i += 16 {
+		lineEnd := i + 16
+		if lineEnd > end {
+			lineEnd = end
+		}
+		t.Logf("  %04X: %s", i, formatHexRange(data, i, lineEnd))
+	}
+}
+
+// TestPredefinedRaceFullDataBytesBytewise tests just the 104-byte FullDataBytes section
+func TestPredefinedRaceFullDataBytesBytewise(t *testing.T) {
+	testCases := []predefinedRaceTestCase{
+		{"Humanoid", race.Humanoid, "../testdata/scenario-racebuilder/predefined-races/humanoids/race.r1"},
+		{"Rabbitoid", race.Rabbitoid, "../testdata/scenario-racebuilder/predefined-races/rabbitoids/race.r1"},
+		{"Insectoid", race.Insectoid, "../testdata/scenario-racebuilder/predefined-races/insectoids/race.r1"},
+		{"Nucleotid", race.Nucleotid, "../testdata/scenario-racebuilder/predefined-races/nucleotids/race.r1"},
+		{"Silicanoid", race.Silicanoid, "../testdata/scenario-racebuilder/predefined-races/silicanoids/race.r1"},
+		{"Antetheral", race.Antetheral, "../testdata/scenario-racebuilder/predefined-races/antetherals/race.r1"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testFullDataBytesBytewise(t, tc)
+		})
+	}
+}
+
+func testFullDataBytesBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	// Read the expected race file produced by Stars!
+	expectedData, err := os.ReadFile(tc.expectedFile)
+	if err != nil {
+		t.Fatalf("Failed to read expected race file: %v", err)
+	}
+
+	// Build the race using the predefined race function
+	r := tc.raceFunc()
+
+	// Create a race file using our encoder
+	generatedData, err := CreateRaceFile(r, 1)
+	if err != nil {
+		t.Fatalf("Failed to create race file: %v", err)
+	}
+
+	// Parse both files
+	expectedFd := parser.FileData(expectedData)
+	expectedBlocks, err := expectedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse expected race file: %v", err)
+	}
+
+	generatedFd := parser.FileData(generatedData)
+	generatedBlocks, err := generatedFd.BlockList()
+	if err != nil {
+		t.Fatalf("Failed to parse generated race file: %v", err)
+	}
+
+	// Find PlayerBlocks
+	var expectedPlayer, generatedPlayer *blocks.PlayerBlock
+	for _, block := range expectedBlocks {
+		if pb, ok := block.(blocks.PlayerBlock); ok {
+			expectedPlayer = &pb
+			break
+		}
+	}
+	for _, block := range generatedBlocks {
+		if pb, ok := block.(blocks.PlayerBlock); ok {
+			generatedPlayer = &pb
+			break
+		}
+	}
+
+	if expectedPlayer == nil || generatedPlayer == nil {
+		t.Fatal("PlayerBlock not found")
+	}
+
+	// Compare FullDataBytes (the 104-byte race data structure)
+	if !expectedPlayer.FullDataFlag || !generatedPlayer.FullDataFlag {
+		t.Fatalf("FullDataFlag not set: expected=%v, generated=%v",
+			expectedPlayer.FullDataFlag, generatedPlayer.FullDataFlag)
+	}
+
+	expectedFDB := expectedPlayer.FullDataBytes
+	generatedFDB := generatedPlayer.FullDataBytes
+
+	if len(expectedFDB) != len(generatedFDB) {
+		t.Errorf("FullDataBytes length mismatch: expected %d, got %d",
+			len(expectedFDB), len(generatedFDB))
+	}
+
+	// Byte-by-byte comparison
+	minLen := len(expectedFDB)
+	if len(generatedFDB) < minLen {
+		minLen = len(generatedFDB)
+	}
+
+	diffCount := 0
+	for i := 0; i < minLen; i++ {
+		if expectedFDB[i] != generatedFDB[i] {
+			diffCount++
+			t.Errorf("FullDataBytes[%d]: expected 0x%02X, got 0x%02X",
+				i, expectedFDB[i], generatedFDB[i])
+		}
+	}
+
+	if diffCount == 0 {
+		t.Logf("FullDataBytes matches perfectly (%d bytes)", len(expectedFDB))
+	} else {
+		t.Errorf("Total differences in FullDataBytes: %d", diffCount)
+	}
+}
