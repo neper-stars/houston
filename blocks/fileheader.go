@@ -17,6 +17,16 @@ const (
 	StarsVersionIncrement = 0
 )
 
+// File type constants (byte 14 of file header)
+const (
+	FileTypeUnknown = 0
+	FileTypeHST     = 2 // Host file (.hst)
+	FileTypeM       = 3 // Player turn file (.m1-.m16)
+	FileTypeH       = 4 // History file (.h1-.h16)
+	FileTypeRace    = 5 // Race file (.r1-.r16)
+	FileTypeX       = 6 // Turn order file (.x1-.x16) - assumed
+)
+
 // StarsVersionData returns the encoded version for Stars! 2.60j RC4 (reports as 2.83.0)
 func StarsVersionData() uint16 {
 	return EncodeVersion(StarsVersionMajor, StarsVersionMinor, StarsVersionIncrement)
@@ -38,24 +48,26 @@ type FileHeader struct {
 	VersionData uint16
 	Turn        uint16
 	PlayerData  uint16
-	Flags       uint8
+	FileType    uint8 // byte 14: file type (2=HST, 3=M, 4=H, 5=Race, 6=X)
+	Flags       uint8 // byte 15: flags
 }
 
 // NewFileHeader is constructor that takes a GenericBlock and returns
 // a pointer to a FileHeader
 func NewFileHeader(b GenericBlock) (*FileHeader, error) {
 	data := b.BlockData()
-	if len(data) < 15 {
+	if len(data) < 16 {
 		return nil, ErrInvalidFileHeaderBlock
 	}
 	fh := FileHeader{
 		GenericBlock: b,
-		magic:        [4]byte(data[0:4]),          // +4
-		GameID:       encoding.Read32(data, 4),    // +4
-		VersionData:  encoding.Read16(data, 8),    // +2
-		Turn:         encoding.Read16(data, 10),   // +2
-		PlayerData:   encoding.Read16(data, 12),   // +2
-		Flags:        data[15],                    // +1
+		magic:        [4]byte(data[0:4]),          // +4 (bytes 0-3)
+		GameID:       encoding.Read32(data, 4),    // +4 (bytes 4-7)
+		VersionData:  encoding.Read16(data, 8),    // +2 (bytes 8-9)
+		Turn:         encoding.Read16(data, 10),   // +2 (bytes 10-11)
+		PlayerData:   encoding.Read16(data, 12),   // +2 (bytes 12-13)
+		FileType:     data[14],                    // +1 (byte 14)
+		Flags:        data[15],                    // +1 (byte 15)
 	}
 	return &fh, nil
 }
@@ -112,6 +124,24 @@ func (fh *FileHeader) Shareware() bool {
 	return (fh.Flags & (1 << 4)) == 1
 }
 
+// FileTypeName returns a human-readable name for the file type.
+func (fh *FileHeader) FileTypeName() string {
+	switch fh.FileType {
+	case FileTypeHST:
+		return "HST"
+	case FileTypeM:
+		return "M"
+	case FileTypeH:
+		return "H"
+	case FileTypeRace:
+		return "Race"
+	case FileTypeX:
+		return "X"
+	default:
+		return fmt.Sprintf("Unknown(%d)", fh.FileType)
+	}
+}
+
 // Encode returns the raw 16-byte file header data.
 func (fh *FileHeader) Encode() []byte {
 	data := make([]byte, 16)
@@ -131,8 +161,8 @@ func (fh *FileHeader) Encode() []byte {
 	// PlayerData
 	encoding.Write16(data, 12, fh.PlayerData)
 
-	// Flags (bytes 14-15, only byte 15 used)
-	data[14] = 0
+	// FileType (byte 14) and Flags (byte 15)
+	data[14] = fh.FileType
 	data[15] = fh.Flags
 
 	return data
@@ -152,6 +182,7 @@ func NewFileHeaderForRaceFile() *FileHeader {
 		VersionData: StarsVersionData(),
 		Turn:        0,
 		PlayerData:  playerData,
+		FileType:    FileTypeRace,
 		Flags:       0,
 	}
 }

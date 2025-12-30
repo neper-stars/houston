@@ -30,8 +30,8 @@ func NewFileWriter() *FileWriter {
 
 // WriteHeader encodes a file header block (not encrypted).
 func (w *FileWriter) WriteHeader(header *blocks.FileHeader) []byte {
-	// File header is NOT encrypted - use raw block data
-	data := header.BlockData()
+	// File header is NOT encrypted - use Encode() to get raw bytes
+	data := header.Encode()
 	return w.encoder.EncodeBlock(blocks.FileHeaderBlockType, data)
 }
 

@@ -134,6 +134,17 @@ type TechLevels struct {
 	Biotech      int
 }
 
+// TechPoints holds accumulated research points for each technology field.
+// These track progress toward the next tech level in each field.
+type TechPoints struct {
+	Energy       uint32
+	Weapons      uint32
+	Propulsion   uint32
+	Construction uint32
+	Electronics  uint32
+	Biotech      uint32
+}
+
 // Habitability holds the three habitability parameters
 type Habitability struct {
 	GravityCenter    int // Base 65 (0.12g), 255 = immune
@@ -212,6 +223,7 @@ type PlayerBlock struct {
 	Hab          Habitability
 	GrowthRate   int // Max population growth rate percentage (1-20)
 	Tech         TechLevels
+	TechProgress TechPoints // Accumulated research points toward next level
 	Production   ProductionSettings
 	ResearchCost ResearchCosts
 	PRT          int    // Primary Race Trait (0-9)
@@ -337,7 +349,13 @@ func (p *PlayerBlock) decode() error {
 		p.Tech.Biotech = int(p.Decrypted[31])
 
 		// Tech points since last level (bytes 32-55, 4 bytes each, FDB 24-47)
-		// Skipping detailed points tracking for now
+		// These track accumulated research points toward the next tech level
+		p.TechProgress.Energy = encoding.Read32(p.Decrypted, 32)
+		p.TechProgress.Weapons = encoding.Read32(p.Decrypted, 36)
+		p.TechProgress.Propulsion = encoding.Read32(p.Decrypted, 40)
+		p.TechProgress.Construction = encoding.Read32(p.Decrypted, 44)
+		p.TechProgress.Electronics = encoding.Read32(p.Decrypted, 48)
+		p.TechProgress.Biotech = encoding.Read32(p.Decrypted, 52)
 
 		// Research settings (bytes 56-57, FDB 48-49)
 		p.ResearchPercentage = int(p.Decrypted[56])
@@ -575,10 +593,13 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		data[fullDataStart+22] = byte(p.Tech.Electronics)
 		data[fullDataStart+23] = byte(p.Tech.Biotech)
 
-		// Bytes 32-55: Tech points (24 bytes, preserved from FullDataBytes if available)
-		if len(p.FullDataBytes) >= 48 {
-			copy(data[fullDataStart+24:fullDataStart+48], p.FullDataBytes[24:48])
-		}
+		// Bytes 32-55: Tech points (24 bytes, 4 bytes per field)
+		encoding.Write32(data, fullDataStart+24, p.TechProgress.Energy)
+		encoding.Write32(data, fullDataStart+28, p.TechProgress.Weapons)
+		encoding.Write32(data, fullDataStart+32, p.TechProgress.Propulsion)
+		encoding.Write32(data, fullDataStart+36, p.TechProgress.Construction)
+		encoding.Write32(data, fullDataStart+40, p.TechProgress.Electronics)
+		encoding.Write32(data, fullDataStart+44, p.TechProgress.Biotech)
 
 		// Bytes 56-57: Research settings
 		data[fullDataStart+48] = byte(p.ResearchPercentage)
