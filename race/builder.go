@@ -1,6 +1,5 @@
 package race
 
-import "errors"
 
 // ValidationError describes a validation failure.
 type ValidationError struct {
@@ -355,15 +354,10 @@ func (b *Builder) Get() *TransientRace {
 // Finish finalizes the race and returns it if valid.
 // Returns an error if the race has validation errors or negative points.
 func (b *Builder) Finish() (*Race, error) {
-	result := b.recalculate()
-
-	if len(result.Errors) > 0 {
-		return nil, result.Errors[0]
+	errs := Validate(b.race, true)
+	if len(errs) > 0 {
+		return nil, errs[0]
 	}
 
-	if result.Points < 0 {
-		return nil, errors.New("race has negative advantage points")
-	}
-
-	return result.Race, nil
+	return b.race.Clone(), nil
 }

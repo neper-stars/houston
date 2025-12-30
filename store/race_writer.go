@@ -115,6 +115,79 @@ func raceToPlayerBlock(r *race.Race) *blocks.PlayerBlock {
 	return pb
 }
 
+// PlayerBlockToRace converts a PlayerBlock back to a Race configuration.
+// This is the reverse of raceToPlayerBlock and is useful for validating
+// race files loaded from disk.
+// Note: Password cannot be recovered (only the hash is stored).
+func PlayerBlockToRace(pb *blocks.PlayerBlock) *race.Race {
+	gravImmune := pb.Hab.GravityCenter == 255
+	tempImmune := pb.Hab.TemperatureCenter == 255
+	radImmune := pb.Hab.RadiationCenter == 255
+
+	r := &race.Race{
+		SingularName: pb.NameSingular,
+		PluralName:   pb.NamePlural,
+		Icon:         pb.Logo,
+		// Password cannot be recovered from hash
+
+		PRT: pb.PRT,
+		LRT: pb.LRT,
+
+		GravityImmune:     gravImmune,
+		GravityCenter:     habCenterFromBlock(pb.Hab.GravityCenter, pb.Hab.GravityLow, pb.Hab.GravityHigh, gravImmune),
+		GravityWidth:      habWidthFromBlock(pb.Hab.GravityLow, pb.Hab.GravityHigh, gravImmune),
+		TemperatureImmune: tempImmune,
+		TemperatureCenter: habCenterFromBlock(pb.Hab.TemperatureCenter, pb.Hab.TemperatureLow, pb.Hab.TemperatureHigh, tempImmune),
+		TemperatureWidth:  habWidthFromBlock(pb.Hab.TemperatureLow, pb.Hab.TemperatureHigh, tempImmune),
+		RadiationImmune:   radImmune,
+		RadiationCenter:   habCenterFromBlock(pb.Hab.RadiationCenter, pb.Hab.RadiationLow, pb.Hab.RadiationHigh, radImmune),
+		RadiationWidth:    habWidthFromBlock(pb.Hab.RadiationLow, pb.Hab.RadiationHigh, radImmune),
+
+		GrowthRate:           pb.GrowthRate,
+		ColonistsPerResource: pb.Production.ResourcePerColonist * 100,
+
+		FactoryOutput:        pb.Production.FactoryProduction,
+		FactoryCost:          pb.Production.FactoryCost,
+		FactoryCount:         pb.Production.FactoriesOperate,
+		FactoriesUseLessGerm: pb.FactoriesCost1LessGerm,
+
+		MineOutput: pb.Production.MineProduction,
+		MineCost:   pb.Production.MineCost,
+		MineCount:  pb.Production.MinesOperate,
+
+		ResearchEnergy:       pb.ResearchCost.Energy,
+		ResearchWeapons:      pb.ResearchCost.Weapons,
+		ResearchPropulsion:   pb.ResearchCost.Propulsion,
+		ResearchConstruction: pb.ResearchCost.Construction,
+		ResearchElectronics:  pb.ResearchCost.Electronics,
+		ResearchBiotech:      pb.ResearchCost.Biotech,
+		TechsStartHigh:       pb.ExpensiveTechStartsAt3,
+
+		LeftoverPointsOn: race.LeftoverPointsOption(pb.SpendLeftoverPoints),
+	}
+
+	return r
+}
+
+// habCenterFromBlock extracts the center value from block data.
+// If immune, returns a default value (50).
+func habCenterFromBlock(blockCenter, blockLow, blockHigh int, immune bool) int {
+	if immune {
+		return 50 // Default center for immune (doesn't matter for gameplay)
+	}
+	// The block stores the actual center
+	return blockCenter
+}
+
+// habWidthFromBlock calculates the width from low and high values.
+// Width = (high - low) / 2
+func habWidthFromBlock(blockLow, blockHigh int, immune bool) int {
+	if immune {
+		return 50 // Default width for immune (doesn't matter for gameplay)
+	}
+	return (blockHigh - blockLow) / 2
+}
+
 // habCenter returns 255 for immune, otherwise the center value.
 func habCenter(center int, immune bool) int {
 	if immune {

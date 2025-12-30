@@ -16,7 +16,10 @@ const (
 )
 
 // Validate checks a race configuration and returns any validation errors.
-func Validate(r *Race) []ValidationError {
+// If finalize is true, also validates that advantage points are >= 0.
+// Use finalize=true when validating a completed race (e.g., from a file or at submission).
+// Use finalize=false (or omit) during incremental building where points may temporarily be negative.
+func Validate(r *Race, finalize ...bool) []ValidationError {
 	var errors []ValidationError
 
 	// Name validation
@@ -224,6 +227,17 @@ func Validate(r *Race) []ValidationError {
 			Field:   "LeftoverPointsOn",
 			Message: "invalid leftover points allocation option",
 		})
+	}
+
+	// Points validation (only when finalizing)
+	if len(finalize) > 0 && finalize[0] {
+		points := CalculatePoints(r)
+		if points < 0 {
+			errors = append(errors, ValidationError{
+				Field:   "Points",
+				Message: fmt.Sprintf("race has negative advantage points (%d)", points),
+			})
+		}
 	}
 
 	return errors

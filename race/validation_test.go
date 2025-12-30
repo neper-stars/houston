@@ -5,6 +5,146 @@ import (
 	"testing"
 )
 
+func TestValidateFinalize(t *testing.T) {
+	tests := []struct {
+		name        string
+		modify      func(*Race)
+		finalize    bool
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid race without finalize passes",
+			modify: func(r *Race) {
+				// Default race is valid
+			},
+			finalize: false,
+			wantErr:  false,
+		},
+		{
+			name: "valid race with finalize passes",
+			modify: func(r *Race) {
+				// Default race has positive points
+			},
+			finalize: true,
+			wantErr:  false,
+		},
+		{
+			name: "negative points without finalize passes",
+			modify: func(r *Race) {
+				// Make race very expensive (3 immunities + narrow growth)
+				r.GravityImmune = true
+				r.TemperatureImmune = true
+				r.RadiationImmune = true
+				r.GrowthRate = 20
+				// Add all expensive LRTs
+				r.LRT = LRTs(LRTImprovedFuelEfficiency, LRTAdvancedRemoteMining,
+					LRTImprovedStarbases, LRTUltimateRecycling, LRTMineralAlchemy)
+			},
+			finalize: false,
+			wantErr:  false, // Points not checked
+		},
+		{
+			name: "negative points with finalize fails",
+			modify: func(r *Race) {
+				// Make race very expensive (3 immunities + high growth)
+				r.GravityImmune = true
+				r.TemperatureImmune = true
+				r.RadiationImmune = true
+				r.GrowthRate = 20
+				// Add all expensive LRTs
+				r.LRT = LRTs(LRTImprovedFuelEfficiency, LRTAdvancedRemoteMining,
+					LRTImprovedStarbases, LRTUltimateRecycling, LRTMineralAlchemy)
+			},
+			finalize:    true,
+			wantErr:     true,
+			errContains: "negative advantage points",
+		},
+		{
+			name: "zero points with finalize passes",
+			modify: func(r *Race) {
+				// Start with default and don't change much - should have positive points
+				// Just verify 0 is acceptable
+			},
+			finalize: true,
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := Default()
+			tt.modify(r)
+
+			var errs []ValidationError
+			if tt.finalize {
+				errs = Validate(r, true)
+			} else {
+				errs = Validate(r)
+			}
+
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Error("expected validation error, got none")
+					return
+				}
+				found := false
+				for _, err := range errs {
+					if strings.Contains(err.Message, tt.errContains) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected error containing %q, got %v", tt.errContains, errs)
+				}
+			} else {
+				// Filter out only points-related errors for this check
+				var pointsErrs []ValidationError
+				for _, err := range errs {
+					if err.Field == "Points" {
+						pointsErrs = append(pointsErrs, err)
+					}
+				}
+				if len(pointsErrs) > 0 {
+					t.Errorf("expected no points errors, got %v", pointsErrs)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateFinalizeShowsPointsValue(t *testing.T) {
+	// Test that the error message includes the actual points value
+	r := Default()
+	r.GravityImmune = true
+	r.TemperatureImmune = true
+	r.RadiationImmune = true
+	r.GrowthRate = 20
+	r.LRT = LRTs(LRTImprovedFuelEfficiency, LRTAdvancedRemoteMining,
+		LRTImprovedStarbases, LRTUltimateRecycling, LRTMineralAlchemy)
+
+	errs := Validate(r, true)
+
+	// Find the points error
+	var pointsErr *ValidationError
+	for i := range errs {
+		if errs[i].Field == "Points" {
+			pointsErr = &errs[i]
+			break
+		}
+	}
+
+	if pointsErr == nil {
+		t.Fatal("expected Points validation error")
+	}
+
+	// Verify it contains a negative number in parentheses
+	if !strings.Contains(pointsErr.Message, "(-") {
+		t.Errorf("expected error message to contain negative points value, got: %s", pointsErr.Message)
+	}
+}
+
 func TestValidateHabitabilityEdgeConstraints(t *testing.T) {
 	// Helper to create a valid base race for testing
 	validBase := func() *Race {

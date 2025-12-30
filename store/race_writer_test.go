@@ -1262,3 +1262,192 @@ func TestCreateRaceFileWithImmunity(t *testing.T) {
 		playerBlock.Hab.IsTemperatureImmune(),
 		playerBlock.Hab.IsRadiationImmune())
 }
+
+func TestPlayerBlockToRaceRoundTrip(t *testing.T) {
+	// Test that Race → PlayerBlock → Race produces equivalent values
+	testCases := []struct {
+		name     string
+		raceFunc func() *race.Race
+	}{
+		{"Humanoid", race.Humanoid},
+		{"Rabbitoid", race.Rabbitoid},
+		{"Insectoid", race.Insectoid},
+		{"Nucleotid", race.Nucleotid},
+		{"Silicanoid", race.Silicanoid},
+		{"Antetheral", race.Antetheral},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			original := tc.raceFunc()
+
+			// Convert to PlayerBlock
+			pb := raceToPlayerBlock(original)
+
+			// Convert back to Race
+			converted := PlayerBlockToRace(pb)
+
+			// Compare all fields
+			if converted.SingularName != original.SingularName {
+				t.Errorf("SingularName: got %q, want %q", converted.SingularName, original.SingularName)
+			}
+			if converted.PluralName != original.PluralName {
+				t.Errorf("PluralName: got %q, want %q", converted.PluralName, original.PluralName)
+			}
+			if converted.Icon != original.Icon {
+				t.Errorf("Icon: got %d, want %d", converted.Icon, original.Icon)
+			}
+			if converted.PRT != original.PRT {
+				t.Errorf("PRT: got %d, want %d", converted.PRT, original.PRT)
+			}
+			if converted.LRT != original.LRT {
+				t.Errorf("LRT: got %d, want %d", converted.LRT, original.LRT)
+			}
+
+			// Habitability
+			if converted.GravityImmune != original.GravityImmune {
+				t.Errorf("GravityImmune: got %v, want %v", converted.GravityImmune, original.GravityImmune)
+			}
+			if !original.GravityImmune {
+				if converted.GravityCenter != original.GravityCenter {
+					t.Errorf("GravityCenter: got %d, want %d", converted.GravityCenter, original.GravityCenter)
+				}
+				if converted.GravityWidth != original.GravityWidth {
+					t.Errorf("GravityWidth: got %d, want %d", converted.GravityWidth, original.GravityWidth)
+				}
+			}
+
+			if converted.TemperatureImmune != original.TemperatureImmune {
+				t.Errorf("TemperatureImmune: got %v, want %v", converted.TemperatureImmune, original.TemperatureImmune)
+			}
+			if !original.TemperatureImmune {
+				if converted.TemperatureCenter != original.TemperatureCenter {
+					t.Errorf("TemperatureCenter: got %d, want %d", converted.TemperatureCenter, original.TemperatureCenter)
+				}
+				if converted.TemperatureWidth != original.TemperatureWidth {
+					t.Errorf("TemperatureWidth: got %d, want %d", converted.TemperatureWidth, original.TemperatureWidth)
+				}
+			}
+
+			if converted.RadiationImmune != original.RadiationImmune {
+				t.Errorf("RadiationImmune: got %v, want %v", converted.RadiationImmune, original.RadiationImmune)
+			}
+			if !original.RadiationImmune {
+				if converted.RadiationCenter != original.RadiationCenter {
+					t.Errorf("RadiationCenter: got %d, want %d", converted.RadiationCenter, original.RadiationCenter)
+				}
+				if converted.RadiationWidth != original.RadiationWidth {
+					t.Errorf("RadiationWidth: got %d, want %d", converted.RadiationWidth, original.RadiationWidth)
+				}
+			}
+
+			// Growth and economy
+			if converted.GrowthRate != original.GrowthRate {
+				t.Errorf("GrowthRate: got %d, want %d", converted.GrowthRate, original.GrowthRate)
+			}
+			if converted.ColonistsPerResource != original.ColonistsPerResource {
+				t.Errorf("ColonistsPerResource: got %d, want %d", converted.ColonistsPerResource, original.ColonistsPerResource)
+			}
+
+			// Factories
+			if converted.FactoryOutput != original.FactoryOutput {
+				t.Errorf("FactoryOutput: got %d, want %d", converted.FactoryOutput, original.FactoryOutput)
+			}
+			if converted.FactoryCost != original.FactoryCost {
+				t.Errorf("FactoryCost: got %d, want %d", converted.FactoryCost, original.FactoryCost)
+			}
+			if converted.FactoryCount != original.FactoryCount {
+				t.Errorf("FactoryCount: got %d, want %d", converted.FactoryCount, original.FactoryCount)
+			}
+			if converted.FactoriesUseLessGerm != original.FactoriesUseLessGerm {
+				t.Errorf("FactoriesUseLessGerm: got %v, want %v", converted.FactoriesUseLessGerm, original.FactoriesUseLessGerm)
+			}
+
+			// Mines
+			if converted.MineOutput != original.MineOutput {
+				t.Errorf("MineOutput: got %d, want %d", converted.MineOutput, original.MineOutput)
+			}
+			if converted.MineCost != original.MineCost {
+				t.Errorf("MineCost: got %d, want %d", converted.MineCost, original.MineCost)
+			}
+			if converted.MineCount != original.MineCount {
+				t.Errorf("MineCount: got %d, want %d", converted.MineCount, original.MineCount)
+			}
+
+			// Research
+			if converted.ResearchEnergy != original.ResearchEnergy {
+				t.Errorf("ResearchEnergy: got %d, want %d", converted.ResearchEnergy, original.ResearchEnergy)
+			}
+			if converted.ResearchWeapons != original.ResearchWeapons {
+				t.Errorf("ResearchWeapons: got %d, want %d", converted.ResearchWeapons, original.ResearchWeapons)
+			}
+			if converted.ResearchPropulsion != original.ResearchPropulsion {
+				t.Errorf("ResearchPropulsion: got %d, want %d", converted.ResearchPropulsion, original.ResearchPropulsion)
+			}
+			if converted.ResearchConstruction != original.ResearchConstruction {
+				t.Errorf("ResearchConstruction: got %d, want %d", converted.ResearchConstruction, original.ResearchConstruction)
+			}
+			if converted.ResearchElectronics != original.ResearchElectronics {
+				t.Errorf("ResearchElectronics: got %d, want %d", converted.ResearchElectronics, original.ResearchElectronics)
+			}
+			if converted.ResearchBiotech != original.ResearchBiotech {
+				t.Errorf("ResearchBiotech: got %d, want %d", converted.ResearchBiotech, original.ResearchBiotech)
+			}
+			if converted.TechsStartHigh != original.TechsStartHigh {
+				t.Errorf("TechsStartHigh: got %v, want %v", converted.TechsStartHigh, original.TechsStartHigh)
+			}
+
+			if converted.LeftoverPointsOn != original.LeftoverPointsOn {
+				t.Errorf("LeftoverPointsOn: got %d, want %d", converted.LeftoverPointsOn, original.LeftoverPointsOn)
+			}
+		})
+	}
+}
+
+func TestPlayerBlockToRaceValidation(t *testing.T) {
+	// Test that a race loaded from a file can be validated
+	testFiles := []string{
+		"../testdata/scenario-racebuilder/predefined-races/humanoids/race.r1",
+		"../testdata/scenario-racebuilder/predefined-races/rabbitoids/race.r1",
+		"../testdata/scenario-racebuilder/predefined-races/insectoids/race.r1",
+	}
+
+	for _, filePath := range testFiles {
+		t.Run(filePath, func(t *testing.T) {
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read file: %v", err)
+			}
+
+			// Parse the file
+			fd := parser.FileData(data)
+			blockList, err := fd.BlockList()
+			if err != nil {
+				t.Fatalf("Failed to parse file: %v", err)
+			}
+
+			// Find the PlayerBlock
+			var pb blocks.PlayerBlock
+			found := false
+			for _, block := range blockList {
+				if playerBlock, ok := block.(blocks.PlayerBlock); ok {
+					pb = playerBlock
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatal("No PlayerBlock found in file")
+			}
+
+			// Convert to Race
+			r := PlayerBlockToRace(&pb)
+
+			// Validate with finalize=true
+			errs := race.Validate(r, true)
+			if len(errs) > 0 {
+				t.Errorf("Validation failed for %s: %v", filePath, errs)
+			}
+		})
+	}
+}
