@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jessevdk/go-flags"
 
@@ -32,6 +33,11 @@ type mapCommand struct {
 }
 
 func (c *mapCommand) Execute(args []string) error {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("  Generated in: %v\n", time.Since(startTime))
+	}()
+
 	// Check we have input
 	if len(c.Args.Files) == 0 && c.Dir == "" {
 		return fmt.Errorf("no input files specified")
@@ -183,12 +189,44 @@ func findMFilesMap(dir string) ([]string, error) {
 		}
 		name := entry.Name()
 		ext := strings.ToLower(filepath.Ext(name))
-		if len(ext) >= 2 && ext[1] == 'm' {
+		if isStarsFileExt(ext) {
 			files = append(files, filepath.Join(dir, name))
 		}
 	}
 
 	return files, nil
+}
+
+// isStarsFileExt returns true if the extension is a Stars! game file.
+// Matches: .m1-.m16, .x1-.x16, .h1-.h16, .xy, .hst
+// Note: .r files (race files) are excluded as they have different game IDs.
+func isStarsFileExt(ext string) bool {
+	if len(ext) < 2 {
+		return false
+	}
+
+	// Check for .xy and .hst
+	if ext == ".xy" || ext == ".hst" {
+		return true
+	}
+
+	// Check for player files: .m1-.m16, .x1-.x16, .h1-.h16
+	// Note: .r files excluded - they have different game IDs
+	if len(ext) >= 3 && len(ext) <= 4 {
+		letter := ext[1]
+		if letter == 'm' || letter == 'x' || letter == 'h' {
+			// Check that remaining characters are digits (1-16)
+			numPart := ext[2:]
+			for _, c := range numPart {
+				if c < '0' || c > '9' {
+					return false
+				}
+			}
+			return len(numPart) > 0
+		}
+	}
+
+	return false
 }
 
 func addMapCommand(parser *flags.Parser) {

@@ -105,8 +105,8 @@ func encodeRaceToPlayerBlock(r *race.Race, playerSlot int) []byte {
 	data := make([]byte, totalSize)
 	index := 0
 
-	// Byte 0: Player number (slot)
-	data[index] = byte(playerSlot)
+	// Byte 0: Player number (255 for race files - not assigned to a player yet)
+	data[index] = 0xFF
 	index++
 
 	// Byte 1: Ship design count (0 for race files)
@@ -132,9 +132,8 @@ func encodeRaceToPlayerBlock(r *race.Race, playerSlot int) []byte {
 	data[index] = byte6
 	index++
 
-	// Byte 7: AI settings (for race files, typically 0x01 = human player)
-	// Bit 0 = 1 (always), Bit 1 = AI enabled (0), rest = 0
-	data[index] = 0x01
+	// Byte 7: AI settings (0 for race files)
+	data[index] = 0x00
 	index++
 
 	// Now the full data bytes (104 bytes starting at index 8)
@@ -180,8 +179,8 @@ func encodeRaceToPlayerBlock(r *race.Race, playerSlot int) []byte {
 	}
 
 	// Bytes 56-57: Research settings
-	data[fullDataStart+48] = 0  // ResearchPercentage (default 0%)
-	data[fullDataStart+49] = 0  // CurrentResearchField (0) | NextResearchField (0)
+	data[fullDataStart+48] = 0x0F // ResearchPercentage (default 15% like Stars!)
+	data[fullDataStart+49] = 0    // CurrentResearchField (0) | NextResearchField (0)
 
 	// Bytes 58-61: Unknown/reserved (set to 0)
 	for i := 50; i < 54; i++ {

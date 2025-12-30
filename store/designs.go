@@ -50,6 +50,12 @@ func newDesignEntityFromBlock(db *blocks.DesignBlock, source *FileSource) *Desig
 
 	owner := source.PlayerIndex
 
+	// Full designs (with component info) have higher quality than partial designs
+	quality := QualityFull
+	if !db.IsFullDesign {
+		quality = QualityPartial
+	}
+
 	entity := &DesignEntity{
 		meta: EntityMeta{
 			Key: EntityKey{
@@ -58,7 +64,7 @@ func newDesignEntityFromBlock(db *blocks.DesignBlock, source *FileSource) *Desig
 				Number: db.DesignNumber,
 			},
 			BestSource: source,
-			Quality:    QualityFull, // Designs are always full quality
+			Quality:    quality,
 			Turn:       source.Turn,
 		},
 		DesignNumber: db.DesignNumber,

@@ -353,9 +353,10 @@ func (r *Renderer) Render(opts *RenderOptions) *image.RGBA {
 			col.A = 200
 
 			// Draw direction triangle
-			// DeltaX/DeltaY are signed velocity components (-128 to 127)
+			// DeltaX/DeltaY are game-space deltas (already centered around 0)
+			// Negate Y for screen coordinates (game Y increases up, screen Y increases down)
 			dx := float64(fleet.DeltaX)
-			dy := -float64(fleet.DeltaY) // Flip Y for screen coords
+			dy := -float64(fleet.DeltaY)
 			drawFleetTriangle(img, px, py, dx, dy, col)
 		}
 	}
@@ -707,18 +708,24 @@ func (r *Renderer) buildSVGInternal(opts *RenderOptions, forRasterization bool) 
 				svg.WaypointPath(points, col, markerID)
 			} else {
 				// Use DeltaX/DeltaY for enemy fleets
-				dx := float64(fleet.DeltaX)
-				dy := float64(fleet.DeltaY)
-				if math.Abs(dx) < 0.5 && math.Abs(dy) < 0.5 {
+				// Skip if fleet is not moving (Warp=0 or no delta)
+				if fleet.Warp == 0 {
 					continue // Stationary
+				}
+				// DeltaX/DeltaY are game-space deltas (already centered around 0)
+				// Negate Y for screen coordinates (game Y increases up, screen Y increases down)
+				dx := float64(fleet.DeltaX)
+				dy := -float64(fleet.DeltaY)
+				if math.Abs(dx) < 0.5 && math.Abs(dy) < 0.5 {
+					continue // Stationary (no heading data)
 				}
 
 				px, py := transform(fleet.X, fleet.Y)
 
 				// Scale the delta to screen coordinates
-				// DeltaX/DeltaY are in game units per turn
+				// (Y already flipped above when computing dy)
 				screenDx := dx * scale
-				screenDy := -dy * scale // Flip Y
+				screenDy := dy * scale
 
 				svg.FleetSpeedLine(px, py, screenDx, screenDy, opts.ShowFleetPaths, col, markerID)
 			}
@@ -766,9 +773,11 @@ func (r *Renderer) buildSVGInternal(opts *RenderOptions, forRasterization bool) 
 			}
 
 			// If no waypoint movement, check DeltaX/DeltaY (enemy fleets)
+			// DeltaX/DeltaY are game-space deltas (already centered around 0)
+			// Negate Y for screen coordinates (game Y increases up, screen Y increases down)
 			if !isMoving {
 				dx = float64(fleet.DeltaX)
-				dy = -float64(fleet.DeltaY) // Flip Y for screen coords
+				dy = -float64(fleet.DeltaY)
 				isMoving = math.Abs(dx) >= 0.5 || math.Abs(dy) >= 0.5
 			}
 

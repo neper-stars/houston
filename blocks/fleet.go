@@ -198,8 +198,11 @@ func (fb *PartialFleetBlock) decode() {
 	} else {
 		// Partial fleet movement data
 		if index+8 <= len(data) {
-			fb.DeltaX = int(int8(data[index])) // Signed byte
-			fb.DeltaY = int(int8(data[index+1]))
+			// DeltaX/DeltaY are unsigned bytes (0-255) centered around 127
+			// 127 means no movement, values above/below indicate direction
+			// We convert to actual delta by subtracting 127
+			fb.DeltaX = int(data[index]) - 127
+			fb.DeltaY = int(data[index+1]) - 127
 			fb.Warp = int(data[index+2] & 0x0F)
 			fb.UnknownBitsWithWarp = int(data[index+2] & 0xF0)
 			// index+3 is padding (should be 0)
