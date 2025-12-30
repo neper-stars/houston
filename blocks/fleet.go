@@ -31,10 +31,19 @@ type PartialFleetBlock struct {
 	Y                int // Y coordinate
 
 	// Ship composition
-	ShipTypes          uint16   // 16-bit bitmask, one bit per design
-	ShipCount          [16]int  // Ship counts per design slot
-	ShipCountTwoBytes  bool     // True if ship counts are 2 bytes each
-	RepeatOrders       bool     // True if fleet repeats waypoint orders (bit 1 of Byte5)
+	ShipTypes         uint16  // 16-bit bitmask, one bit per design
+	ShipCount         [16]int // Ship counts per design slot
+	ShipCountTwoBytes bool    // True if ship counts are 2 bytes each (bit 3 of Byte5 clear)
+
+	// Flag bits from Byte5
+	// Bit 0: Unknown purpose, possibly part of route ID
+	Byte5Bit0 bool
+	// Bit 1: Repeat waypoint orders
+	RepeatOrders bool
+	// Bit 2: Unknown purpose
+	Byte5Bit2 bool
+	// Bits 4-7: Unknown purpose (4 bits)
+	Byte5UpperNibble int
 
 	// Resources/Cargo (if full or pick-pocket)
 	Ironium    int64
@@ -111,8 +120,11 @@ func (fb *PartialFleetBlock) decode() {
 	// Determine if ship counts are 2 bytes (bit 3 of byte5 clear)
 	fb.ShipCountTwoBytes = (fb.Byte5 & 0x08) == 0
 
-	// Repeat orders flag (bit 1 of byte5)
-	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0
+	// Extract all flag bits from Byte5
+	fb.Byte5Bit0 = (fb.Byte5 & 0x01) != 0         // Bit 0
+	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0      // Bit 1: Repeat waypoint orders
+	fb.Byte5Bit2 = (fb.Byte5 & 0x04) != 0         // Bit 2
+	fb.Byte5UpperNibble = int((fb.Byte5 >> 4) & 0x0F) // Bits 4-7
 
 	// Bytes 6-13: Position and ship types
 	fb.PositionObjectId = int(encoding.Read16(data, 6))
@@ -541,7 +553,22 @@ func (fb *PartialFleetBlock) Encode() []byte {
 	index++
 	data[index] = fb.KindByte
 	index++
-	data[index] = fb.Byte5
+	// Reconstruct Byte5 from individual flag fields
+	byte5 := byte(0)
+	if fb.Byte5Bit0 {
+		byte5 |= 0x01
+	}
+	if fb.RepeatOrders {
+		byte5 |= 0x02
+	}
+	if fb.Byte5Bit2 {
+		byte5 |= 0x04
+	}
+	if !fb.ShipCountTwoBytes {
+		byte5 |= 0x08 // Bit 3 clear means 2-byte counts
+	}
+	byte5 |= byte(fb.Byte5UpperNibble&0x0F) << 4
+	data[index] = byte5
 	index++
 
 	// Bytes 6-13: Position and ship types
