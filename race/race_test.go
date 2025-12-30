@@ -483,6 +483,7 @@ func TestAntetheral(t *testing.T) {
 	}
 
 	// Check habitability - narrow gravity, full temp, narrow radiation
+	// Note: Stars! predefined races use widths < 20 (the Race Wizard minimum)
 	if r.GravityCenter != 15 || r.GravityWidth != 15 {
 		t.Errorf("expected gravity 15±15, got %d±%d", r.GravityCenter, r.GravityWidth)
 	}

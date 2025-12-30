@@ -263,6 +263,7 @@ func Insectoid() *Race {
 
 		// Habitability - gravity immune, wide temp, narrow radiation
 		// 1 in 3 planets habitable
+		// Note: Stars! predefined races use widths < 20, which is below the Race Wizard minimum
 		GravityImmune:     true,
 		GravityCenter:     50, // Ignored when immune
 		GravityWidth:      25,
@@ -427,6 +428,7 @@ func Antetheral() *Race {
 
 		// Habitability - narrow gravity, full temp, narrow radiation
 		// 1 in 12 planets habitable
+		// Note: Stars! predefined races use widths < 20, which is below the Race Wizard minimum
 		GravityCenter:     15, // Range 0-30 (0.12g to 0.55g)
 		GravityWidth:      15,
 		TemperatureCenter: 50, // Range 0-100 (full range: -200°C to 200°C)
@@ -499,13 +501,13 @@ func RandomWithSeed(seed int64) *Race {
 
 		GravityImmune:     gravityImmune,
 		GravityCenter:     randRange(0, 100),
-		GravityWidth:      randRange(0, 50),
+		GravityWidth:      randRange(MinHabWidth, MaxHabWidth),
 		TemperatureImmune: temperatureImmune,
 		TemperatureCenter: randRange(0, 100),
-		TemperatureWidth:  randRange(0, 50),
+		TemperatureWidth:  randRange(MinHabWidth, MaxHabWidth),
 		RadiationImmune:   radiationImmune,
 		RadiationCenter:   randRange(0, 100),
-		RadiationWidth:    randRange(0, 50),
+		RadiationWidth:    randRange(MinHabWidth, MaxHabWidth),
 
 		GrowthRate:           randRange(1, 20),
 		ColonistsPerResource: randRange(700, 2500),

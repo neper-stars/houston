@@ -1,5 +1,14 @@
 package race
 
+const (
+	// MinHabWidth is the minimum habitability width allowed by the Stars! Race Wizard.
+	// The narrowest range the GUI allows is 0.12g to 0.31g (internal 0-19), which is width 10.
+	MinHabWidth = 10
+
+	// MaxHabWidth is the maximum habitability width (half the full range)
+	MaxHabWidth = 50
+)
+
 // Validate checks a race configuration and returns any validation errors.
 func Validate(r *Race) []ValidationError {
 	var errors []ValidationError
@@ -49,10 +58,10 @@ func Validate(r *Race) []ValidationError {
 				Message: "gravity center must be between 0 and 100",
 			})
 		}
-		if r.GravityWidth < 0 || r.GravityWidth > 50 {
+		if r.GravityWidth < MinHabWidth || r.GravityWidth > MaxHabWidth {
 			errors = append(errors, ValidationError{
 				Field:   "GravityWidth",
-				Message: "gravity width must be between 0 and 50",
+				Message: "gravity width must be between 10 and 50",
 			})
 		}
 	}
@@ -64,10 +73,10 @@ func Validate(r *Race) []ValidationError {
 				Message: "temperature center must be between 0 and 100",
 			})
 		}
-		if r.TemperatureWidth < 0 || r.TemperatureWidth > 50 {
+		if r.TemperatureWidth < MinHabWidth || r.TemperatureWidth > MaxHabWidth {
 			errors = append(errors, ValidationError{
 				Field:   "TemperatureWidth",
-				Message: "temperature width must be between 0 and 50",
+				Message: "temperature width must be between 10 and 50",
 			})
 		}
 	}
@@ -79,10 +88,10 @@ func Validate(r *Race) []ValidationError {
 				Message: "radiation center must be between 0 and 100",
 			})
 		}
-		if r.RadiationWidth < 0 || r.RadiationWidth > 50 {
+		if r.RadiationWidth < MinHabWidth || r.RadiationWidth > MaxHabWidth {
 			errors = append(errors, ValidationError{
 				Field:   "RadiationWidth",
-				Message: "radiation width must be between 0 and 50",
+				Message: "radiation width must be between 10 and 50",
 			})
 		}
 	}
