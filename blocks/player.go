@@ -237,9 +237,10 @@ type PlayerBlock struct {
 	SpendLeftoverPoints int
 
 	// Research settings
-	ResearchPercentage int // Default research budget percentage
-	CurrentResearchField int // Current research priority
-	NextResearchField    int // Next research priority
+	ResearchPercentage       int    // Default research budget percentage
+	CurrentResearchField     int    // Current research priority
+	NextResearchField        int    // Next research priority
+	ResearchPointsPrevYear   uint32 // Research points spent in the previous year (bytes 58-61)
 
 	// Mystery Trader items owned (bitmask, always 0 in race files)
 	MTItems uint16
@@ -361,6 +362,9 @@ func (p *PlayerBlock) decode() error {
 		p.ResearchPercentage = int(p.Decrypted[56])
 		p.CurrentResearchField = int(p.Decrypted[57] >> 4)
 		p.NextResearchField = int(p.Decrypted[57] & 0x0F)
+
+		// Research points spent in previous year (bytes 58-61, FDB 50-53)
+		p.ResearchPointsPrevYear = encoding.Read32(p.Decrypted, 58)
 
 		// Production settings (bytes 62-68, FDB 54-60)
 		p.Production.ResourcePerColonist = int(p.Decrypted[62])
@@ -605,10 +609,8 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		data[fullDataStart+48] = byte(p.ResearchPercentage)
 		data[fullDataStart+49] = byte((p.CurrentResearchField&0x0F)<<4) | byte(p.NextResearchField&0x0F)
 
-		// Bytes 58-61: Reserved (preserved from FullDataBytes if available)
-		if len(p.FullDataBytes) >= 54 {
-			copy(data[fullDataStart+50:fullDataStart+54], p.FullDataBytes[50:54])
-		}
+		// Bytes 58-61: Research points spent in previous year
+		encoding.Write32(data, fullDataStart+50, p.ResearchPointsPrevYear)
 
 		// Bytes 62-68: Production settings
 		data[fullDataStart+54] = byte(p.Production.ResourcePerColonist)
