@@ -66,15 +66,20 @@ type ObjectBlock struct {
 
 	// Minefield-specific fields (ObjectType == 0)
 	MineCount      int64  // Number of mines
+	MineCanSeeBits uint16 // Player visibility mask (who can see this minefield)
 	MinefieldType  int    // 0=standard, 1=heavy, 2=speed bump
 	Detonating     bool   // True if detonating
+	MineUnknown    uint16 // Unknown field (bytes 14-15)
+	MineTurnNumber int    // Turn number when minefield was last updated
 
 	// Wormhole-specific fields (ObjectType == 2)
-	WormholeId      int    // Wormhole ID
-	TargetId        int    // Target wormhole ID
-	BeenThroughBits uint16 // Player mask: who has been through
-	CanSeeBits      uint16 // Player mask: who can see it
-	Stability       int    // Wormhole stability (raw byte value)
+	WormholeId         int    // Wormhole ID
+	TargetId           int    // Target wormhole ID
+	BeenThroughBits    uint16 // Player mask: who has been through
+	CanSeeBits         uint16 // Player mask: who can see it
+	Stability          int    // Wormhole stability (raw byte value)
+	WormholeUnknown    uint16 // Unknown field (bytes 14-15)
+	WormholeTurnNumber int    // Turn number when wormhole was last updated
 
 	// Mystery trader-specific fields (ObjectType == 3)
 	XDest    int    // Destination X
@@ -85,11 +90,13 @@ type ObjectBlock struct {
 	TurnNo   int    // Turn number
 
 	// Mineral packet-specific fields (ObjectType == 1, not salvage)
-	DestinationPlanetID int // Target planet for the packet
-	Ironium             int // Ironium amount in kT
-	Boranium            int // Boranium amount in kT
-	Germanium           int // Germanium amount in kT
-	PacketSpeed         int // Raw speed byte value
+	DestinationPlanetID int    // Target planet for the packet
+	Ironium             int    // Ironium amount in kT
+	Boranium            int    // Boranium amount in kT
+	Germanium           int    // Germanium amount in kT
+	PacketSpeed         int    // Raw speed byte value
+	PacketUnknown       uint16 // Unknown field (bytes 14-15)
+	PacketTurnNumber    int    // Turn number when packet was created/updated
 
 	// Salvage-specific fields (ObjectType == 1, salvage variant)
 	// Salvage is distinguished from packets by byte 6 == 0xFF
@@ -147,15 +154,23 @@ func (ob *ObjectBlock) decode() {
 
 
 func (ob *ObjectBlock) decodeMinefield(data []byte) {
-	if len(data) < 16 {
+	if len(data) < 14 {
 		return
 	}
 
 	ob.MineCount = int64(encoding.Read32(data, 6))
-	// Bytes 10-11: unknown
+	ob.MineCanSeeBits = encoding.Read16(data, 10)
+	// Byte 12: Minefield type (0=standard, 1=heavy, 2=speed bump)
+	// Byte 13: Detonation flag (1 if detonating)
 	ob.MinefieldType = int(data[12] & 0xFF)
-	ob.Detonating = data[13] != 0
-	// Bytes 14-15: player visibility mask
+	ob.Detonating = data[13] == 1
+
+	if len(data) >= 16 {
+		ob.MineUnknown = encoding.Read16(data, 14)
+	}
+	if len(data) >= 18 {
+		ob.MineTurnNumber = int(encoding.Read16(data, 16))
+	}
 }
 
 func (ob *ObjectBlock) decodePacket(data []byte) {
@@ -177,7 +192,8 @@ func (ob *ObjectBlock) decodePacket(data []byte) {
 	// Bytes 8-9: Ironium in kT
 	// Bytes 10-11: Boranium in kT
 	// Bytes 12-13: Germanium in kT
-	// Bytes 14-17: Unknown
+	// Bytes 14-15: Unknown
+	// Bytes 16-17: Turn number
 
 	// Common minerals
 	ob.Ironium = int(encoding.Read16(data, 8))
@@ -194,18 +210,34 @@ func (ob *ObjectBlock) decodePacket(data []byte) {
 		ob.DestinationPlanetID = int(data[6])
 		ob.PacketSpeed = int(data[7])
 	}
+
+	// Additional fields
+	if len(data) >= 16 {
+		ob.PacketUnknown = encoding.Read16(data, 14)
+	}
+	if len(data) >= 18 {
+		ob.PacketTurnNumber = int(encoding.Read16(data, 16))
+	}
 }
 
 func (ob *ObjectBlock) decodeWormhole(data []byte) {
-	if len(data) < 16 {
+	if len(data) < 14 {
 		return
 	}
 
 	ob.WormholeId = int(encoding.Read16(data, 0) & 0x0FFF) // Lower 12 bits
 	ob.Stability = int(data[6])                            // Stability byte
+	// Byte 7: unknown
 	ob.BeenThroughBits = encoding.Read16(data, 8)
 	ob.CanSeeBits = encoding.Read16(data, 10)
 	ob.TargetId = int(encoding.Read16(data, 12) & 0x0FFF) // Lower 12 bits
+
+	if len(data) >= 16 {
+		ob.WormholeUnknown = encoding.Read16(data, 14)
+	}
+	if len(data) >= 18 {
+		ob.WormholeTurnNumber = int(encoding.Read16(data, 16))
+	}
 }
 
 func (ob *ObjectBlock) decodeMysteryTrader(data []byte) {
@@ -251,18 +283,23 @@ func (ob *ObjectBlock) Encode() []byte {
 }
 
 func (ob *ObjectBlock) encodeMinefield() []byte {
-	data := make([]byte, 16)
+	data := make([]byte, 18)
 	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypeMinefield<<13)
 	encoding.Write16(data, 0, objectId)
 	encoding.Write16(data, 2, uint16(ob.X))
 	encoding.Write16(data, 4, uint16(ob.Y))
 	encoding.Write32(data, 6, uint32(ob.MineCount))
-	// Bytes 10-11: unknown (set to 0)
-	data[12] = byte(ob.MinefieldType)
+	encoding.Write16(data, 10, ob.MineCanSeeBits)
+	// Byte 12: Minefield type (0=standard, 1=heavy, 2=speed bump)
+	// Byte 13: Detonation flag (1 if detonating)
+	data[12] = byte(ob.MinefieldType & 0xFF)
 	if ob.Detonating {
 		data[13] = 1
+	} else {
+		data[13] = 0
 	}
-	// Bytes 14-15: player visibility mask (preserve if available)
+	encoding.Write16(data, 14, ob.MineUnknown)
+	encoding.Write16(data, 16, uint16(ob.MineTurnNumber))
 	return data
 }
 
@@ -284,22 +321,24 @@ func (ob *ObjectBlock) encodePacket() []byte {
 	encoding.Write16(data, 8, uint16(ob.Ironium))
 	encoding.Write16(data, 10, uint16(ob.Boranium))
 	encoding.Write16(data, 12, uint16(ob.Germanium))
-	// Bytes 14-17: unknown
+	encoding.Write16(data, 14, ob.PacketUnknown)
+	encoding.Write16(data, 16, uint16(ob.PacketTurnNumber))
 	return data
 }
 
 func (ob *ObjectBlock) encodeWormhole() []byte {
-	data := make([]byte, 16)
+	data := make([]byte, 18)
 	objectId := uint16(ob.Number&0x01FF) | uint16((ob.Owner&0x0F)<<9) | uint16(ObjectTypeWormhole<<13)
 	encoding.Write16(data, 0, objectId)
 	encoding.Write16(data, 2, uint16(ob.X))
 	encoding.Write16(data, 4, uint16(ob.Y))
 	data[6] = byte(ob.Stability)
-	// Byte 7: unknown
+	// Byte 7: unknown (set to 0)
 	encoding.Write16(data, 8, ob.BeenThroughBits)
 	encoding.Write16(data, 10, ob.CanSeeBits)
 	encoding.Write16(data, 12, uint16(ob.TargetId&0x0FFF))
-	// Bytes 14-15: unknown
+	encoding.Write16(data, 14, ob.WormholeUnknown)
+	encoding.Write16(data, 16, uint16(ob.WormholeTurnNumber))
 	return data
 }
 
@@ -354,6 +393,14 @@ func (ob *ObjectBlock) TotalMinerals() int {
 // So warp = (rawByte >> 2) - 44
 func (ob *ObjectBlock) WarpSpeed() int {
 	return (ob.PacketSpeed >> 2) - 44
+}
+
+// PlayerCanSeeMinefield returns true if the given player can see this minefield
+func (ob *ObjectBlock) PlayerCanSeeMinefield(playerIndex int) bool {
+	if playerIndex < 0 || playerIndex >= 16 {
+		return false
+	}
+	return (ob.MineCanSeeBits & (1 << playerIndex)) != 0
 }
 
 // PlayerCanSee returns true if the given player can see this wormhole
