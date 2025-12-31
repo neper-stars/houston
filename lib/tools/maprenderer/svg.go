@@ -49,11 +49,7 @@ func (b *SVGBuilder) AddDef(def string) *SVGBuilder {
 }
 
 // AddMinefieldHatchPattern adds the standard minefield hatching pattern.
-// Skipped when forRasterization is true (patterns not supported by rasterizers).
 func (b *SVGBuilder) AddMinefieldHatchPattern() *SVGBuilder {
-	if b.forRasterization {
-		return b
-	}
 	b.defs = append(b.defs, `<pattern id="minefield-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
     <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1" stroke-opacity="0.7"/>
   </pattern>`)
@@ -66,7 +62,7 @@ func (b *SVGBuilder) AddArrowMarker(id string, col color.RGBA) *SVGBuilder {
 	if b.forRasterization {
 		return b
 	}
-	b.defs = append(b.defs, fmt.Sprintf(`<marker id="%s" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
+	b.defs = append(b.defs, fmt.Sprintf(`<marker id="%s" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto" markerUnits="strokeWidth" viewBox="0 0 6 6">
     <path d="M0,0 L0,6 L6,3 z" fill="rgba(%d,%d,%d,0.6)"/>
   </marker>`, id, col.R, col.G, col.B))
 	return b
@@ -102,20 +98,24 @@ func (b *SVGBuilder) CircleOutline(cx, cy, r float64, stroke string, strokeWidth
 }
 
 // Minefield adds a minefield with semi-transparent fill and hatching.
-// Hatching overlay is skipped when forRasterization is true.
 func (b *SVGBuilder) Minefield(cx, cy, r float64, col color.RGBA) *SVGBuilder {
 	// Semi-transparent fill (use integer alpha for rasterization compatibility)
 	if b.forRasterization {
-		const alphaFill = 38   // 0.15 * 255
+		const alphaFill = 38    // 0.15 * 255
 		const alphaStroke = 102 // 0.4 * 255
+		const alphaHatch = 127  // 0.5 * 255
 		b.elements = append(b.elements, fmt.Sprintf(
 			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,%d)" stroke="rgba(%d,%d,%d,%d)" stroke-width="1"/>`,
 			cx, cy, r, col.R, col.G, col.B, alphaFill, col.R, col.G, col.B, alphaStroke))
+		// Hatching overlay with integer alpha
+		b.elements = append(b.elements, fmt.Sprintf(
+			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,%d)"/>`,
+			cx, cy, r, col.R, col.G, col.B, alphaHatch))
 	} else {
 		b.elements = append(b.elements, fmt.Sprintf(
 			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.15)" stroke="rgba(%d,%d,%d,0.4)" stroke-width="1"/>`,
 			cx, cy, r, col.R, col.G, col.B, col.R, col.G, col.B))
-		// Hatching overlay - only for non-rasterization output
+		// Hatching overlay
 		b.elements = append(b.elements, fmt.Sprintf(
 			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,0.5)"/>`,
 			cx, cy, r, col.R, col.G, col.B))
@@ -373,8 +373,8 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 <rect width="%d" height="%d" fill="black"/>
 `, b.width, b.height, b.width, b.height, b.width, b.height))
 
-	// Defs section - skip for rasterization (oksvg doesn't support pattern/marker)
-	if !forRasterization && len(b.defs) > 0 {
+	// Defs section (patterns and markers)
+	if len(b.defs) > 0 {
 		svg.WriteString("<defs>\n")
 		for _, def := range b.defs {
 			svg.WriteString("  ")
@@ -392,17 +392,8 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 			svg.WriteString("\n")
 		}
 	} else {
-		// Slow path: builder wasn't created for rasterization, need to clean elements
+		// Slow path: builder wasn't created for rasterization, need to convert alpha values
 		for _, elem := range b.elements {
-			// Remove marker references for rasterization
-			elem = strings.ReplaceAll(elem, ` marker-mid="url(#arrow-0)"`, "")
-			elem = strings.ReplaceAll(elem, ` marker-mid="url(#arrow-1)"`, "")
-			elem = strings.ReplaceAll(elem, ` marker-end="url(#arrow-0)"`, "")
-			elem = strings.ReplaceAll(elem, ` marker-end="url(#arrow-1)"`, "")
-			// Remove pattern fill references
-			if strings.Contains(elem, `fill="url(#minefield-hatch)"`) {
-				continue // Skip hatching overlay circles
-			}
 			// Convert rgba with decimal alpha to integer alpha (0-255)
 			elem = convertRGBAToIntAlpha(elem)
 			svg.WriteString(elem)

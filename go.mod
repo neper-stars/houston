@@ -42,3 +42,5 @@ require (
 	modernc.org/token v1.1.0 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
+
+replace github.com/tdewolff/canvas => github.com/faide/canvas v0.0.0-20251231001319-936f02a3e0fe
