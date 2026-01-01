@@ -11,7 +11,7 @@ func ReadRawFile(fName string, fileData *FileData) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	*fileData, err = io.ReadAll(f)
 	if err != nil {
 		return err

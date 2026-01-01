@@ -62,8 +62,8 @@ type (
 	CountersBlock = blocks.CountersBlock
 
 	// Fleet stub blocks
-	FleetNameBlock  = blocks.FleetNameBlock
-	MoveShipsBlock  = blocks.MoveShipsBlock
+	FleetNameBlock   = blocks.FleetNameBlock
+	MoveShipsBlock   = blocks.MoveShipsBlock
 	RenameFleetBlock = blocks.RenameFleetBlock
 
 	// Battle stub blocks
@@ -78,13 +78,13 @@ type (
 	PlayersRelationChangeBlock = blocks.PlayersRelationChangeBlock
 
 	// Misc stub blocks
-	PlayerScoresBlock            = blocks.PlayerScoresBlock
-	SaveAndSubmitBlock           = blocks.SaveAndSubmitBlock
-	FileHashBlock                = blocks.FileHashBlock
-	WaypointRepeatOrdersBlock    = blocks.WaypointRepeatOrdersBlock
-	EventsBlock                  = blocks.EventsBlock
-	MessagesFilterBlock          = blocks.MessagesFilterBlock
-	AiHFileRecordBlock           = blocks.AiHFileRecordBlock
+	PlayerScoresBlock               = blocks.PlayerScoresBlock
+	SaveAndSubmitBlock              = blocks.SaveAndSubmitBlock
+	FileHashBlock                   = blocks.FileHashBlock
+	WaypointRepeatOrdersBlock       = blocks.WaypointRepeatOrdersBlock
+	EventsBlock                     = blocks.EventsBlock
+	MessagesFilterBlock             = blocks.MessagesFilterBlock
+	AiHFileRecordBlock              = blocks.AiHFileRecordBlock
 	ManualSmallLoadUnloadTaskBlock  = blocks.ManualSmallLoadUnloadTaskBlock
 	ManualMediumLoadUnloadTaskBlock = blocks.ManualMediumLoadUnloadTaskBlock
 	ManualLargeLoadUnloadTaskBlock  = blocks.ManualLargeLoadUnloadTaskBlock
@@ -196,11 +196,11 @@ var PlanetNames = data.PlanetNames
 
 // Re-exported password functions
 var (
-	AsciiString                = password.AsciiString
-	HashRacePassword           = password.HashRacePassword
-	HashRacePasswordBytes      = password.HashRacePasswordBytes
-	GuessRacePassword          = password.GuessRacePassword
-	GuessRacePasswordParallel  = password.GuessRacePasswordParallel
+	AsciiString               = password.AsciiString
+	HashRacePassword          = password.HashRacePassword
+	HashRacePasswordBytes     = password.HashRacePasswordBytes
+	GuessRacePassword         = password.GuessRacePassword
+	GuessRacePasswordParallel = password.GuessRacePasswordParallel
 )
 
 // ProgressCallback is called periodically during parallel password search
@@ -208,12 +208,12 @@ type ProgressCallback = password.ProgressCallback
 
 // ReadRawFile reads an entire file into a FileData struct
 func ReadRawFile(fName string, fileData *FileData) error {
-	return parser.ReadRawFile(fName, (*parser.FileData)(fileData))
+	return parser.ReadRawFile(fName, fileData)
 }
 
 // Racefixer type aliases
 type (
-	RaceFileInfo   = racefixer.FileInfo
+	RaceFileInfo     = racefixer.FileInfo
 	RaceRepairResult = racefixer.RepairResult
 )
 

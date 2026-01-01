@@ -1,5 +1,6 @@
 [tools]
 go = "1.25"
+"golangci-lint" = "2.7.2"
 
 [tasks.deps]
 description = "Download and tidy dependencies"
@@ -28,9 +29,17 @@ run = "go test -v ./..."
 description = "Run tests with coverage report"
 run = "go test -coverprofile=build/coverage.out ./... && go tool cover -html=build/coverage.out -o build/coverage.html"
 
-[tasks.lint]
+[tasks.vet]
 description = "Run go vet"
 run = "go vet ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+
+[tasks.lint-fix]
+description = "Run golangci-lint with auto-fix"
+run = "golangci-lint run --fix"
 
 [tasks.fmt]
 description = "Format all Go files"
@@ -41,5 +50,5 @@ description = "Remove build artifacts"
 run = "rm -rf build/"
 
 [tasks.all]
-description = "Run deps, fmt, lint, test, and build"
-depends = ["deps", "fmt", "lint", "test", "build"]
+description = "Run deps, fmt, vet, lint, test, and build"
+depends = ["deps", "fmt", "vet", "lint", "test", "build"]

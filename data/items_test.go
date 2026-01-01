@@ -8,9 +8,9 @@ import (
 
 func TestGetItemInfo_Engines(t *testing.T) {
 	testCases := []struct {
-		name         string
-		expectedCat  ItemCategory
-		expectedID   int
+		name        string
+		expectedCat ItemCategory
+		expectedID  int
 	}{
 		{"Settler's Delight", CategoryEngine, EngineSettlersDelight},
 		{"Long Hump 6", CategoryEngine, EngineLongHump6},
@@ -31,9 +31,9 @@ func TestGetItemInfo_Engines(t *testing.T) {
 
 func TestGetItemInfo_Weapons(t *testing.T) {
 	testCases := []struct {
-		name         string
-		expectedCat  ItemCategory
-		expectedID   int
+		name        string
+		expectedCat ItemCategory
+		expectedID  int
 	}{
 		{"Laser", CategoryBeamWeapon, BeamLaser},
 		{"X-Ray Laser", CategoryBeamWeapon, BeamXRayLaser},
@@ -54,9 +54,9 @@ func TestGetItemInfo_Weapons(t *testing.T) {
 
 func TestGetItemInfo_Defenses(t *testing.T) {
 	testCases := []struct {
-		name         string
-		expectedCat  ItemCategory
-		expectedID   int
+		name        string
+		expectedCat ItemCategory
+		expectedID  int
 	}{
 		{"Mole-skin Shield", CategoryShield, ShieldMoleskin},
 		{"Gorilla Delagator", CategoryShield, ShieldGorillaDelagator},
@@ -76,9 +76,9 @@ func TestGetItemInfo_Defenses(t *testing.T) {
 
 func TestGetItemInfo_Electronics(t *testing.T) {
 	testCases := []struct {
-		name         string
-		expectedCat  ItemCategory
-		expectedID   int
+		name        string
+		expectedCat ItemCategory
+		expectedID  int
 	}{
 		{"Rhino Scanner", CategoryScanner, ScannerRhino},
 		{"Ferret Scanner", CategoryScanner, ScannerFerret},
@@ -97,9 +97,9 @@ func TestGetItemInfo_Electronics(t *testing.T) {
 
 func TestGetItemInfo_Mechanical(t *testing.T) {
 	testCases := []struct {
-		name         string
-		expectedCat  ItemCategory
-		expectedID   int
+		name        string
+		expectedCat ItemCategory
+		expectedID  int
 	}{
 		{"Colonization Module", CategoryMechanical, MechColonizationModule},
 		{"Fuel Tank", CategoryMechanical, MechFuelTank},

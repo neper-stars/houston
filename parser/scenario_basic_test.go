@@ -211,6 +211,7 @@ func TestScenarioBasic_Player2(t *testing.T) {
 			}
 		}
 	}
+	_ = fleetBlocks // collected for potential future assertions
 
 	// Validate Player block
 	require.NotNil(t, player1, "Player 1 block should exist")
@@ -281,6 +282,7 @@ func TestScenarioBasic_OwnedPlanets(t *testing.T) {
 			partialPlanets = append(partialPlanets, b)
 		}
 	}
+	_ = partialPlanets // collected for potential future assertions
 
 	// Player 1 should own at least their homeworld
 	assert.GreaterOrEqual(t, len(ownedPlanets), 1, "Should have at least 1 owned planet (homeworld)")

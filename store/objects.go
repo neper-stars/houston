@@ -24,7 +24,7 @@ type ObjectEntity struct {
 
 	// Minefield-specific fields
 	MineCount     int64
-	MinefieldType int  // 0=standard, 1=heavy, 2=speed bump
+	MinefieldType int // 0=standard, 1=heavy, 2=speed bump
 	Detonating    bool
 
 	// Wormhole-specific fields

@@ -340,10 +340,8 @@ func TestValidateHabitabilityEdgeConstraints(t *testing.T) {
 				if !found {
 					t.Errorf("expected error containing %q, got %v", tt.errContains, errs)
 				}
-			} else {
-				if len(errs) > 0 {
-					t.Errorf("expected no errors, got %v", errs)
-				}
+			} else if len(errs) > 0 {
+				t.Errorf("expected no errors, got %v", errs)
 			}
 		})
 	}

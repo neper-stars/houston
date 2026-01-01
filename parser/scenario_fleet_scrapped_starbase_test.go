@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
@@ -15,16 +16,16 @@ type fleetScrappedAtStarbaseExpected struct {
 	Description             string `json:"description"`
 	Year                    int    `json:"year"`
 	FleetScrappedAtStarbase struct {
-		PlanetID           int    `json:"planetID"`
-		PlanetName         string `json:"planetName"`
-		FleetIndex         int    `json:"fleetIndex"`
-		FleetDisplayNumber int    `json:"fleetDisplayNumber"`
-		MineralAmountEncoded int  `json:"mineralAmountEncoded"`
-		FleetMass          int    `json:"fleetMass"`
-		MineralsRecovered  int    `json:"mineralsRecovered"`
-		RecoveryRate       string `json:"recoveryRate"`
-		Flags              int    `json:"flags"`
-		Note               string `json:"note"`
+		PlanetID             int    `json:"planetID"`
+		PlanetName           string `json:"planetName"`
+		FleetIndex           int    `json:"fleetIndex"`
+		FleetDisplayNumber   int    `json:"fleetDisplayNumber"`
+		MineralAmountEncoded int    `json:"mineralAmountEncoded"`
+		FleetMass            int    `json:"fleetMass"`
+		MineralsRecovered    int    `json:"mineralsRecovered"`
+		RecoveryRate         string `json:"recoveryRate"`
+		Flags                int    `json:"flags"`
+		Note                 string `json:"note"`
 	} `json:"fleetScrappedAtStarbase"`
 }
 

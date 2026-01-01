@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	if len(os.Args) != 2 {
 		fmt.Println("you should provide a filename as a positional argument")
 		os.Exit(1)

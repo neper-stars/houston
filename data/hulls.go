@@ -150,9 +150,9 @@ const (
 	SlotMechanical uint16 = 0x1000
 
 	// Common slot combinations
-	SlotWeapon          = SlotBeamWeapon | SlotTorpedo                   // 0x0030
-	SlotShieldArmor     = SlotShield | SlotArmor                         // 0x000C
-	SlotScannerElecMech = SlotScanner | SlotElectrical | SlotMechanical  // 0x1802
+	SlotWeapon          = SlotBeamWeapon | SlotTorpedo                  // 0x0030
+	SlotShieldArmor     = SlotShield | SlotArmor                        // 0x000C
+	SlotScannerElecMech = SlotScanner | SlotElectrical | SlotMechanical // 0x1802
 
 	// GeneralPurpose accepts most item types (0x193E)
 	SlotGeneralPurpose = SlotScanner | SlotShield | SlotArmor | SlotBeamWeapon |

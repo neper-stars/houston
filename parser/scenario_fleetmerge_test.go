@@ -19,13 +19,13 @@ type ExpectedShipTransfer struct {
 }
 
 type ExpectedFleetMerge struct {
-	DestFleetNumber     int                    `json:"destFleetNumber"`
-	DestFleetDisplayId  int                    `json:"destFleetDisplayId"`
-	DestFleetName       string                 `json:"destFleetName"`
-	SourceFleetNumber   int                    `json:"sourceFleetNumber"`
-	SourceFleetDisplayId int                   `json:"sourceFleetDisplayId"`
-	SourceFleetName     string                 `json:"sourceFleetName"`
-	ShipsTransferred    []ExpectedShipTransfer `json:"shipsTransferred"`
+	DestFleetNumber      int                    `json:"destFleetNumber"`
+	DestFleetDisplayId   int                    `json:"destFleetDisplayId"`
+	DestFleetName        string                 `json:"destFleetName"`
+	SourceFleetNumber    int                    `json:"sourceFleetNumber"`
+	SourceFleetDisplayId int                    `json:"sourceFleetDisplayId"`
+	SourceFleetName      string                 `json:"sourceFleetName"`
+	ShipsTransferred     []ExpectedShipTransfer `json:"shipsTransferred"`
 }
 
 type ExpectedFleetMergeData struct {

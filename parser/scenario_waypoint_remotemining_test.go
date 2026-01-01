@@ -7,14 +7,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
 
 type waypointRemoteMiningExpected struct {
-	Description            string `json:"description"`
-	Year                   int    `json:"year"`
-	WaypointRemoteMining   struct {
+	Description          string `json:"description"`
+	Year                 int    `json:"year"`
+	WaypointRemoteMining struct {
 		FleetNumber        int    `json:"fleetNumber"`
 		FleetName          string `json:"fleetName"`
 		WaypointNumber     int    `json:"waypointNumber"`

@@ -172,9 +172,9 @@ func TestCreateRaceFileWithLRTs(t *testing.T) {
 	// WM (War Monger) with CE (Cheap Engines) and RS (Regenerating Shields)
 	builder := race.New()
 	builder.Name("Warrior", "Warriors")
-	builder.PRT(2) // WM
-	builder.AddLRT(8)  // CE - Cheap Engines
-	builder.AddLRT(13) // RS - Regenerating Shields
+	builder.PRT(2)         // WM
+	builder.AddLRT(8)      // CE - Cheap Engines
+	builder.AddLRT(13)     // RS - Regenerating Shields
 	builder.GrowthRate(10) // Moderate growth rate
 
 	r, err := builder.Finish()

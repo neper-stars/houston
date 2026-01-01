@@ -55,8 +55,8 @@ type PartialFleetBlock struct {
 	// Partial fleet movement data (if kindByte != FleetKindFull)
 	DeltaX              int
 	DeltaY              int
-	Warp                int  // 0-15
-	UnknownBitsWithWarp int  // Upper 4 bits of warp byte
+	Warp                int // 0-15
+	UnknownBitsWithWarp int // Upper 4 bits of warp byte
 	Mass                int64
 
 	// Full fleet data (if kindByte == FleetKindFull)
@@ -121,9 +121,9 @@ func (fb *PartialFleetBlock) decode() {
 	fb.ShipCountTwoBytes = (fb.Byte5 & 0x08) == 0
 
 	// Extract all flag bits from Byte5
-	fb.Byte5Bit0 = (fb.Byte5 & 0x01) != 0         // Bit 0
-	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0      // Bit 1: Repeat waypoint orders
-	fb.Byte5Bit2 = (fb.Byte5 & 0x04) != 0         // Bit 2
+	fb.Byte5Bit0 = (fb.Byte5 & 0x01) != 0             // Bit 0
+	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0          // Bit 1: Repeat waypoint orders
+	fb.Byte5Bit2 = (fb.Byte5 & 0x04) != 0             // Bit 2
 	fb.Byte5UpperNibble = int((fb.Byte5 >> 4) & 0x0F) // Bits 4-7
 
 	// Bytes 6-13: Position and ship types
@@ -205,22 +205,18 @@ func (fb *PartialFleetBlock) decode() {
 		if index+2 <= len(data) {
 			fb.BattlePlan = int(data[index] & 0xFF)
 			fb.WaypointCount = int(data[index+1] & 0xFF)
-			index += 2
 		}
-	} else {
+	} else if index+8 <= len(data) {
 		// Partial fleet movement data
-		if index+8 <= len(data) {
-			// DeltaX/DeltaY are unsigned bytes (0-255) centered around 127
-			// 127 means no movement, values above/below indicate direction
-			// We convert to actual delta by subtracting 127
-			fb.DeltaX = int(data[index]) - 127
-			fb.DeltaY = int(data[index+1]) - 127
-			fb.Warp = int(data[index+2] & 0x0F)
-			fb.UnknownBitsWithWarp = int(data[index+2] & 0xF0)
-			// index+3 is padding (should be 0)
-			fb.Mass = int64(encoding.Read32(data, index+4))
-			index += 8
-		}
+		// DeltaX/DeltaY are unsigned bytes (0-255) centered around 127
+		// 127 means no movement, values above/below indicate direction
+		// We convert to actual delta by subtracting 127
+		fb.DeltaX = int(data[index]) - 127
+		fb.DeltaY = int(data[index+1]) - 127
+		fb.Warp = int(data[index+2] & 0x0F)
+		fb.UnknownBitsWithWarp = int(data[index+2] & 0xF0)
+		// index+3 is padding (should be 0)
+		fb.Mass = int64(encoding.Read32(data, index+4))
 	}
 }
 
@@ -269,8 +265,8 @@ func (fsb *FleetSplitBlock) decode() {
 type FleetsMergeBlock struct {
 	GenericBlock
 
-	FleetNumber    int   // The target fleet (9 bits)
-	FleetsToMerge  []int // List of fleet numbers to merge into target
+	FleetNumber   int   // The target fleet (9 bits)
+	FleetsToMerge []int // List of fleet numbers to merge into target
 }
 
 // NewFleetsMergeBlock creates a FleetsMergeBlock from a GenericBlock

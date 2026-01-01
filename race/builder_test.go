@@ -198,14 +198,14 @@ func TestBuilderChaining(t *testing.T) {
 	b := New()
 
 	// Test that we can chain operations
-	result := b.Name("Warrior", "Warriors")
-	result = b.PRT(2) // WM
-	result = b.GrowthRate(18)
+	b.Name("Warrior", "Warriors")
+	b.PRT(PRTWarMonger)
+	result := b.GrowthRate(18)
 
 	if result.Race.SingularName != "Warrior" {
 		t.Error("chaining didn't preserve name")
 	}
-	if result.Race.PRT != 2 {
+	if result.Race.PRT != PRTWarMonger {
 		t.Error("chaining didn't preserve PRT")
 	}
 	if result.Race.GrowthRate != 18 {

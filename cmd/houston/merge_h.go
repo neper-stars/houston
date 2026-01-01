@@ -24,11 +24,12 @@ func (c *mergeHCommand) Execute(args []string) error {
 	var hFiles, mFiles []string
 	for _, filename := range c.Args.Files {
 		ext := strings.ToLower(filepath.Ext(filename))
-		if len(ext) >= 2 && ext[1] == 'h' {
+		switch {
+		case len(ext) >= 2 && ext[1] == 'h':
 			hFiles = append(hFiles, filename)
-		} else if len(ext) >= 2 && ext[1] == 'm' {
+		case len(ext) >= 2 && ext[1] == 'm':
 			mFiles = append(mFiles, filename)
-		} else {
+		default:
 			return fmt.Errorf("unknown file type: %s", filename)
 		}
 	}
@@ -124,13 +125,17 @@ func copyFileMergeH(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 
 	dest, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dest.Close()
+	defer func() {
+		if cerr := dest.Close(); cerr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close %s: %v\n", dst, cerr)
+		}
+	}()
 
 	_, err = io.Copy(dest, source)
 	return err

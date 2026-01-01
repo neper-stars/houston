@@ -38,6 +38,7 @@ func TestPredefinedRacesBytewise(t *testing.T) {
 }
 
 func testPredefinedRaceBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	t.Helper()
 	// Read the expected race file produced by Stars!
 	expectedData, err := os.ReadFile(tc.expectedFile)
 	if err != nil {
@@ -201,6 +202,7 @@ func TestPredefinedRacePlayerBlockBytewise(t *testing.T) {
 }
 
 func testPlayerBlockBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	t.Helper()
 	// Read the expected race file produced by Stars!
 	expectedData, err := os.ReadFile(tc.expectedFile)
 	if err != nil {
@@ -335,6 +337,7 @@ func testPlayerBlockBytewise(t *testing.T, tc predefinedRaceTestCase) {
 }
 
 func dumpHex(t *testing.T, data []byte, start, end int) {
+	t.Helper()
 	if end > len(data) {
 		end = len(data)
 	}
@@ -366,6 +369,7 @@ func TestPredefinedRaceFullDataBytesBytewise(t *testing.T) {
 }
 
 func testFullDataBytesBytewise(t *testing.T, tc predefinedRaceTestCase) {
+	t.Helper()
 	// Read the expected race file produced by Stars!
 	expectedData, err := os.ReadFile(tc.expectedFile)
 	if err != nil {

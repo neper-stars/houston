@@ -41,15 +41,15 @@ const (
 
 // Transport task action types (stored in high nibble of action byte)
 const (
-	TransportTaskNoAction        = 0 // No action for this cargo type
-	TransportTaskLoadAll         = 1 // Load All Available
-	TransportTaskUnloadAll       = 2 // Unload All
-	TransportTaskLoadExactly     = 3 // Load Exactly N kT
-	TransportTaskUnloadExactly   = 4 // Unload Exactly N kT
-	TransportTaskFillToPercent   = 5 // Fill Up to N%
-	TransportTaskWaitForPercent  = 6 // Wait for N%
-	TransportTaskDropAndLoad     = 7 // Drop and Load (unload all, then load)
-	TransportTaskSetAmountTo     = 8 // Set Amount To N kT
+	TransportTaskNoAction       = 0 // No action for this cargo type
+	TransportTaskLoadAll        = 1 // Load All Available
+	TransportTaskUnloadAll      = 2 // Unload All
+	TransportTaskLoadExactly    = 3 // Load Exactly N kT
+	TransportTaskUnloadExactly  = 4 // Unload Exactly N kT
+	TransportTaskFillToPercent  = 5 // Fill Up to N%
+	TransportTaskWaitForPercent = 6 // Wait for N%
+	TransportTaskDropAndLoad    = 7 // Drop and Load (unload all, then load)
+	TransportTaskSetAmountTo    = 8 // Set Amount To N kT
 )
 
 // Cargo type indices
@@ -89,13 +89,13 @@ func TransportTaskName(action int) string {
 type WaypointBlock struct {
 	GenericBlock
 
-	X                  int    // X coordinate
-	Y                  int    // Y coordinate
-	PositionObject     int    // Object ID at position
-	Warp               int    // Warp factor (0-15)
-	WaypointTask       int    // Task type (0-9)
-	PositionObjectType int    // Type of object at position
-	TransportAction    int    // Transport action (0x10=Load All, 0x20=Unload All) from byte 15
+	X                  int // X coordinate
+	Y                  int // Y coordinate
+	PositionObject     int // Object ID at position
+	Warp               int // Warp factor (0-15)
+	WaypointTask       int // Task type (0-9)
+	PositionObjectType int // Type of object at position
+	TransportAction    int // Transport action (0x10=Load All, 0x20=Unload All) from byte 15
 
 	// Transport task orders (when WaypointTask == WaypointTaskTransport)
 	// Each cargo type has an action and value
@@ -125,8 +125,8 @@ func (wb *WaypointBlock) decode() {
 	wb.X = int(encoding.Read16(data, 0))
 	wb.Y = int(encoding.Read16(data, 2))
 	wb.PositionObject = int(encoding.Read16(data, 4))
-	wb.Warp = int(data[6]&0xFF) >> 4       // Upper nibble
-	wb.WaypointTask = int(data[6] & 0x0F)  // Lower nibble
+	wb.Warp = int(data[6]&0xFF) >> 4      // Upper nibble
+	wb.WaypointTask = int(data[6] & 0x0F) // Lower nibble
 	wb.PositionObjectType = int(data[7] & 0xFF)
 
 	// Additional bytes for task data
@@ -371,13 +371,16 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (wctb *WaypointChangeTaskBlock) Encode() []byte {
 	// Determine size based on task type
-	size := 12
-	if wctb.WaypointTask == WaypointTaskTransport {
+	var size int
+	switch {
+	case wctb.WaypointTask == WaypointTaskTransport:
 		size = 20 // 12 base + 8 for transport orders
-	} else if wctb.WaypointTask == WaypointTaskPatrol {
+	case wctb.WaypointTask == WaypointTaskPatrol:
 		size = 15 // 12 base + 1 sub-task + 2 for patrol range
-	} else if wctb.SubTaskIndex > 0 {
+	case wctb.SubTaskIndex > 0:
 		size = 13 // 12 base + 1 sub-task index
+	default:
+		size = 12
 	}
 
 	data := make([]byte, size)
@@ -409,18 +412,19 @@ func (wctb *WaypointChangeTaskBlock) Encode() []byte {
 	data[11] = byte((wctb.UnknownBitsWithTargetType&0x0F)<<4) | byte(wctb.TargetType&0x0F)
 
 	// Encode task-specific data
-	if wctb.WaypointTask == WaypointTaskTransport && size >= 20 {
+	switch {
+	case wctb.WaypointTask == WaypointTaskTransport && size >= 20:
 		// Transport orders: 2 bytes per cargo type
 		for i := 0; i < 4; i++ {
 			offset := 12 + (i * 2)
 			data[offset] = byte(wctb.TransportOrders[i].Value)
 			data[offset+1] = byte((wctb.TransportOrders[i].Action & 0x0F) << 4)
 		}
-	} else if wctb.WaypointTask == WaypointTaskPatrol && size >= 15 {
+	case wctb.WaypointTask == WaypointTaskPatrol && size >= 15:
 		data[12] = byte(wctb.SubTaskIndex)
 		data[13] = 0
 		data[14] = byte(wctb.PatrolRange)
-	} else if size >= 13 {
+	case size >= 13:
 		data[12] = byte(wctb.SubTaskIndex)
 	}
 

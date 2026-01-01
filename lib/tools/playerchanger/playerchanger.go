@@ -29,14 +29,14 @@ import (
 
 // PlayerInfo contains information about a player.
 type PlayerInfo struct {
-	Number            int
-	Name              string
-	PluralName        string
-	ShipDesignCount   int
+	Number              int
+	Name                string
+	PluralName          string
+	ShipDesignCount     int
 	StarbaseDesignCount int
-	Planets           int
-	Fleets            int
-	Block             *blocks.PlayerBlock
+	Planets             int
+	Fleets              int
+	Block               *blocks.PlayerBlock
 }
 
 // FileInfo contains information about players in a file.
@@ -104,14 +104,14 @@ func ReadPlayersFromBytes(name string, fileBytes []byte) (*FileInfo, error) {
 	for _, block := range blockList {
 		if p, ok := block.(blocks.PlayerBlock); ok {
 			pi := PlayerInfo{
-				Number:            p.PlayerNumber,
-				Name:              p.NameSingular,
-				PluralName:        p.NamePlural,
-				ShipDesignCount:   p.ShipDesignCount,
+				Number:              p.PlayerNumber,
+				Name:                p.NameSingular,
+				PluralName:          p.NamePlural,
+				ShipDesignCount:     p.ShipDesignCount,
 				StarbaseDesignCount: p.StarbaseDesignCount,
-				Planets:           p.Planets,
-				Fleets:            p.Fleets,
-				Block:             &p,
+				Planets:             p.Planets,
+				Fleets:              p.Fleets,
+				Block:               &p,
 			}
 			info.Players = append(info.Players, pi)
 		}

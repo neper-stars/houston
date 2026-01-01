@@ -23,7 +23,7 @@ type ExpectedMassDriverDest struct {
 }
 
 type ExpectedMassDriverData struct {
-	Scenario              string                   `json:"scenario"`
+	Scenario               string                   `json:"scenario"`
 	MassDriverDestinations []ExpectedMassDriverDest `json:"massDriverDestinations"`
 }
 

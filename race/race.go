@@ -473,9 +473,9 @@ func Random() *Race {
 func RandomWithSeed(seed int64) *Race {
 	rng := rand.New(rand.NewSource(seed))
 
-	// Helper to generate random int in range [min, max]
-	randRange := func(min, max int) int {
-		return min + rng.Intn(max-min+1)
+	// Helper to generate random int in range [lo, hi]
+	randRange := func(lo, hi int) int {
+		return lo + rng.Intn(hi-lo+1)
 	}
 
 	// Random LRT selection - each of the 14 LRTs has 50% chance

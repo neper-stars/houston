@@ -15,16 +15,16 @@ type PartialPlanetBlock struct {
 	IsHomeworld  bool // True if this is a homeworld
 
 	// Status flags (from 2-byte flag word at offset 2)
-	IsInUseOrRobberBaron                      bool
-	HasEnvironmentInfo                        bool
+	IsInUseOrRobberBaron                       bool
+	HasEnvironmentInfo                         bool
 	BitWhichIsOffForRemoteMiningAndRobberBaron bool
-	WeirdBit                                  bool
-	HasRoute                                  bool
-	HasSurfaceMinerals                        bool
-	HasArtifact                               bool
-	HasInstallations                          bool
-	IsTerraformed                             bool
-	HasStarbase                               bool
+	WeirdBit                                   bool
+	HasRoute                                   bool
+	HasSurfaceMinerals                         bool
+	HasArtifact                                bool
+	HasInstallations                           bool
+	IsTerraformed                              bool
+	HasStarbase                                bool
 
 	// Environment data (if HasEnvironmentInfo or can see environment)
 	IroniumConc   int // 0-100
@@ -156,8 +156,8 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 		// Estimates if owned
 		if pb.Owner >= 0 && index+2 <= len(data) {
 			estimateWord := encoding.Read16(data, index)
-			pb.DefensesEstimate = int(estimateWord >> 12)       // Upper 4 bits
-			pb.PopEstimate = int(estimateWord & 0x0FFF) * 400   // Lower 12 bits * 400
+			pb.DefensesEstimate = int(estimateWord >> 12)   // Upper 4 bits
+			pb.PopEstimate = int(estimateWord&0x0FFF) * 400 // Lower 12 bits * 400
 			index += 2
 		}
 	}
@@ -239,7 +239,7 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 // for blocks that were decoded, or builds from scratch for new blocks.
 func (pb *PartialPlanetBlock) Encode() []byte {
 	// If we have the original decrypted data, preserve it
-	if pb.Decrypted != nil && len(pb.Decrypted) > 0 {
+	if len(pb.Decrypted) > 0 {
 		return pb.Decrypted
 	}
 

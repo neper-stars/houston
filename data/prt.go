@@ -5,10 +5,10 @@ import "math"
 // PRT represents a Primary Racial Trait with all its specific abilities.
 type PRT struct {
 	// Basic identification
-	Index    int    // 0-9 index matching blocks.PRTxxx constants
-	Code     string // Short code: "HE", "SS", etc.
-	Name     string // Full name: "Hyper Expansion", etc.
-	Desc     string // Description text
+	Index int    // 0-9 index matching blocks.PRTxxx constants
+	Code  string // Short code: "HE", "SS", etc.
+	Name  string // Full name: "Hyper Expansion", etc.
+	Desc  string // Description text
 
 	// Race builder point cost (negative = advantage, positive = costs points)
 	PointCost int
@@ -101,19 +101,19 @@ func joatFleetIntrinsicScanner(electronicsLevel int) ScannerStats {
 var AllPRTs = []PRT{
 	// 0: HE - Hyper Expansion
 	{
-		Index:                 0,
-		Code:                  "HE",
-		Name:                  "Hyper-Expansion",
-		Desc:                  "You must expand to survive. You are given a small and cheap colony hull and an engine which travels at Warp 6 using no fuel. Your race will grow at twice the growth rate you select in step four; however, the maximum population for a given planet is cut in half. The completely flexible Meta Morph hull will be available only to your race.",
-		PointCost:             -40,
-		GrowthRateModifier:    2.0,
-		MaxPopulationModifier: 0.5,
-		WeaponsCostModifier:   1.0,
-		DefensesCostModifier:  1.0,
-		StarbaseCostModifier:  1.0,
-		IntrinsicCloakPercent: 0.0,
-		CargoAffectsCloak:     true,
-		MineTravelBonus:       0,
+		Index:                    0,
+		Code:                     "HE",
+		Name:                     "Hyper-Expansion",
+		Desc:                     "You must expand to survive. You are given a small and cheap colony hull and an engine which travels at Warp 6 using no fuel. Your race will grow at twice the growth rate you select in step four; however, the maximum population for a given planet is cut in half. The completely flexible Meta Morph hull will be available only to your race.",
+		PointCost:                -40,
+		GrowthRateModifier:       2.0,
+		MaxPopulationModifier:    0.5,
+		WeaponsCostModifier:      1.0,
+		DefensesCostModifier:     1.0,
+		StarbaseCostModifier:     1.0,
+		IntrinsicCloakPercent:    0.0,
+		CargoAffectsCloak:        true,
+		MineTravelBonus:          0,
 		CanBuildMineFields:       true,
 		CanBuildAdvancedDefenses: true,
 		CanBuildSmartBombs:       true,
@@ -122,19 +122,19 @@ var AllPRTs = []PRT{
 
 	// 1: SS - Super Stealth
 	{
-		Index:                 1,
-		Code:                  "SS",
-		Name:                  "Super Stealth",
-		Desc:                  "You can sneak through enemy territory and execute stunning surprise attacks. You are given top-drawer cloaks and all your ships have 75% cloaking built in. Cargo does not decrease your cloaking abilities. The Stealth Bomber and Rogue are at your disposal, as are a scanner, shield and armor with stealthy properties. Two scanners which allow you to steal minerals from enemy fleets and planets are also available. You may safely travel through mine fields at one warp speed faster than the limits.",
-		PointCost:             -95,
-		GrowthRateModifier:    1.0,
-		MaxPopulationModifier: 1.0,
-		WeaponsCostModifier:   1.0,
-		DefensesCostModifier:  1.0,
-		StarbaseCostModifier:  1.0,
-		IntrinsicCloakPercent: 0.75, // 75% base cloaking for ALL ships
-		CargoAffectsCloak:     false,
-		MineTravelBonus:       1, // +1 warp speed in mine fields
+		Index:                    1,
+		Code:                     "SS",
+		Name:                     "Super Stealth",
+		Desc:                     "You can sneak through enemy territory and execute stunning surprise attacks. You are given top-drawer cloaks and all your ships have 75% cloaking built in. Cargo does not decrease your cloaking abilities. The Stealth Bomber and Rogue are at your disposal, as are a scanner, shield and armor with stealthy properties. Two scanners which allow you to steal minerals from enemy fleets and planets are also available. You may safely travel through mine fields at one warp speed faster than the limits.",
+		PointCost:                -95,
+		GrowthRateModifier:       1.0,
+		MaxPopulationModifier:    1.0,
+		WeaponsCostModifier:      1.0,
+		DefensesCostModifier:     1.0,
+		StarbaseCostModifier:     1.0,
+		IntrinsicCloakPercent:    0.75, // 75% base cloaking for ALL ships
+		CargoAffectsCloak:        false,
+		MineTravelBonus:          1, // +1 warp speed in mine fields
 		CanBuildMineFields:       true,
 		CanBuildAdvancedDefenses: true,
 		CanBuildSmartBombs:       true,
@@ -143,19 +143,19 @@ var AllPRTs = []PRT{
 
 	// 2: WM - War Monger
 	{
-		Index:                 2,
-		Code:                  "WM",
-		Name:                  "War Monger",
-		Desc:                  "You rule the battle field. Your colonists attack better, your ships are faster in battle, and you build weapons 25% cheaper than other races. You start the game with a knowledge of Tech 6 weapons and Tech 1 in energy and propulsion. Unfortunately, your race doesn't understand the necessity of building any but the most basic planetary defenses and no mine fields.",
-		PointCost:             -45,
-		GrowthRateModifier:    1.0,
-		MaxPopulationModifier: 1.0,
-		WeaponsCostModifier:   0.75, // 25% cheaper
-		DefensesCostModifier:  1.0,
-		StarbaseCostModifier:  1.0,
-		IntrinsicCloakPercent: 0.0,
-		CargoAffectsCloak:     true,
-		MineTravelBonus:       0,
+		Index:                    2,
+		Code:                     "WM",
+		Name:                     "War Monger",
+		Desc:                     "You rule the battle field. Your colonists attack better, your ships are faster in battle, and you build weapons 25% cheaper than other races. You start the game with a knowledge of Tech 6 weapons and Tech 1 in energy and propulsion. Unfortunately, your race doesn't understand the necessity of building any but the most basic planetary defenses and no mine fields.",
+		PointCost:                -45,
+		GrowthRateModifier:       1.0,
+		MaxPopulationModifier:    1.0,
+		WeaponsCostModifier:      0.75, // 25% cheaper
+		DefensesCostModifier:     1.0,
+		StarbaseCostModifier:     1.0,
+		IntrinsicCloakPercent:    0.0,
+		CargoAffectsCloak:        true,
+		MineTravelBonus:          0,
 		CanBuildMineFields:       false,
 		CanBuildAdvancedDefenses: false,
 		CanBuildSmartBombs:       true,
@@ -167,24 +167,24 @@ var AllPRTs = []PRT{
 
 	// 3: CA - Claim Adjuster
 	{
-		Index:                     3,
-		Code:                      "CA",
-		Name:                      "Claim Adjuster",
-		Desc:                      "You are an expert at fiddling with planetary environments. You start the game with Tech 6 in Biotechnology and a ship capable of terraforming planets from orbit. You can arm your ships with bombs that unterraform enemy worlds. Terraforming costs you nothing and planets you leave revert to their original environments. Planets you own have up to a 10% chance of permanently improving an environment variable by 1% per year.",
-		PointCost:                 -10,
-		GrowthRateModifier:        1.0,
-		MaxPopulationModifier:     1.0,
-		WeaponsCostModifier:       1.0,
-		DefensesCostModifier:      1.0,
-		StarbaseCostModifier:      1.0,
-		IntrinsicCloakPercent:     0.0,
-		CargoAffectsCloak:         true,
-		MineTravelBonus:           0,
-		CanBuildMineFields:        true,
-		CanBuildAdvancedDefenses:  true,
-		CanBuildSmartBombs:        true,
-		CanLiveOnPlanets:          true,
-		FreeTerraforming:          true,
+		Index:                         3,
+		Code:                          "CA",
+		Name:                          "Claim Adjuster",
+		Desc:                          "You are an expert at fiddling with planetary environments. You start the game with Tech 6 in Biotechnology and a ship capable of terraforming planets from orbit. You can arm your ships with bombs that unterraform enemy worlds. Terraforming costs you nothing and planets you leave revert to their original environments. Planets you own have up to a 10% chance of permanently improving an environment variable by 1% per year.",
+		PointCost:                     -10,
+		GrowthRateModifier:            1.0,
+		MaxPopulationModifier:         1.0,
+		WeaponsCostModifier:           1.0,
+		DefensesCostModifier:          1.0,
+		StarbaseCostModifier:          1.0,
+		IntrinsicCloakPercent:         0.0,
+		CargoAffectsCloak:             true,
+		MineTravelBonus:               0,
+		CanBuildMineFields:            true,
+		CanBuildAdvancedDefenses:      true,
+		CanBuildSmartBombs:            true,
+		CanLiveOnPlanets:              true,
+		FreeTerraforming:              true,
 		TerraformingImprovementChance: 0.10, // 10% per year
 		PlanetsRevertWhenAbandoned:    true,
 		StartingTechBiotech:           6,
@@ -288,55 +288,55 @@ var AllPRTs = []PRT{
 
 	// 8: AR - Alternate Reality
 	{
-		Index:                      8,
-		Code:                       "AR",
-		Name:                       "Alternate Reality",
-		Desc:                       "Your race developed in an alternate plane. Your people cannot survive on planets and live in orbit on your starbases, which are 20% cheaper to build. You cannot build planetary installations, but your people have an intrinsic ability to mine and scan for enemy fleets. You can remote mine your own worlds. If a starbase is destroyed, all your colonists orbiting that world are killed. Your population maximums are determined by the type of starbase you have. You will eventually be able to build the Death Star.",
-		PointCost:                  -90,
-		GrowthRateModifier:         1.0,
-		MaxPopulationModifier:      1.0, // Max pop determined by starbase type
-		WeaponsCostModifier:        1.0,
-		DefensesCostModifier:       1.0,
-		StarbaseCostModifier:       0.80, // 20% cheaper
-		IntrinsicCloakPercent:      0.0,
-		CargoAffectsCloak:          true,
-		MineTravelBonus:            0,
-		HasIntrinsicScanner:        true,
-		IntrinsicScannerRangeFunc:  arIntrinsicScannerRange, // sqrt(pop/10)
-		CanBuildMineFields:         true,
-		CanBuildAdvancedDefenses:   true,
-		CanBuildSmartBombs:         true,
-		CanLiveOnPlanets:           false, // Must live on starbases
+		Index:                     8,
+		Code:                      "AR",
+		Name:                      "Alternate Reality",
+		Desc:                      "Your race developed in an alternate plane. Your people cannot survive on planets and live in orbit on your starbases, which are 20% cheaper to build. You cannot build planetary installations, but your people have an intrinsic ability to mine and scan for enemy fleets. You can remote mine your own worlds. If a starbase is destroyed, all your colonists orbiting that world are killed. Your population maximums are determined by the type of starbase you have. You will eventually be able to build the Death Star.",
+		PointCost:                 -90,
+		GrowthRateModifier:        1.0,
+		MaxPopulationModifier:     1.0, // Max pop determined by starbase type
+		WeaponsCostModifier:       1.0,
+		DefensesCostModifier:      1.0,
+		StarbaseCostModifier:      0.80, // 20% cheaper
+		IntrinsicCloakPercent:     0.0,
+		CargoAffectsCloak:         true,
+		MineTravelBonus:           0,
+		HasIntrinsicScanner:       true,
+		IntrinsicScannerRangeFunc: arIntrinsicScannerRange, // sqrt(pop/10)
+		CanBuildMineFields:        true,
+		CanBuildAdvancedDefenses:  true,
+		CanBuildSmartBombs:        true,
+		CanLiveOnPlanets:          false, // Must live on starbases
 	},
 
 	// 9: JOAT - Jack of All Trades
 	{
-		Index:                    9,
-		Code:                     "JOAT",
-		Name:                     "Jack of All Trades",
-		Desc:                     "Your race does not specialize in a single area. You start the game with Tech 3 in all areas and an assortment of ships. Your Scout, Destroyer, and Frigate hulls have a built-in penetrating scanner which grows more powerful as your Electronics tech increases. Your maximum planetary population is 20% greater than other races.",
-		PointCost:                66,
-		GrowthRateModifier:       1.0,
-		MaxPopulationModifier:    1.20, // 20% greater
-		WeaponsCostModifier:      1.0,
-		DefensesCostModifier:     1.0,
-		StarbaseCostModifier:     1.0,
-		IntrinsicCloakPercent:    0.0,
-		CargoAffectsCloak:        true,
-		MineTravelBonus:          0,
-		HasFleetIntrinsicScanner:        true,
-		FleetIntrinsicScannerHulls:      []int{HullScout, HullFrigate, HullDestroyer},
-		FleetIntrinsicScannerRangeFunc:  joatFleetIntrinsicScanner,
-		CanBuildMineFields:       true,
-		CanBuildAdvancedDefenses: true,
-		CanBuildSmartBombs:       true,
-		CanLiveOnPlanets:         true,
-		StartingTechEnergy:       3,
-		StartingTechWeapons:      3,
-		StartingTechPropulsion:   3,
-		StartingTechConstruction: 3,
-		StartingTechElectronics:  3,
-		StartingTechBiotech:      3,
+		Index:                          9,
+		Code:                           "JOAT",
+		Name:                           "Jack of All Trades",
+		Desc:                           "Your race does not specialize in a single area. You start the game with Tech 3 in all areas and an assortment of ships. Your Scout, Destroyer, and Frigate hulls have a built-in penetrating scanner which grows more powerful as your Electronics tech increases. Your maximum planetary population is 20% greater than other races.",
+		PointCost:                      66,
+		GrowthRateModifier:             1.0,
+		MaxPopulationModifier:          1.20, // 20% greater
+		WeaponsCostModifier:            1.0,
+		DefensesCostModifier:           1.0,
+		StarbaseCostModifier:           1.0,
+		IntrinsicCloakPercent:          0.0,
+		CargoAffectsCloak:              true,
+		MineTravelBonus:                0,
+		HasFleetIntrinsicScanner:       true,
+		FleetIntrinsicScannerHulls:     []int{HullScout, HullFrigate, HullDestroyer},
+		FleetIntrinsicScannerRangeFunc: joatFleetIntrinsicScanner,
+		CanBuildMineFields:             true,
+		CanBuildAdvancedDefenses:       true,
+		CanBuildSmartBombs:             true,
+		CanLiveOnPlanets:               true,
+		StartingTechEnergy:             3,
+		StartingTechWeapons:            3,
+		StartingTechPropulsion:         3,
+		StartingTechConstruction:       3,
+		StartingTechElectronics:        3,
+		StartingTechBiotech:            3,
 	},
 }
 

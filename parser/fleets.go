@@ -10,9 +10,9 @@ import (
 // This provides a higher-level view of fleet data by associating
 // FleetNameBlocks with their corresponding FleetBlocks.
 type FleetInfo struct {
-	Fleet         *blocks.FleetBlock // The fleet data
-	CustomName    string             // Custom name if set, empty otherwise
-	HasCustomName bool               // True if fleet has a custom name
+	Fleet         *blocks.FleetBlock  // The fleet data
+	CustomName    string              // Custom name if set, empty otherwise
+	HasCustomName bool                // True if fleet has a custom name
 	PrimaryDesign *blocks.DesignBlock // Primary design (first in ShipTypes bitmask)
 }
 

@@ -44,8 +44,7 @@ func NewOrderFromFile(fName string) (*Order, error) {
 }
 
 func NewOrderFromBytes(data []byte) (*Order, error) {
-	var fd parser.FileData
-	fd = data
+	var fd parser.FileData = data
 	return NewOrder(&fd)
 }
 

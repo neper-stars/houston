@@ -238,10 +238,6 @@ func (b *SVGBuilder) Path(d string, stroke string, strokeWidth float64, fill str
 		s.WriteString(` fill="none"`)
 	}
 	if stroke != "" {
-		// Convert decimal alpha to integer for rasterization compatibility
-		if b.forRasterization {
-			stroke = convertRGBAToIntAlpha(stroke)
-		}
 		s.WriteString(fmt.Sprintf(` stroke="%s"`, stroke))
 	}
 	if strokeWidth > 0 {
@@ -349,19 +345,19 @@ func (b *SVGBuilder) LegendItem(x, y float64, name string, col color.RGBA) *SVGB
 
 // String generates the final SVG document.
 func (b *SVGBuilder) String() string {
-	return b.buildSVG(false)
+	return b.buildSVG()
 }
 
-// StringForRasterization generates an SVG compatible with oksvg rasterization.
+// StringForRasterization generates an SVG compatible with rasterization.
 // It omits unsupported elements like <pattern>, <marker>, and their references.
 // Note: For best performance, use NewSVGBuilderForRasterization() which skips
-// markers/patterns at creation time, avoiding string replacements here.
+// markers/patterns at creation time.
 func (b *SVGBuilder) StringForRasterization() string {
-	return b.buildSVG(true)
+	return b.buildSVG()
 }
 
-// buildSVG generates the SVG document, optionally simplifying for rasterization.
-func (b *SVGBuilder) buildSVG(forRasterization bool) string {
+// buildSVG generates the SVG document.
+func (b *SVGBuilder) buildSVG() string {
 	// Pre-allocate builder with estimated capacity
 	estimatedSize := 200 + len(b.elements)*100 + len(b.defs)*200
 	var svg strings.Builder
@@ -384,73 +380,12 @@ func (b *SVGBuilder) buildSVG(forRasterization bool) string {
 		svg.WriteString("</defs>\n")
 	}
 
-	// Elements - if builder was created with forRasterization, elements are already clean
-	if b.forRasterization || !forRasterization {
-		// Fast path: no string processing needed
-		for _, elem := range b.elements {
-			svg.WriteString(elem)
-			svg.WriteString("\n")
-		}
-	} else {
-		// Slow path: builder wasn't created for rasterization, need to convert alpha values
-		for _, elem := range b.elements {
-			// Convert rgba with decimal alpha to integer alpha (0-255)
-			elem = convertRGBAToIntAlpha(elem)
-			svg.WriteString(elem)
-			svg.WriteString("\n")
-		}
+	// Elements
+	for _, elem := range b.elements {
+		svg.WriteString(elem)
+		svg.WriteString("\n")
 	}
 
 	svg.WriteString("</svg>")
 	return svg.String()
-}
-
-// convertRGBAToIntAlpha converts rgba(r,g,b,0.x) to rgba(r,g,b,xxx) where xxx is 0-255.
-func convertRGBAToIntAlpha(s string) string {
-	// Pattern: rgba(R,G,B,0.X) -> rgba(R,G,B,XXX)
-	result := s
-	searchStart := 0
-	for {
-		idx := strings.Index(result[searchStart:], "rgba(")
-		if idx == -1 {
-			break
-		}
-		idx += searchStart
-
-		endIdx := strings.Index(result[idx:], ")")
-		if endIdx == -1 {
-			break
-		}
-		endIdx += idx
-
-		// Parse rgba(r,g,b,a)
-		inner := result[idx+5 : endIdx]
-		parts := strings.Split(inner, ",")
-		if len(parts) == 4 {
-			alpha := strings.TrimSpace(parts[3])
-			// Check if alpha is a decimal (0.x format)
-			if strings.HasPrefix(alpha, "0.") || alpha == "1" || alpha == "0" {
-				var alphaFloat float64
-				fmt.Sscanf(alpha, "%f", &alphaFloat)
-				alphaInt := int(alphaFloat * 255)
-				if alphaInt > 255 {
-					alphaInt = 255
-				}
-				newRGBA := fmt.Sprintf("rgba(%s,%s,%s,%d)",
-					strings.TrimSpace(parts[0]),
-					strings.TrimSpace(parts[1]),
-					strings.TrimSpace(parts[2]),
-					alphaInt)
-				result = result[:idx] + newRGBA + result[endIdx+1:]
-				// Continue searching after the replacement
-				searchStart = idx + len(newRGBA)
-			} else {
-				// Already integer format, continue to next occurrence
-				searchStart = endIdx + 1
-			}
-		} else {
-			searchStart = endIdx + 1
-		}
-	}
-	return result
 }

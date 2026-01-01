@@ -12,22 +12,22 @@ const (
 
 // Standard production item IDs (when ItemType == ProductionItemTypeStandard)
 const (
-	ProductionItemAutoMines       = 0
-	ProductionItemAutoFactories   = 1
-	ProductionItemAutoDefenses    = 2
-	ProductionItemAutoAlchemy     = 3
+	ProductionItemAutoMines        = 0
+	ProductionItemAutoFactories    = 1
+	ProductionItemAutoDefenses     = 2
+	ProductionItemAutoAlchemy      = 3
 	ProductionItemAutoMinTerraform = 4
 	ProductionItemAutoMaxTerraform = 5
-	ProductionItemAutoPackets     = 6
-	ProductionItemFactory         = 7
-	ProductionItemMine            = 8
-	ProductionItemDefense         = 9
-	ProductionItemMineralAlchemy  = 11
-	ProductionItemPacketIronium   = 14
-	ProductionItemPacketBoranium  = 15
-	ProductionItemPacketGermanium = 16
-	ProductionItemPacketMixed     = 17
-	ProductionItemScanner         = 27
+	ProductionItemAutoPackets      = 6
+	ProductionItemFactory          = 7
+	ProductionItemMine             = 8
+	ProductionItemDefense          = 9
+	ProductionItemMineralAlchemy   = 11
+	ProductionItemPacketIronium    = 14
+	ProductionItemPacketBoranium   = 15
+	ProductionItemPacketGermanium  = 16
+	ProductionItemPacketMixed      = 17
+	ProductionItemScanner          = 27
 )
 
 // QueueItem represents a single item in the production queue
@@ -74,10 +74,10 @@ func (pqb *ProductionQueueBlock) decode() {
 		chunk2 := encoding.Read16(data, i+2)
 
 		item := QueueItem{
-			ItemId:          int(chunk1 >> 10),        // Top 6 bits
-			Count:           int(chunk1 & 0x3FF),      // Bottom 10 bits
-			CompletePercent: int(chunk2 >> 4),         // Top 12 bits
-			ItemType:        int(chunk2 & 0x0F),       // Bottom 4 bits
+			ItemId:          int(chunk1 >> 10),   // Top 6 bits
+			Count:           int(chunk1 & 0x3FF), // Bottom 10 bits
+			CompletePercent: int(chunk2 >> 4),    // Top 12 bits
+			ItemType:        int(chunk2 & 0x0F),  // Bottom 4 bits
 		}
 
 		pqb.Items = append(pqb.Items, item)

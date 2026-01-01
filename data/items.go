@@ -732,10 +732,10 @@ type Engine struct {
 	Tech        TechRequirements
 	Mass        int
 	Cost        Cost
-	SafeSpeed   int       // Max warp without damage
-	FreeSpeed   int       // Max warp that costs 0 fuel (for ramscoops)
-	FuelPerMg   [11]int   // Fuel consumption per 10mg at each warp (0-10)
-	BattleSpeed int       // Speed bonus in battle (for Enigma Pulsar)
+	SafeSpeed   int     // Max warp without damage
+	FreeSpeed   int     // Max warp that costs 0 fuel (for ramscoops)
+	FuelPerMg   [11]int // Fuel consumption per 10mg at each warp (0-10)
+	BattleSpeed int     // Speed bonus in battle (for Enigma Pulsar)
 }
 
 // Engines contains all engine definitions
@@ -1030,9 +1030,9 @@ type Torpedo struct {
 	Tech       TechRequirements
 	Mass       int
 	Cost       Cost
-	Power      int  // Damage per hit
-	Range      int  // Initiative/range
-	Accuracy   int  // Base accuracy percentage
+	Power      int // Damage per hit
+	Range      int // Initiative/range
+	Accuracy   int // Base accuracy percentage
 	Initiative int
 	IsCapital  bool // Capital missiles (Jihad, Juggernaut, Doomsday, Armageddon)
 }
@@ -1230,9 +1230,9 @@ type Orbital struct {
 	Tech         TechRequirements
 	Mass         int
 	Cost         Cost
-	MassLimit    int  // Max mass for stargate (-1 = any)
-	RangeLimit   int  // Max range for stargate (-1 = any)
-	WarpSpeed    int  // For mass drivers
+	MassLimit    int // Max mass for stargate (-1 = any)
+	RangeLimit   int // Max range for stargate (-1 = any)
+	WarpSpeed    int // For mass drivers
 	IsStargate   bool
 	IsMassDriver bool
 }
@@ -1259,22 +1259,22 @@ var Orbitals = map[int]*Orbital{
 
 // Terraformer item IDs
 const (
-	TerraformTotal3     = 1
-	TerraformTotal5     = 2
-	TerraformTotal7     = 3
-	TerraformTotal10    = 4
-	TerraformTotal15    = 5
-	TerraformTotal20    = 6
-	TerraformTotal25    = 7
-	TerraformTotal30    = 8
-	TerraformGravity3   = 9
-	TerraformGravity7   = 10
-	TerraformGravity11  = 11
-	TerraformGravity15  = 12
-	TerraformTemp3      = 13
-	TerraformTemp7      = 14
-	TerraformTemp11     = 15
-	TerraformTemp15     = 16
+	TerraformTotal3      = 1
+	TerraformTotal5      = 2
+	TerraformTotal7      = 3
+	TerraformTotal10     = 4
+	TerraformTotal15     = 5
+	TerraformTotal20     = 6
+	TerraformTotal25     = 7
+	TerraformTotal30     = 8
+	TerraformGravity3    = 9
+	TerraformGravity7    = 10
+	TerraformGravity11   = 11
+	TerraformGravity15   = 12
+	TerraformTemp3       = 13
+	TerraformTemp7       = 14
+	TerraformTemp11      = 15
+	TerraformTemp15      = 16
 	TerraformRadiation3  = 17
 	TerraformRadiation7  = 18
 	TerraformRadiation11 = 19
@@ -1283,12 +1283,12 @@ const (
 
 // Terraformer represents a terraforming technology
 type Terraformer struct {
-	ID             int
-	Name           string
-	Tech           TechRequirements
-	Cost           Cost
-	TerraformRate  int    // Amount of terraforming per click
-	TerraformType  string // "Total", "Gravity", "Temp", or "Radiation"
+	ID            int
+	Name          string
+	Tech          TechRequirements
+	Cost          Cost
+	TerraformRate int    // Amount of terraforming per click
+	TerraformType string // "Total", "Gravity", "Temp", or "Radiation"
 }
 
 // Terraformers contains all terraforming technology definitions
@@ -1320,12 +1320,12 @@ func GetTerraformer(id int) *Terraformer { return Terraformers[id] }
 
 // Planetary defense item IDs
 const (
-	DefenseSDI            = 10
-	DefenseMissileBattery = 11
-	DefenseLaserBattery   = 12
+	DefenseSDI             = 10
+	DefenseMissileBattery  = 11
+	DefenseLaserBattery    = 12
 	DefensePlanetaryShield = 13
-	DefenseNeutronShield  = 14
-	DefenseGenesisDevice  = 15
+	DefenseNeutronShield   = 14
+	DefenseGenesisDevice   = 15
 )
 
 // PlanetaryDefense represents a planetary defense installation

@@ -19,19 +19,19 @@ const (
 // DecodeHexStarsString decodes a hex-encoded Stars! string
 func DecodeHexStarsString(hexChars string, byteSize int) (string, error) {
 	var result strings.Builder
-	// Keep track of what byte we're at for certain checks
-	atByteIndex := -1
 
 	// Loop through each hex character and decode the text depending on
 	// what the hex value is. 1 Nibble (4 bits) is represented by one char
 	for t := 0; t < 2*byteSize; t++ {
 		// Every 2 nibbles is the start of a new byte
 		// Integer division expected
-		atByteIndex = t / 2
+		atByteIndex := t / 2
 		thisNibble := hexChars[t]
 
-		// 0-A is 1-Nibble (4-bits) encoded text
-		if thisNibble <= 'A' { // ascii math FTW
+		// Decode based on nibble value
+		switch {
+		case thisNibble <= 'A':
+			// 0-A is 1-Nibble (4-bits) encoded text
 			thisNibbleStr := string(thisNibble)
 			charIndex, err := strconv.ParseInt(thisNibbleStr, 16, 0)
 			if err != nil {
@@ -39,7 +39,7 @@ func DecodeHexStarsString(hexChars string, byteSize int) (string, error) {
 			}
 			// This nibble is just an index in a char array
 			result.WriteByte(encodesOneNibble[charIndex])
-		} else if thisNibble == 'F' {
+		case thisNibble == 'F':
 			// Three-nibble encoded text starts with an 'F'
 			// We've already hit the last byte, no decodeable 3-nibble
 			// chars are left (probably just junk remaining)
@@ -62,7 +62,7 @@ func DecodeHexStarsString(hexChars string, byteSize int) (string, error) {
 			result.WriteByte(theChar)
 			// Advance passed the two characters we decoded
 			t += 2
-		} else {
+		default:
 			// Otherwise, the next hex value is B,C,D, or E, and text is
 			// 2-nibble encoded
 			nextNibble := hexChars[t+1]
@@ -132,7 +132,7 @@ func HexToByteArray(hexChars string) []byte {
 		highNibble := charToNibble(firstChar)
 		lowNibble := charToNibble(secondChar)
 
-		res[i] = byte(highNibble<<4 | lowNibble)
+		res[i] = highNibble<<4 | lowNibble
 	}
 
 	return res
@@ -160,11 +160,6 @@ func EncodeHexStarsString(text string) string {
 
 	for i := 0; i < len(text); i++ {
 		thisChar := text[i]
-
-		// Check for bad value (> 255)
-		if thisChar > 255 {
-			thisChar = '?'
-		}
 
 		// Check if this character is one that will be encoded with 1 nibble
 		index := strings.IndexByte(encodesOneNibble, thisChar)
@@ -217,7 +212,7 @@ func EncodeStarsString(s string) []byte {
 
 	// Require multiple of 2 bytes and append an 'F' to make it so
 	if len(hexChars)%2 != 0 {
-		hexChars = hexChars + "F"
+		hexChars += "F"
 	}
 
 	// Convert byte size to a hex string

@@ -239,7 +239,7 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 	var pendingName *blocks.FleetNameBlock
 	var currentFleet *FleetEntity
 	var waypointIndex int
-	var lastPlanetNumber int = -1
+	var lastPlanetNumber = -1
 	for _, block := range source.Blocks {
 		switch b := block.(type) {
 		case blocks.FleetNameBlock:
@@ -386,19 +386,18 @@ func (gs *GameStore) mergeFleet(fb *blocks.PartialFleetBlock, nameBlock *blocks.
 
 	key := entity.Meta().Key
 
-	if existing, ok := gs.Fleets.Get(key); ok {
-		if gs.resolver.ShouldReplace(existing, entity) {
-			existing.Meta().AddSource(source)
-			gs.Fleets.Add(entity)
-			return entity
-		} else {
-			existing.Meta().AddSource(source)
-			return existing
-		}
-	} else {
+	existing, ok := gs.Fleets.Get(key)
+	if !ok {
 		gs.Fleets.Add(entity)
 		return entity
 	}
+
+	existing.Meta().AddSource(source)
+	if gs.resolver.ShouldReplace(existing, entity) {
+		gs.Fleets.Add(entity)
+		return entity
+	}
+	return existing
 }
 
 // mergePlanet merges a planet into the store.

@@ -37,9 +37,10 @@ func CalculatePoints(r *Race) int {
 	growthRateFactor := r.GrowthRate
 	grRate := float64(r.GrowthRate)
 
-	if growthRateFactor <= 5 {
+	switch {
+	case growthRateFactor <= 5:
 		points += (6 - growthRateFactor) * 4200
-	} else if growthRateFactor <= 13 {
+	case growthRateFactor <= 13:
 		switch growthRateFactor {
 		case 6:
 			points += 3600
@@ -51,9 +52,9 @@ func CalculatePoints(r *Race) int {
 			points += 225
 		}
 		growthRateFactor = growthRateFactor*2 - 5
-	} else if growthRateFactor < 20 {
+	case growthRateFactor < 20:
 		growthRateFactor = (growthRateFactor - 6) * 3
-	} else {
+	default:
 		growthRateFactor = 45
 	}
 
@@ -118,13 +119,14 @@ func CalculatePoints(r *Race) int {
 		popEfficiency = 25
 	}
 
-	if popEfficiency <= 7 {
+	switch {
+	case popEfficiency <= 7:
 		points -= 2400
-	} else if popEfficiency == 8 {
+	case popEfficiency == 8:
 		points -= 1260
-	} else if popEfficiency == 9 {
+	case popEfficiency == 9:
 		points -= 600
-	} else if popEfficiency > 10 {
+	case popEfficiency > 10:
 		points += (popEfficiency - 10) * 120
 	}
 
@@ -189,7 +191,6 @@ func CalculatePoints(r *Race) int {
 		productionPoints = 10 - r.MineOutput
 		costPoints = 3 - r.MineCost
 		operationPoints = 10 - r.MineCount
-		tmpPoints = 0
 
 		if productionPoints > 0 {
 			tmpPoints = productionPoints * 100
@@ -272,9 +273,10 @@ func CalculatePoints(r *Race) int {
 	}
 
 	for _, rc := range researchCosts {
-		if rc == ResearchCostExtra {
+		switch rc {
+		case ResearchCostExtra:
 			techCosts--
-		} else if rc == ResearchCostLess {
+		case ResearchCostLess:
 			techCosts++
 		}
 	}
@@ -477,7 +479,6 @@ func getHabRangePoints(r *Race) int {
 // getPlanetHabForIndex calculates the hab value for a test planet at a specific iteration.
 func getPlanetHabForIndex(iterIndex, habType, loopIndex, numIterations, testHabStart, testHabWidth, habCenter int,
 	isImmune bool, ttCorrectionFactor int, terraformOffset *[3]int) int {
-
 	var tmpHab int
 	if iterIndex == 0 || numIterations <= 1 {
 		tmpHab = testHabStart
@@ -487,11 +488,12 @@ func getPlanetHabForIndex(iterIndex, habType, loopIndex, numIterations, testHabS
 
 	if loopIndex != 0 && !isImmune {
 		offset := habCenter - tmpHab
-		if abs(offset) <= ttCorrectionFactor {
+		switch {
+		case abs(offset) <= ttCorrectionFactor:
 			offset = 0
-		} else if offset < 0 {
+		case offset < 0:
 			offset += ttCorrectionFactor
-		} else {
+		default:
 			offset -= ttCorrectionFactor
 		}
 

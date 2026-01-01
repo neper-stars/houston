@@ -61,13 +61,13 @@ func NewFileHeader(b GenericBlock) (*FileHeader, error) {
 	}
 	fh := FileHeader{
 		GenericBlock: b,
-		magic:        [4]byte(data[0:4]),          // +4 (bytes 0-3)
-		GameID:       encoding.Read32(data, 4),    // +4 (bytes 4-7)
-		VersionData:  encoding.Read16(data, 8),    // +2 (bytes 8-9)
-		Turn:         encoding.Read16(data, 10),   // +2 (bytes 10-11)
-		PlayerData:   encoding.Read16(data, 12),   // +2 (bytes 12-13)
-		FileType:     data[14],                    // +1 (byte 14)
-		Flags:        data[15],                    // +1 (byte 15)
+		magic:        [4]byte(data[0:4]),        // +4 (bytes 0-3)
+		GameID:       encoding.Read32(data, 4),  // +4 (bytes 4-7)
+		VersionData:  encoding.Read16(data, 8),  // +2 (bytes 8-9)
+		Turn:         encoding.Read16(data, 10), // +2 (bytes 10-11)
+		PlayerData:   encoding.Read16(data, 12), // +2 (bytes 12-13)
+		FileType:     data[14],                  // +1 (byte 14)
+		Flags:        data[15],                  // +1 (byte 15)
 	}
 	return &fh, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/store"
 )
@@ -19,11 +20,11 @@ func TestDesignEntity_GetScannerRanges(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name         string
-		designNum    int
-		wantNormal   int
-		wantPen      int
-		wantHas      bool
+		name       string
+		designNum  int
+		wantNormal int
+		wantPen    int
+		wantHas    bool
 	}{
 		{
 			name:       "Teamster with Rhino Scanner",

@@ -15,20 +15,20 @@ type DesignSlot struct {
 // These indicate the type of item equipped in the slot.
 // ItemId is 0-indexed within each category.
 const (
-	ItemCategoryEmpty      uint16 = 0x0000
-	ItemCategoryEngine     uint16 = 0x0001
-	ItemCategoryScanner    uint16 = 0x0002
-	ItemCategoryShield     uint16 = 0x0004
-	ItemCategoryArmor      uint16 = 0x0008
-	ItemCategoryBeamWeapon uint16 = 0x0010
-	ItemCategoryTorpedo    uint16 = 0x0020
-	ItemCategoryBomb       uint16 = 0x0040
+	ItemCategoryEmpty       uint16 = 0x0000
+	ItemCategoryEngine      uint16 = 0x0001
+	ItemCategoryScanner     uint16 = 0x0002
+	ItemCategoryShield      uint16 = 0x0004
+	ItemCategoryArmor       uint16 = 0x0008
+	ItemCategoryBeamWeapon  uint16 = 0x0010
+	ItemCategoryTorpedo     uint16 = 0x0020
+	ItemCategoryBomb        uint16 = 0x0040
 	ItemCategoryMiningRobot uint16 = 0x0080
-	ItemCategoryMineLayer  uint16 = 0x0100
-	ItemCategoryOrbital    uint16 = 0x0200
-	ItemCategoryPlanetary  uint16 = 0x0400
-	ItemCategoryElectrical uint16 = 0x0800
-	ItemCategoryMechanical uint16 = 0x1000
+	ItemCategoryMineLayer   uint16 = 0x0100
+	ItemCategoryOrbital     uint16 = 0x0200
+	ItemCategoryPlanetary   uint16 = 0x0400
+	ItemCategoryElectrical  uint16 = 0x0800
+	ItemCategoryMechanical  uint16 = 0x1000
 )
 
 // DesignBlock represents a ship or starbase design (Type 26)
@@ -46,12 +46,12 @@ type DesignBlock struct {
 	Pic    int // Picture ID
 
 	// Ship/starbase properties (calculated for full designs)
-	Mass         int   // Total mass
-	FuelCapacity int   // Total fuel capacity
-	Armor        int   // Armor value (0-65535)
-	SlotCount    int   // Number of component slots
-	TurnDesigned int   // Turn when design was created
-	TotalBuilt   int64 // Total ships built of this design
+	Mass           int   // Total mass
+	FuelCapacity   int   // Total fuel capacity
+	Armor          int   // Armor value (0-65535)
+	SlotCount      int   // Number of component slots
+	TurnDesigned   int   // Turn when design was created
+	TotalBuilt     int64 // Total ships built of this design
 	TotalRemaining int64 // Ships still in existence
 
 	// Components (only for full designs)
@@ -106,7 +106,7 @@ func (db *DesignBlock) decode() error {
 	// Byte 3: Picture ID
 	db.Pic = int(data[3] & 0xFF)
 
-	index := 4
+	var index int
 
 	if db.IsFullDesign {
 		if len(data) < 17 {
@@ -237,7 +237,7 @@ func (db *DesignBlock) Encode() []byte {
 	// Byte 3: Picture ID
 	data[3] = byte(db.Pic)
 
-	index := 4
+	var index int
 
 	if db.IsFullDesign {
 		// Bytes 4-5: Armor (16-bit)

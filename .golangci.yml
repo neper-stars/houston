@@ -1,0 +1,147 @@
+version: "2"
+
+run:
+  timeout: 2m
+
+formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/neper-stars/houston)
+
+linters:
+  default: none
+  enable:
+    # enable by default linters
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck  # includes gosimple
+    - unused
+
+    # extra linters
+    - asciicheck  # Simple linter to check that your code does not contain non-ASCII identifiers
+    - bidichk  # Checks for dangerous unicode character sequences
+    - bodyclose  # checks whether HTTP response body is closed successfully
+    - dogsled  # Checks assignments with too many blank identifiers (e.g. x, , , _, := f())
+    - durationcheck  # check for two durations multiplied together
+    - errchkjson  # Checks types passed to the json encoding functions
+    - errorlint  # errorlint is a linter for that can be used to find code that will cause problems with the error wrapping scheme introduced in Go 1.13.
+    - gocritic  # Provides diagnostics that check for bugs, performance and style issues.
+    - gosec  # Inspects source code for security problems
+    - misspell  # Finds commonly misspelled English words in comments
+    - revive  # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
+    - thelper  # thelper detects golang test helpers without t.Helper() call and checks the consistency of test helpers
+    - unconvert  # Remove unnecessary type conversions
+    - whitespace  # Tool for detection of leading and trailing whitespace
+
+  settings:
+    varnamelen:
+      ignore-names:
+        - db
+        - msg
+      ignore-decls:
+        - t testing.T
+        - i int
+
+  exclusions:
+    rules:
+      - linters:
+          - staticcheck
+        text: "SA5008"  # duplicate struct tag
+      - linters:
+          - revive
+        text: "unused-parameter:"
+      - linters:
+          - revive
+        text: "if-return:"
+      - linters:
+          - revive
+        text: "empty-block:"
+      - linters:
+          - revive
+        text: "exported:"
+      - linters:
+          - revive
+        text: "package-comments:"
+      - linters:
+          - revive
+        text: "var-naming:"
+      - path: '(.+)_test\.go'
+        linters:
+          - bodyclose
+      # Disable gosec G304 (file inclusion) for internal files with trusted paths
+      - path: 'lib/'
+        linters:
+          - gosec
+        text: "G304:"
+      - path: 'testdata/'
+        linters:
+          - gosec
+        text: "G304:"
+      # G304 in test files is fine - reading test fixtures
+      - path: '(.+)_test\.go'
+        linters:
+          - gosec
+        text: "G304:"
+      # G101 false positives on test file paths containing "password"
+      - linters:
+          - gosec
+        text: "G101:"
+      # G115 integer overflow conversions are intentional in binary encoding code
+      - path: 'blocks/'
+        linters:
+          - gosec
+        text: "G115:"
+      - path: 'encoding/'
+        linters:
+          - gosec
+        text: "G115:"
+      - path: 'lib/tools/maprenderer/'
+        linters:
+          - gosec
+        text: "G115:"
+      - path: 'lib/tools/exploits/'
+        linters:
+          - gosec
+        text: "G115:"
+      # G304 file inclusion - these are user-provided paths (CLI tools, library functions)
+      - path: 'store/'
+        linters:
+          - gosec
+        text: "G304:"
+      - path: 'cmd/'
+        linters:
+          - gosec
+        text: "G304:"
+      - path: 'parser/'
+        linters:
+          - gosec
+        text: "G304:"
+      # G115 in store encoder - intentional binary encoding
+      - path: 'store/'
+        linters:
+          - gosec
+        text: "G115:"
+      # G306 WriteFile permissions - game files don't need restrictive permissions
+      - linters:
+          - gosec
+        text: "G306:"
+      # G404 weak random is fine for non-security game salt generation
+      - path: 'blocks/fileheader.go'
+        linters:
+          - gosec
+        text: "G404:"
+      - path: 'race/race.go'
+        linters:
+          - gosec
+        text: "G404:"
+      # G602 slice bounds - these are guarded by earlier checks
+      - path: 'blocks/waypoint.go'
+        linters:
+          - gosec
+        text: "G602:"

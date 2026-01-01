@@ -3,6 +3,8 @@ package parser
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/encoding"
 )
@@ -31,10 +33,10 @@ func TestBlockParsing(t *testing.T) {
 
 	// Verify block types
 	expectedTypes := []blocks.BlockTypeID{
-		blocks.FileHeaderBlockType,           // Type 8
-		blocks.FileHashBlockType,             // Type 9
+		blocks.FileHeaderBlockType,            // Type 8
+		blocks.FileHashBlockType,              // Type 9
 		blocks.ProductionQueueChangeBlockType, // Type 29
-		blocks.FileFooterBlockType,           // Type 0
+		blocks.FileFooterBlockType,            // Type 0
 	}
 
 	for i, expectedType := range expectedTypes {
@@ -130,14 +132,9 @@ func TestMalformedBlock(t *testing.T) {
 	fd := FileData(fileBytes)
 
 	_, err := fd.ParseBlock(0)
-	if err == nil {
-		t.Error("Expected error for malformed block, got nil")
-	}
-
-	// Check it's the right error type
-	if _, ok := err.(*ErrMalformedBlock); !ok {
-		t.Errorf("Expected ErrMalformedBlock, got %T", err)
-	}
+	require.Error(t, err, "Expected error for malformed block")
+	var errMalformedBlock *ErrMalformedBlock
+	require.ErrorAs(t, err, &errMalformedBlock, "Expected ErrMalformedBlock error type")
 }
 
 // TestEmptyFileData tests handling of empty file data

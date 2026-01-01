@@ -1,6 +1,5 @@
 package race
 
-
 // ValidationError describes a validation failure.
 type ValidationError struct {
 	Field   string

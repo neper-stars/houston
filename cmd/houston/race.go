@@ -83,13 +83,17 @@ func copyFileRace(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 
 	dest, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dest.Close()
+	defer func() {
+		if cerr := dest.Close(); cerr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close %s: %v\n", dst, cerr)
+		}
+	}()
 
 	_, err = io.Copy(dest, source)
 	return err

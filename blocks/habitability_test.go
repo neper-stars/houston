@@ -154,15 +154,15 @@ func TestHabitabilityToDisplay(t *testing.T) {
 
 func TestHabitabilityRangeStrings(t *testing.T) {
 	h := Habitability{
-		GravityLow:       15,
-		GravityCenter:    50,
-		GravityHigh:      85,
-		TemperatureLow:   15,
+		GravityLow:        15,
+		GravityCenter:     50,
+		GravityHigh:       85,
+		TemperatureLow:    15,
 		TemperatureCenter: 50,
-		TemperatureHigh:  85,
-		RadiationLow:     15,
-		RadiationCenter:  50,
-		RadiationHigh:    85,
+		TemperatureHigh:   85,
+		RadiationLow:      15,
+		RadiationCenter:   50,
+		RadiationHigh:     85,
 	}
 
 	gravStr := h.GravityRangeString()
@@ -181,9 +181,9 @@ func TestHabitabilityRangeStrings(t *testing.T) {
 
 func TestHabitabilityImmune(t *testing.T) {
 	h := Habitability{
-		GravityCenter:    255, // Immune
+		GravityCenter:     255, // Immune
 		TemperatureCenter: 255, // Immune
-		RadiationCenter:  255, // Immune
+		RadiationCenter:   255, // Immune
 	}
 
 	if h.GravityRangeString() != "Immune" {

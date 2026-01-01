@@ -55,10 +55,10 @@ func (rcb *ResearchChangeBlock) Encode() []byte {
 type PlanetChangeBlock struct {
 	GenericBlock
 
-	PlanetId                  int  // Planet ID (0-2047)
-	ContributeOnlyLeftover    bool // "Contribute only leftover resources to research"
-	RouteDestinationPlanetId  int  // Route destination planet (if routing is set)
-	Flags                     int  // Raw flags byte for analysis
+	PlanetId                 int  // Planet ID (0-2047)
+	ContributeOnlyLeftover   bool // "Contribute only leftover resources to research"
+	RouteDestinationPlanetId int  // Route destination planet (if routing is set)
+	Flags                    int  // Raw flags byte for analysis
 }
 
 // NewPlanetChangeBlock creates a PlanetChangeBlock from a GenericBlock

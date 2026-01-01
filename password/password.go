@@ -115,7 +115,6 @@ type ProgressCallback func(tried uint64)
 // Returns a slice of matching passwords.
 func GuessRacePasswordParallel(hash uint32, maxLength, matchesAllowed int,
 	charset string, workers int, progress ProgressCallback) []string {
-
 	if workers <= 0 {
 		workers = runtime.NumCPU()
 	}
@@ -220,7 +219,6 @@ func GuessRacePasswordParallel(hash uint32, maxLength, matchesAllowed int,
 func workerGenerate(buf []byte, pos, maxLen int, charset []byte, targetHash uint32,
 	matchesAllowed int, matchCount *atomic.Int64, triedCount *atomic.Uint64,
 	done *atomic.Bool, resultCh chan<- string) {
-
 	// Test current password (length = pos)
 	if pos > 0 {
 		password := buf[:pos]

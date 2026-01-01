@@ -19,8 +19,8 @@ type ExpectedFleetSplitTransfer struct {
 }
 
 type ExpectedFleetSplitInfo struct {
-	FleetNumber    int `json:"fleetNumber"`
-	FleetDisplayId int `json:"fleetDisplayId"`
+	FleetNumber    int    `json:"fleetNumber"`
+	FleetDisplayId int    `json:"fleetDisplayId"`
 	FleetName      string `json:"fleetName"`
 }
 

@@ -33,6 +33,7 @@ import (
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
+
 	"github.com/neper-stars/houston/store"
 )
 
@@ -67,14 +68,14 @@ type RenderOptions struct {
 // DefaultOptions returns default rendering options.
 func DefaultOptions() *RenderOptions {
 	return &RenderOptions{
-		Width:       800,
-		Height:      600,
-		ShowNames:   false,
-		ShowFleets:  true,
-		ShowMines:   false,
+		Width:         800,
+		Height:        600,
+		ShowNames:     false,
+		ShowFleets:    true,
+		ShowMines:     false,
 		ShowWormholes: true,
-		ShowLegend:  true,
-		Padding:     20,
+		ShowLegend:    true,
+		Padding:       20,
 	}
 }
 
@@ -235,16 +236,6 @@ func (r *Renderer) GetPlayerColor(playerNum int) color.RGBA {
 		return playerColors[playerNum]
 	}
 	return color.RGBA{128, 128, 128, 255}
-}
-
-// getPlayerName returns the name for a player (from GameStore).
-func (r *Renderer) getPlayerName(playerNum int) string {
-	if player, ok := r.store.Player(playerNum); ok {
-		if player.NameSingular != "" {
-			return player.NameSingular
-		}
-	}
-	return fmt.Sprintf("Player %d", playerNum+1)
 }
 
 // Render creates an image of the galaxy map.
@@ -419,7 +410,7 @@ func (r *Renderer) SavePNG(filename string, opts *RenderOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	return r.WritePNG(f, opts)
 }
@@ -447,7 +438,7 @@ func (r *Renderer) SaveSVG(filename string, opts *RenderOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	return r.WriteSVG(f, opts)
 }
@@ -1088,7 +1079,7 @@ func (a *Animator) SaveGIF(filename string, delayMs int) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	return a.WriteGIF(f, delayMs)
 }

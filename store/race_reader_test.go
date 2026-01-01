@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestParseRaceFile(t *testing.T) {
 func TestParseRaceFileNotRaceFile(t *testing.T) {
 	// Test with non-race file extension
 	_, err := ParseRaceFile("game.m1")
-	if err != ErrNotRaceFile {
+	if !errors.Is(err, ErrNotRaceFile) {
 		t.Errorf("Expected ErrNotRaceFile, got: %v", err)
 	}
 }

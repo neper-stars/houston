@@ -22,7 +22,7 @@ const (
 // Wormhole stability thresholds (raw byte values)
 // Stability decreases as the value increases
 const (
-	WormholeStabilityRockSolid         = 32  // Most stable
+	WormholeStabilityRockSolid         = 32 // Most stable
 	WormholeStabilityStable            = 40
 	WormholeStabilityMostlyStable      = 60
 	WormholeStabilityAverage           = 80
@@ -33,19 +33,19 @@ const (
 
 // Mystery trader item bits
 const (
-	TraderItemMultiCargoPod    = 1 << 0
-	TraderItemMultiFunctionPod = 1 << 1
-	TraderItemLangstonShield   = 1 << 2
-	TraderItemMegaPolyShell    = 1 << 3
-	TraderItemAlienMiner       = 1 << 4
-	TraderItemHushABoom        = 1 << 5
-	TraderItemAntiMatterTorpedo = 1 << 6
+	TraderItemMultiCargoPod          = 1 << 0
+	TraderItemMultiFunctionPod       = 1 << 1
+	TraderItemLangstonShield         = 1 << 2
+	TraderItemMegaPolyShell          = 1 << 3
+	TraderItemAlienMiner             = 1 << 4
+	TraderItemHushABoom              = 1 << 5
+	TraderItemAntiMatterTorpedo      = 1 << 6
 	TraderItemMultiContainedMunition = 1 << 7
-	TraderItemMiniMorph        = 1 << 8
-	TraderItemEnigmaPulsar     = 1 << 9
-	TraderItemGenesisDevice    = 1 << 10
-	TraderItemJumpGate         = 1 << 11
-	TraderItemShip             = 1 << 12
+	TraderItemMiniMorph              = 1 << 8
+	TraderItemEnigmaPulsar           = 1 << 9
+	TraderItemGenesisDevice          = 1 << 10
+	TraderItemJumpGate               = 1 << 11
+	TraderItemShip                   = 1 << 12
 )
 
 // ObjectBlock represents various game objects (Type 43)
@@ -151,7 +151,6 @@ func (ob *ObjectBlock) decode() {
 		ob.decodeMysteryTrader(data)
 	}
 }
-
 
 func (ob *ObjectBlock) decodeMinefield(data []byte) {
 	if len(data) < 14 {
@@ -434,18 +433,20 @@ func (ob *ObjectBlock) TraderHasItem(itemBit uint16) bool {
 
 // StabilityName returns the human-readable stability name for a wormhole
 func (ob *ObjectBlock) StabilityName() string {
-	if ob.Stability <= WormholeStabilityRockSolid {
+	switch {
+	case ob.Stability <= WormholeStabilityRockSolid:
 		return "Rock Solid"
-	} else if ob.Stability <= WormholeStabilityStable {
+	case ob.Stability <= WormholeStabilityStable:
 		return "Stable"
-	} else if ob.Stability <= WormholeStabilityMostlyStable {
+	case ob.Stability <= WormholeStabilityMostlyStable:
 		return "Mostly Stable"
-	} else if ob.Stability <= WormholeStabilityAverage {
+	case ob.Stability <= WormholeStabilityAverage:
 		return "Average"
-	} else if ob.Stability <= WormholeStabilitySlightlyVolatile {
+	case ob.Stability <= WormholeStabilitySlightlyVolatile:
 		return "Slightly Volatile"
-	} else if ob.Stability <= WormholeStabilityVolatile {
+	case ob.Stability <= WormholeStabilityVolatile:
 		return "Volatile"
+	default:
+		return "Extremely Volatile"
 	}
-	return "Extremely Volatile"
 }

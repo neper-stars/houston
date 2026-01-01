@@ -174,7 +174,7 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 	// Track current fleet and planet for association
 	var currentFleetKey *EntityKey
-	var lastPlanetNumber int = -1
+	var lastPlanetNumber = -1
 
 	// Write all blocks from the source, replacing dirty entities with re-encoded data
 	for _, block := range source.Blocks {
@@ -220,12 +220,10 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 		case blocks.PlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			currentFleetKey = nil
 			decrypted = block.DecryptedData()
 
 		case blocks.PartialPlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			currentFleetKey = nil
 			decrypted = block.DecryptedData()
 
 		case blocks.ProductionQueueBlock:
@@ -262,7 +260,6 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 			decrypted = block.DecryptedData()
 
 		case blocks.ObjectBlock:
-			currentFleetKey = nil
 			lastPlanetNumber = -1
 			decrypted = block.DecryptedData()
 

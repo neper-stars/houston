@@ -11,7 +11,7 @@ type PlanetEntity struct {
 
 	// Core identification
 	PlanetNumber int
-	Owner        int  // -1 = unowned
+	Owner        int // -1 = unowned
 	IsHomeworld  bool
 
 	// Name (from PlanetsBlock)
@@ -212,35 +212,35 @@ func newPlanetEntityFromBlock(pb *blocks.PartialPlanetBlock, source *FileSource)
 			Quality:    qualityFromPlanetBlock(pb),
 			Turn:       source.Turn,
 		},
-		PlanetNumber:    pb.PlanetNumber,
-		Owner:           pb.Owner,
-		IsHomeworld:     pb.IsHomeworld,
-		HasStarbase:     pb.HasStarbase,
-		HasArtifact:     pb.HasArtifact,
-		IsTerraformed:   pb.IsTerraformed,
+		PlanetNumber:     pb.PlanetNumber,
+		Owner:            pb.Owner,
+		IsHomeworld:      pb.IsHomeworld,
+		HasStarbase:      pb.HasStarbase,
+		HasArtifact:      pb.HasArtifact,
+		IsTerraformed:    pb.IsTerraformed,
 		HasInstallations: pb.HasInstallations,
-		IroniumConc:     pb.IroniumConc,
-		BoraniumConc:    pb.BoraniumConc,
-		GermaniumConc:   pb.GermaniumConc,
-		Gravity:         pb.Gravity,
-		Temperature:     pb.Temperature,
-		Radiation:       pb.Radiation,
-		OrigGravity:     pb.OrigGravity,
-		OrigTemperature: pb.OrigTemperature,
-		OrigRadiation:   pb.OrigRadiation,
-		Ironium:         pb.Ironium,
-		Boranium:        pb.Boranium,
-		Germanium:       pb.Germanium,
-		Mines:      pb.Mines,
-		Factories:  pb.Factories,
-		Defenses:   pb.Defenses,
-		ExcessPop:  pb.ExcessPop,
-		HasScanner: pb.HasScanner,
+		IroniumConc:      pb.IroniumConc,
+		BoraniumConc:     pb.BoraniumConc,
+		GermaniumConc:    pb.GermaniumConc,
+		Gravity:          pb.Gravity,
+		Temperature:      pb.Temperature,
+		Radiation:        pb.Radiation,
+		OrigGravity:      pb.OrigGravity,
+		OrigTemperature:  pb.OrigTemperature,
+		OrigRadiation:    pb.OrigRadiation,
+		Ironium:          pb.Ironium,
+		Boranium:         pb.Boranium,
+		Germanium:        pb.Germanium,
+		Mines:            pb.Mines,
+		Factories:        pb.Factories,
+		Defenses:         pb.Defenses,
+		ExcessPop:        pb.ExcessPop,
+		HasScanner:       pb.HasScanner,
 		// Population in Stars! files is stored in 100s of colonists
-		Population: pb.Population * 100,
-		StarbaseDesign:  pb.StarbaseDesign,
-		RouteTarget:     pb.RouteTarget,
-		planetBlock:     pb,
+		Population:     pb.Population * 100,
+		StarbaseDesign: pb.StarbaseDesign,
+		RouteTarget:    pb.RouteTarget,
+		planetBlock:    pb,
 	}
 	entity.meta.AddSource(source)
 	return entity

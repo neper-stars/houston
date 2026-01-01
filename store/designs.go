@@ -162,7 +162,7 @@ func (d *DesignEntity) EquippedItems() []EquippedItem {
 			SlotIndex: i,
 			Category:  slot.Category,
 			ItemID:    slot.ItemId + 1, // Convert to 1-indexed
-			Count:     int(slot.Count),
+			Count:     slot.Count,
 		})
 	}
 	return items
@@ -183,7 +183,7 @@ func (d *DesignEntity) ItemsByCategory(category uint16) []EquippedItem {
 			SlotIndex: i,
 			Category:  slot.Category,
 			ItemID:    slot.ItemId + 1,
-			Count:     int(slot.Count),
+			Count:     slot.Count,
 		})
 	}
 	return items
@@ -210,7 +210,7 @@ func (d *DesignEntity) GetCloakPercent() int {
 		}
 
 		itemID := slot.ItemId + 1
-		count := int(slot.Count)
+		count := slot.Count
 
 		switch slot.Category {
 		case blocks.ItemCategoryElectrical:
@@ -272,7 +272,7 @@ func (d *DesignEntity) GetTachyonCount() int {
 	for _, slot := range d.designBlock.Slots {
 		if slot.Count > 0 && slot.Category == blocks.ItemCategoryElectrical {
 			if slot.ItemId+1 == data.ElecTachyonDetector {
-				return int(slot.Count)
+				return slot.Count
 			}
 		}
 	}
@@ -308,7 +308,7 @@ func (d *DesignEntity) GetMinesweepRate() int {
 
 		// Minesweeping rate = power * count
 		// Gattling weapons are 4x effective at sweeping
-		rate := beam.Power * int(slot.Count)
+		rate := beam.Power * slot.Count
 		if beam.IsGatling {
 			rate *= 4
 		}
@@ -353,7 +353,7 @@ func (d *DesignEntity) GetTotalShieldValue() int {
 
 		shield := data.GetShield(slot.ItemId + 1)
 		if shield != nil {
-			total += shield.ShieldValue * int(slot.Count)
+			total += shield.ShieldValue * slot.Count
 		}
 	}
 	return total
@@ -381,7 +381,7 @@ func (d *DesignEntity) GetTotalArmorValue() int {
 
 		armor := data.GetArmor(slot.ItemId + 1)
 		if armor != nil {
-			total += armor.ArmorValue * int(slot.Count)
+			total += armor.ArmorValue * slot.Count
 		}
 	}
 
@@ -393,7 +393,7 @@ func (d *DesignEntity) GetTotalArmorValue() int {
 
 		shield := data.GetShield(slot.ItemId + 1)
 		if shield != nil && shield.ArmorValue > 0 {
-			total += shield.ArmorValue * int(slot.Count)
+			total += shield.ArmorValue * slot.Count
 		}
 	}
 
@@ -405,7 +405,7 @@ func (d *DesignEntity) GetTotalArmorValue() int {
 
 		mech := data.GetMechanical(slot.ItemId + 1)
 		if mech != nil && mech.ArmorValue > 0 {
-			total += mech.ArmorValue * int(slot.Count)
+			total += mech.ArmorValue * slot.Count
 		}
 	}
 
@@ -434,7 +434,7 @@ func (d *DesignEntity) GetCargoCapacity() int {
 
 		mech := data.GetMechanical(slot.ItemId + 1)
 		if mech != nil && mech.CargoCapacity > 0 {
-			total += mech.CargoCapacity * int(slot.Count)
+			total += mech.CargoCapacity * slot.Count
 		}
 	}
 
@@ -463,7 +463,7 @@ func (d *DesignEntity) GetFuelCapacity() int {
 
 		mech := data.GetMechanical(slot.ItemId + 1)
 		if mech != nil && mech.FuelCapacity > 0 {
-			total += mech.FuelCapacity * int(slot.Count)
+			total += mech.FuelCapacity * slot.Count
 		}
 	}
 
@@ -485,7 +485,7 @@ func (d *DesignEntity) GetMiningRate() int {
 
 		robot := data.GetMiningRobot(slot.ItemId + 1)
 		if robot != nil {
-			total += robot.MiningRate * int(slot.Count)
+			total += robot.MiningRate * slot.Count
 		}
 	}
 
@@ -514,7 +514,7 @@ func (d *DesignEntity) GetMinelayingRate() (normal, heavy, speed int) {
 			continue
 		}
 
-		rate := layer.MinesPerYear * int(slot.Count)
+		rate := layer.MinesPerYear * slot.Count
 		switch layer.MineType {
 		case "Normal":
 			normal += rate
@@ -589,8 +589,8 @@ func (d *DesignEntity) GetBombCapability() (killRate, structureKill int, hasSmar
 			continue
 		}
 
-		killRate += bomb.KillRate * int(slot.Count)
-		structureKill += bomb.StructureKill * int(slot.Count)
+		killRate += bomb.KillRate * slot.Count
+		structureKill += bomb.StructureKill * slot.Count
 		if bomb.IsSmart {
 			hasSmart = true
 		}

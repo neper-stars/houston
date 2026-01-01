@@ -7,14 +7,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
 
 type starbaseConstructionExpected struct {
-	Scenario     string `json:"scenario"`
-	Description  string `json:"description"`
-	Year         int    `json:"year"`
+	Scenario      string `json:"scenario"`
+	Description   string `json:"description"`
+	Year          int    `json:"year"`
 	StarbaseBuilt struct {
 		PlanetID   int    `json:"planetId"`
 		PlanetName string `json:"planetName"`

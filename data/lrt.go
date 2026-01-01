@@ -33,11 +33,11 @@ type LRT struct {
 	MaxPopulationBonus         float64 // OBRM: 0.10 (10% more max pop)
 
 	// Starbases (ISB)
-	UnlocksStardock             bool    // ISB: true
-	UnlocksUltraStation         bool    // ISB: true
-	StarbaseCostModifier        float64 // ISB: 0.80 (20% cheaper)
-	StarbaseCloakPercent        float64 // ISB: 0.20 (20% cloaked)
-	FactoriesUseOneKTLessGerm   bool    // ISB: true (factories cost 1kT less Germanium)
+	UnlocksStardock           bool    // ISB: true
+	UnlocksUltraStation       bool    // ISB: true
+	StarbaseCostModifier      float64 // ISB: 0.80 (20% cheaper)
+	StarbaseCloakPercent      float64 // ISB: 0.20 (20% cloaked)
+	FactoriesUseOneKTLessGerm bool    // ISB: true (factories cost 1kT less Germanium)
 
 	// Research (GR)
 	ResearchToCurrentField float64 // GR: 0.50 (50% to current field)
@@ -51,25 +51,25 @@ type LRT struct {
 	MineralAlchemyCostDivisor int // MA: 4 (costs 25 resources instead of 100)
 
 	// Engines (NRSE, CE)
-	NoRamScoopEngines       bool    // NRSE: true
-	UnlocksInterspace10     bool    // NRSE: true
-	CheapEngines            bool    // CE: true
-	EngineCostModifier      float64 // CE: 0.50 (half cost)
-	EngineFailureChance     float64 // CE: 0.10 (10% failure above warp 6)
-	EngineFailureMinWarp    int     // CE: 7 (failure starts at warp 7+)
+	NoRamScoopEngines    bool    // NRSE: true
+	UnlocksInterspace10  bool    // NRSE: true
+	CheapEngines         bool    // CE: true
+	EngineCostModifier   float64 // CE: 0.50 (half cost)
+	EngineFailureChance  float64 // CE: 0.10 (10% failure above warp 6)
+	EngineFailureMinWarp int     // CE: 7 (failure starts at warp 7+)
 
 	// Scanners (NAS)
-	NoAdvancedScanners            bool    // NAS: true (no penetrating scanners)
-	NormalScannerMultiplier       int     // NAS: 2 (2× normal scanner range for equipped scanners)
-	ARIntrinsicScannerMultiplier  float64 // NAS: √2 ≈ 1.414 (multiplier for AR intrinsic scanner)
+	NoAdvancedScanners           bool    // NAS: true (no penetrating scanners)
+	NormalScannerMultiplier      int     // NAS: 2 (2× normal scanner range for equipped scanners)
+	ARIntrinsicScannerMultiplier float64 // NAS: √2 ≈ 1.414 (multiplier for AR intrinsic scanner)
 
 	// Starting population (LSP)
 	StartingPopulationModifier float64 // LSP: 0.70 (30% fewer colonists)
 
 	// Technology (BET)
-	NewTechCostMultiplier      float64 // BET: 2.0 (new techs cost 2×)
-	MiniaturizationPerLevel    float64 // BET: 0.05 (5% per level)
-	MaxMiniaturizationPercent  float64 // BET: 0.80 (max 80%)
+	NewTechCostMultiplier     float64 // BET: 2.0 (new techs cost 2×)
+	MiniaturizationPerLevel   float64 // BET: 0.05 (5% per level)
+	MaxMiniaturizationPercent float64 // BET: 0.80 (max 80%)
 
 	// Shields/Armor (RS)
 	ShieldStrengthMultiplier float64 // RS: 1.40 (40% stronger)
@@ -84,15 +84,15 @@ type LRT struct {
 var AllLRTs = []LRT{
 	// 0: IFE - Improved Fuel Efficiency
 	{
-		Index:               0,
-		Bitmask:             1 << 0,
-		Code:                "IFE",
-		Name:                "Improved Fuel Efficiency",
-		Desc:                "This gives you the Fuel Mizer and Galaxy Scoop engines and increases your starting Propulsion tech by 1 level. All engines use 15% less fuel.",
-		PointCost:           -235,
-		FuelEfficiencyBonus: 0.15,
-		UnlocksFuelMizer:    true,
-		UnlocksGalaxyScoop:  true,
+		Index:                  0,
+		Bitmask:                1 << 0,
+		Code:                   "IFE",
+		Name:                   "Improved Fuel Efficiency",
+		Desc:                   "This gives you the Fuel Mizer and Galaxy Scoop engines and increases your starting Propulsion tech by 1 level. All engines use 15% less fuel.",
+		PointCost:              -235,
+		FuelEfficiencyBonus:    0.15,
+		UnlocksFuelMizer:       true,
+		UnlocksGalaxyScoop:     true,
 		StartingTechPropulsion: 1,
 	},
 
@@ -122,17 +122,17 @@ var AllLRTs = []LRT{
 
 	// 3: ISB - Improved Starbases
 	{
-		Index:                       3,
-		Bitmask:                     1 << 3,
-		Code:                        "ISB",
-		Name:                        "Improved Starbases",
-		Desc:                        "Gives you two new starbase designs. The Stardock allows you to build light ships. The Ultra Station is a formidable weapons platform. Your starbases cost 20% less and are 20% cloaked.",
-		PointCost:                   -201,
-		UnlocksStardock:             true,
-		UnlocksUltraStation:         true,
-		StarbaseCostModifier:        0.80,
-		StarbaseCloakPercent:        0.20,
-		FactoriesUseOneKTLessGerm:   true,
+		Index:                     3,
+		Bitmask:                   1 << 3,
+		Code:                      "ISB",
+		Name:                      "Improved Starbases",
+		Desc:                      "Gives you two new starbase designs. The Stardock allows you to build light ships. The Ultra Station is a formidable weapons platform. Your starbases cost 20% less and are 20% cloaked.",
+		PointCost:                 -201,
+		UnlocksStardock:           true,
+		UnlocksUltraStation:       true,
+		StarbaseCostModifier:      0.80,
+		StarbaseCloakPercent:      0.20,
+		FactoriesUseOneKTLessGerm: true,
 	},
 
 	// 4: GR - Generalized Research

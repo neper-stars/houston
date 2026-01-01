@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
@@ -21,9 +22,9 @@ type patrolWaypointExpected struct {
 }
 
 type waypointPatrolRepeatExpected struct {
-	Description   string `json:"description"`
-	Year          int    `json:"year"`
-	RepeatOrders  struct {
+	Description  string `json:"description"`
+	Year         int    `json:"year"`
+	RepeatOrders struct {
 		FleetNumber        int    `json:"fleetNumber"`
 		FleetName          string `json:"fleetName"`
 		RepeatFromWaypoint int    `json:"repeatFromWaypoint"`

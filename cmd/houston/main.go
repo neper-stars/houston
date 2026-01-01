@@ -19,6 +19,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -56,7 +57,8 @@ func main() {
 
 	_, err := parser.Parse()
 	if err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok {
+		flagsErr := &flags.Error{}
+		if errors.As(err, &flagsErr) {
 			if flagsErr.Type == flags.ErrHelp {
 				os.Exit(0)
 			}

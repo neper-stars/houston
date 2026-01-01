@@ -87,7 +87,8 @@ func (fd FileData) BlockList() ([]blocks.Block, error) {
 		var item blocks.Block
 
 		// type 8
-		if block.Type == blocks.FileHeaderBlockType {
+		switch block.Type {
+		case blocks.FileHeaderBlockType:
 			header, err := blocks.NewFileHeader(*block)
 			if err != nil {
 				return nil, err
@@ -98,11 +99,11 @@ func (fd FileData) BlockList() ([]blocks.Block, error) {
 			}
 			decryptor.InitDecryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), sw)
 			item = *header
-		} else if block.Type == blocks.FileFooterBlockType {
+		case blocks.FileFooterBlockType:
 			// File footer is NOT encrypted
 			block.Decrypted = blocks.DecryptedData(block.Data)
 			item = *blocks.NewFileFooterBlock(*block)
-		} else {
+		default:
 			block.Decrypted = decryptor.DecryptBytes(block.Data)
 
 			switch block.Type {

@@ -45,7 +45,7 @@ func TestTachyonReduction(t *testing.T) {
 	}{
 		{"no tachyons", 0, 1.0, 0.001},
 		{"1 tachyon", 1, 0.95, 0.001},
-		{"4 tachyons", 4, 0.9025, 0.001}, // 0.95^sqrt(4) = 0.95^2
+		{"4 tachyons", 4, 0.9025, 0.001},   // 0.95^sqrt(4) = 0.95^2
 		{"9 tachyons", 9, 0.857375, 0.001}, // 0.95^sqrt(9) = 0.95^3
 	}
 
@@ -68,7 +68,7 @@ func TestEffectiveCloaking(t *testing.T) {
 		tolerance   float64
 	}{
 		{"no tachyons", 0.875, 0, 0.875, 0.001},
-		{"1 tachyon", 0.875, 1, 0.83125, 0.001}, // 0.875 × 0.95
+		{"1 tachyon", 0.875, 1, 0.83125, 0.001},    // 0.875 × 0.95
 		{"4 tachyons", 0.875, 4, 0.7896875, 0.001}, // 0.875 × 0.9025
 	}
 

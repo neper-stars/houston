@@ -249,10 +249,10 @@ func RadiationDisplayString(internal int) string {
 
 // HabitabilityDisplay holds display-friendly habitability values.
 type HabitabilityDisplay struct {
-	GravityLow       float64 // Low gravity in g
-	GravityCenter    float64 // Center gravity in g
-	GravityHigh      float64 // High gravity in g
-	GravityImmune    bool
+	GravityLow    float64 // Low gravity in g
+	GravityCenter float64 // Center gravity in g
+	GravityHigh   float64 // High gravity in g
+	GravityImmune bool
 
 	TemperatureLow    int // Low temperature in °C
 	TemperatureCenter int // Center temperature in °C
@@ -268,10 +268,10 @@ type HabitabilityDisplay struct {
 // ToDisplay converts internal Habitability values to display values.
 func (h *Habitability) ToDisplay() HabitabilityDisplay {
 	return HabitabilityDisplay{
-		GravityLow:       GravityToDisplay(h.GravityLow),
-		GravityCenter:    GravityToDisplay(h.GravityCenter),
-		GravityHigh:      GravityToDisplay(h.GravityHigh),
-		GravityImmune:    h.IsGravityImmune(),
+		GravityLow:    GravityToDisplay(h.GravityLow),
+		GravityCenter: GravityToDisplay(h.GravityCenter),
+		GravityHigh:   GravityToDisplay(h.GravityHigh),
+		GravityImmune: h.IsGravityImmune(),
 
 		TemperatureLow:    TemperatureToDisplay(h.TemperatureLow),
 		TemperatureCenter: TemperatureToDisplay(h.TemperatureCenter),

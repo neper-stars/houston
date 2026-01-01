@@ -8,33 +8,33 @@ import (
 
 // Battle tactics
 const (
-	TacticDisengage           = 0
+	TacticDisengage             = 0
 	TacticDisengageIfChallenged = 1
-	TacticMinimizeDamage      = 2
-	TacticMaximizeNetDamage   = 3
-	TacticMaximizeDamageRatio = 4
-	TacticMaximizeDamage      = 5
+	TacticMinimizeDamage        = 2
+	TacticMaximizeNetDamage     = 3
+	TacticMaximizeDamageRatio   = 4
+	TacticMaximizeDamage        = 5
 )
 
 // Battle target types
 const (
-	TargetNone        = 0
-	TargetAny         = 1
-	TargetStarbase    = 2
-	TargetArmedShips  = 3
-	TargetBombers     = 4 // Also freighters
-	TargetUnarmedShips = 5
+	TargetNone           = 0
+	TargetAny            = 1
+	TargetStarbase       = 2
+	TargetArmedShips     = 3
+	TargetBombers        = 4 // Also freighters
+	TargetUnarmedShips   = 5
 	TargetFuelTransports = 6
-	TargetFreighters  = 7
+	TargetFreighters     = 7
 )
 
 // Attack who values
 const (
-	AttackNobody          = 0
-	AttackEnemies         = 1
+	AttackNobody            = 0
+	AttackEnemies           = 1
 	AttackNeutralAndEnemies = 2
-	AttackEveryone        = 3
-	AttackPlayerBase      = 4 // Player ID = value - 4
+	AttackEveryone          = 3
+	AttackPlayerBase        = 4 // Player ID = value - 4
 )
 
 // BattlePlanBlock represents a fleet battle plan configuration (Type 30)
@@ -68,10 +68,10 @@ func (bpb *BattlePlanBlock) decode() {
 	}
 
 	word0 := encoding.Read16(data, 0)
-	bpb.OwnerPlayerId = int(word0 & 0x0F)          // Bits 0-3
-	bpb.PlanId = int((word0 >> 4) & 0x0F)          // Bits 4-7
-	bpb.Tactic = int((word0 >> 8) & 0x0F)          // Bits 8-11
-	bpb.DumpCargo = (word0 & 0x8000) != 0          // Bit 15
+	bpb.OwnerPlayerId = int(word0 & 0x0F) // Bits 0-3
+	bpb.PlanId = int((word0 >> 4) & 0x0F) // Bits 4-7
+	bpb.Tactic = int((word0 >> 8) & 0x0F) // Bits 8-11
+	bpb.DumpCargo = (word0 & 0x8000) != 0 // Bit 15
 
 	word1 := encoding.Read16(data, 2)
 	bpb.PrimaryTarget = int(word1 & 0x0F)          // Bits 0-3
@@ -97,7 +97,7 @@ func (bpb *BattlePlanBlock) decode() {
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (bpb *BattlePlanBlock) Encode() []byte {
 	// Build word0: owner (4 bits) | planId (4 bits) | tactic (4 bits) | reserved (3 bits) | dumpCargo (1 bit)
-	var word0 uint16 = uint16(bpb.OwnerPlayerId & 0x0F)
+	var word0 = uint16(bpb.OwnerPlayerId & 0x0F)
 	word0 |= uint16((bpb.PlanId & 0x0F) << 4)
 	word0 |= uint16((bpb.Tactic & 0x0F) << 8)
 	if bpb.DumpCargo {
@@ -105,7 +105,7 @@ func (bpb *BattlePlanBlock) Encode() []byte {
 	}
 
 	// Build word1: primaryTarget (4 bits) | secondaryTarget (4 bits) | attackWho (8 bits)
-	var word1 uint16 = uint16(bpb.PrimaryTarget & 0x0F)
+	var word1 = uint16(bpb.PrimaryTarget & 0x0F)
 	word1 |= uint16((bpb.SecondaryTarget & 0x0F) << 4)
 	word1 |= uint16((bpb.AttackWho & 0xFF) << 8)
 
@@ -266,11 +266,11 @@ type BattleAction struct {
 // "Phase X of Y" display in the Stars! Battle VCR viewer.
 // Each phase shows a single stack acting: moving, firing, and/or dealing damage.
 type BattlePhase struct {
-	PhaseNum int // Phase number (1-based, as shown in Battle VCR)
-	Round    int // Round number (0-15)
-	StackID  int // Acting stack ID (0-5)
-	GridX    int // Stack's grid X position (0-9)
-	GridY    int // Stack's grid Y position (0-9)
+	PhaseNum int  // Phase number (1-based, as shown in Battle VCR)
+	Round    int  // Round number (0-15)
+	StackID  int  // Acting stack ID (0-5)
+	GridX    int  // Stack's grid X position (0-9)
+	GridY    int  // Stack's grid Y position (0-9)
 	Fired    bool // True if stack fired weapons this phase
 	TargetID int  // Target stack ID if fired (-1 if no target)
 	Damage   int  // Total damage dealt this phase
@@ -299,18 +299,18 @@ type BattleBlock struct {
 	GenericBlock
 
 	// Header fields (18 bytes)
-	BattleID        int // Battle identifier
-	Rounds          int // Number of battle rounds (stored as rounds-1)
-	Side1Stacks     int // Number of stacks on side 1 (viewer's side)
-	TotalStacks     int // Total number of stacks in battle
-	RecordedSize    int // Block size as recorded in header (bytes 6-7)
-	PlanetID        int // Planet where battle occurred
-	X               int // X coordinate
-	Y               int // Y coordinate
-	AttackerStacks  int // Attacker stack count
-	DefenderStacks  int // Defender stack count
-	AttackerLosses  int // Ships lost by attacker
-	Unknown17       int // Unknown field at byte 17 (not defender losses)
+	BattleID       int // Battle identifier
+	Rounds         int // Number of battle rounds (stored as rounds-1)
+	Side1Stacks    int // Number of stacks on side 1 (viewer's side)
+	TotalStacks    int // Total number of stacks in battle
+	RecordedSize   int // Block size as recorded in header (bytes 6-7)
+	PlanetID       int // Planet where battle occurred
+	X              int // X coordinate
+	Y              int // Y coordinate
+	AttackerStacks int // Attacker stack count
+	DefenderStacks int // Defender stack count
+	AttackerLosses int // Ships lost by attacker
+	Unknown17      int // Unknown field at byte 17 (not defender losses)
 
 	// Parsed data
 	Stacks  []BattleStack  // Stack definitions
@@ -318,10 +318,10 @@ type BattleBlock struct {
 }
 
 const (
-	battleHeaderSize     = 18
-	battleStackSize      = 29
-	battleActionSize     = 22
-	battleStackMarker    = 0x41
+	battleHeaderSize  = 18
+	battleStackSize   = 29
+	battleActionSize  = 22
+	battleStackMarker = 0x41
 )
 
 // NewBattleBlock creates a BattleBlock from a GenericBlock
@@ -712,8 +712,9 @@ func (bcb *BattleContinuationBlock) Encode() []byte {
 // SetFleetBattlePlanBlock represents setting a fleet's battle plan (Type 42)
 // Found in X files when player assigns a battle plan to a fleet
 // Format: 4 bytes
-//   Bytes 0-1: Fleet number (9 bits, little-endian)
-//   Bytes 2-3: Battle plan index (little-endian)
+//
+//	Bytes 0-1: Fleet number (9 bits, little-endian)
+//	Bytes 2-3: Battle plan index (little-endian)
 type SetFleetBattlePlanBlock struct {
 	GenericBlock
 

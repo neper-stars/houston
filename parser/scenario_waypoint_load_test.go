@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
 )
@@ -18,9 +19,9 @@ type transportOrderExpected struct {
 }
 
 type waypointLoadExpected struct {
-	Description         string `json:"description"`
-	Year                int    `json:"year"`
-	WaypointChangeTask  struct {
+	Description        string `json:"description"`
+	Year               int    `json:"year"`
+	WaypointChangeTask struct {
 		FleetNumber    int    `json:"fleetNumber"`
 		FleetName      string `json:"fleetName"`
 		WaypointNumber int    `json:"waypointNumber"`

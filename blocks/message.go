@@ -51,8 +51,8 @@ func decodeStarsMessage(data []byte) string {
 	}
 
 	header := encoding.Read16(data, 0)
-	byteSize := int(header & 0x3FF)          // Lower 10 bits
-	asciiIndicator := int(header >> 10)       // Upper 6 bits
+	byteSize := int(header & 0x3FF)     // Lower 10 bits
+	asciiIndicator := int(header >> 10) // Upper 6 bits
 
 	useAscii := false
 	if asciiIndicator == 0x3F {

@@ -10,16 +10,16 @@ var ErrInvalidPlayerBlock = errors.New("invalid player block")
 
 // Primary Race Traits (PRT)
 const (
-	PRTHyperExpansion       = 0  // HE
-	PRTSuperStealth         = 1  // SS
-	PRTWarMonger            = 2  // WM
-	PRTClaimAdjuster        = 3  // CA
-	PRTInnerStrength        = 4  // IS
-	PRTSpaceDemolition      = 5  // SD
-	PRTPacketPhysics        = 6  // PP
-	PRTInterstellarTraveler = 7  // IT
-	PRTAlternateReality     = 8  // AR
-	PRTJackOfAllTrades      = 9  // JOAT
+	PRTHyperExpansion       = 0 // HE
+	PRTSuperStealth         = 1 // SS
+	PRTWarMonger            = 2 // WM
+	PRTClaimAdjuster        = 3 // CA
+	PRTInnerStrength        = 4 // IS
+	PRTSpaceDemolition      = 5 // SD
+	PRTPacketPhysics        = 6 // PP
+	PRTInterstellarTraveler = 7 // IT
+	PRTAlternateReality     = 8 // AR
+	PRTJackOfAllTrades      = 9 // JOAT
 )
 
 // PRTName returns the short name for a PRT
@@ -46,20 +46,20 @@ func PRTFullName(prt int) string {
 
 // Lesser Race Traits (LRT) bitmask values
 const (
-	LRTImprovedFuelEfficiency  = 1 << 0  // IFE
-	LRTTotalTerraforming       = 1 << 1  // TT
-	LRTAdvancedRemoteMining    = 1 << 2  // ARM
-	LRTImprovedStarbases       = 1 << 3  // ISB
-	LRTGeneralizedResearch     = 1 << 4  // GR
-	LRTUltimateRecycling       = 1 << 5  // UR
-	LRTMineralAlchemy          = 1 << 6  // MA
-	LRTNoRamScoopEngines       = 1 << 7  // NRSE
-	LRTCheapEngines            = 1 << 8  // CE
-	LRTOnlyBasicRemoteMining   = 1 << 9  // OBRM
-	LRTNoAdvancedScanners      = 1 << 10 // NAS
-	LRTLowStartingPopulation   = 1 << 11 // LSP
-	LRTBleedingEdgeTechnology  = 1 << 12 // BET
-	LRTRegeneratingShields     = 1 << 13 // RS
+	LRTImprovedFuelEfficiency = 1 << 0  // IFE
+	LRTTotalTerraforming      = 1 << 1  // TT
+	LRTAdvancedRemoteMining   = 1 << 2  // ARM
+	LRTImprovedStarbases      = 1 << 3  // ISB
+	LRTGeneralizedResearch    = 1 << 4  // GR
+	LRTUltimateRecycling      = 1 << 5  // UR
+	LRTMineralAlchemy         = 1 << 6  // MA
+	LRTNoRamScoopEngines      = 1 << 7  // NRSE
+	LRTCheapEngines           = 1 << 8  // CE
+	LRTOnlyBasicRemoteMining  = 1 << 9  // OBRM
+	LRTNoAdvancedScanners     = 1 << 10 // NAS
+	LRTLowStartingPopulation  = 1 << 11 // LSP
+	LRTBleedingEdgeTechnology = 1 << 12 // BET
+	LRTRegeneratingShields    = 1 << 13 // RS
 )
 
 // LRTNames returns the short names for all set LRT bits
@@ -147,15 +147,15 @@ type TechPoints struct {
 
 // Habitability holds the three habitability parameters
 type Habitability struct {
-	GravityCenter    int // Base 65 (0.12g), 255 = immune
+	GravityCenter     int // Base 65 (0.12g), 255 = immune
 	TemperatureCenter int // Base 35 (-200°C), 255 = immune
-	RadiationCenter  int // Base 0, 255 = immune
-	GravityLow       int
-	TemperatureLow   int
-	RadiationLow     int
-	GravityHigh      int
-	TemperatureHigh  int
-	RadiationHigh    int
+	RadiationCenter   int // Base 0, 255 = immune
+	GravityLow        int
+	TemperatureLow    int
+	RadiationLow      int
+	GravityHigh       int
+	TemperatureHigh   int
+	RadiationHigh     int
 }
 
 // IsGravityImmune returns true if the race is immune to gravity
@@ -237,10 +237,10 @@ type PlayerBlock struct {
 	SpendLeftoverPoints int
 
 	// Research settings
-	ResearchPercentage       int    // Default research budget percentage
-	CurrentResearchField     int    // Current research priority
-	NextResearchField        int    // Next research priority
-	ResearchPointsPrevYear   uint32 // Research points spent in the previous year (bytes 58-61)
+	ResearchPercentage     int    // Default research budget percentage
+	CurrentResearchField   int    // Current research priority
+	NextResearchField      int    // Next research priority
+	ResearchPointsPrevYear uint32 // Research points spent in the previous year (bytes 58-61)
 
 	// Mystery Trader items owned (bitmask, always 0 in race files)
 	MTItems uint16
@@ -433,7 +433,7 @@ func (p *PlayerBlock) decode() error {
 	index += pluralNameLength + 1
 	// If no plural name skip another byte because of 16-bit alignment
 	if pluralNameLength == 0 {
-		index++
+		index++ //nolint:ineffassign // documents binary format position for future extension
 	}
 	return nil
 }
@@ -643,7 +643,7 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		data[fullDataStart+72] = 0
 
 		// Byte 81: Checkboxes
-		var checkBoxes byte = 0
+		var checkBoxes byte
 		if p.ExpensiveTechStartsAt3 {
 			checkBoxes |= 0x20 // bit 5
 		}
