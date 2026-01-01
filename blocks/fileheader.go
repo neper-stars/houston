@@ -27,6 +27,17 @@ const (
 	FileTypeX       = 6 // Turn order file (.x1-.x16) - assumed
 )
 
+// Game year and encryption constants
+const (
+	StarsBaseYear       = 2400 // Base year for turn calculation (Year = 2400 + Turn)
+	MaxSaltValue        = 2048 // Maximum salt value (11 bits)
+	RaceFilePlayerIndex = 31   // Player index used for race file encryption
+	PlayerIndexBits     = 5    // Number of bits for player index
+	SaltBits            = 11   // Number of bits for salt
+	PlayerIndexMask     = 0x1F // Mask for 5-bit player index
+	SaltShift           = 5    // Bits to shift for salt in PlayerData
+)
+
 // StarsVersionData returns the encoded version for Stars! 2.60j RC4 (reports as 2.83.0)
 func StarsVersionData() uint16 {
 	return EncodeVersion(StarsVersionMajor, StarsVersionMinor, StarsVersionIncrement)
@@ -93,15 +104,15 @@ func (fh *FileHeader) VersionIncrement() int {
 }
 
 func (fh *FileHeader) Year() int {
-	return 2400 + int(fh.Turn)
+	return StarsBaseYear + int(fh.Turn)
 }
 
 func (fh *FileHeader) Salt() int {
-	return int(fh.PlayerData >> 5) // first 11 bits
+	return int(fh.PlayerData >> SaltShift)
 }
 
 func (fh *FileHeader) PlayerIndex() int {
-	return int(fh.PlayerData & 0x1F) // last 5 bits
+	return int(fh.PlayerData & PlayerIndexMask)
 }
 
 func (fh *FileHeader) TurnSubmitted() bool {
@@ -173,8 +184,8 @@ func (fh *FileHeader) Encode() []byte {
 // A random salt is generated for the encryption.
 func NewFileHeaderForRaceFile() *FileHeader {
 	// Generate random salt (11 bits)
-	salt := uint16(rand.Intn(2048))
-	playerData := (salt << 5) | uint16(31) // Always playerIndex=31 for race files
+	salt := uint16(rand.Intn(MaxSaltValue))
+	playerData := (salt << SaltShift) | uint16(RaceFilePlayerIndex)
 
 	return &FileHeader{
 		magic:       [4]byte{'J', '3', 'J', '3'},
@@ -189,12 +200,12 @@ func NewFileHeaderForRaceFile() *FileHeader {
 
 // SetSalt sets the encryption salt (11 bits) while preserving playerIndex.
 func (fh *FileHeader) SetSalt(salt int) {
-	playerIndex := fh.PlayerData & 0x1F
-	fh.PlayerData = (uint16(salt&0x7FF) << 5) | playerIndex
+	playerIndex := fh.PlayerData & PlayerIndexMask
+	fh.PlayerData = (uint16(salt&0x7FF) << SaltShift) | playerIndex
 }
 
 // SetPlayerIndex sets the player index (5 bits) while preserving salt.
 func (fh *FileHeader) SetPlayerIndex(playerIndex int) {
-	salt := fh.PlayerData >> 5
-	fh.PlayerData = (salt << 5) | uint16(playerIndex&0x1F)
+	salt := fh.PlayerData >> SaltShift
+	fh.PlayerData = (salt << SaltShift) | uint16(playerIndex&PlayerIndexMask)
 }

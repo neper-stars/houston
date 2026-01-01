@@ -456,7 +456,7 @@ func (gs *GameStore) generateRFileFromSource(source *FileSource) ([]byte, error)
 	result = append(result, writer.WriteHeader(header)...)
 
 	// Initialize encryption for race files: gameId=0, turn=0, playerIndex=31
-	writer.InitEncryption(header.Salt(), 0, 0, 31, 0)
+	writer.InitEncryption(header.Salt(), 0, 0, blocks.RaceFilePlayerIndex, 0)
 
 	// Find the PlayerBlock and track decrypted data for footer computation
 	var decryptedPlayerBlockData []byte

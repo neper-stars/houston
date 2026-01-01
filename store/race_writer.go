@@ -21,7 +21,7 @@ func CreateRaceFile(r *race.Race, playerSlot int) ([]byte, error) {
 	salt := header.Salt()
 
 	// 2. Init encryption (gameId=0, turn=0, playerIndex=31)
-	writer.InitEncryption(salt, 0, 0, 31, 0)
+	writer.InitEncryption(salt, 0, 0, blocks.RaceFilePlayerIndex, 0)
 
 	// 3. Build PlayerBlock from Race and encode it
 	playerBlock := raceToPlayerBlock(r)

@@ -34,6 +34,7 @@ import (
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 
+	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/store"
 )
 
@@ -872,7 +873,7 @@ func (r *Renderer) RenderBytes(opts *RenderOptions) ([]byte, error) {
 
 // Year returns the game year.
 func (r *Renderer) Year() int {
-	return int(r.store.Turn) + 2400
+	return int(r.store.Turn) + blocks.StarsBaseYear
 }
 
 // Turn returns the game turn number.

@@ -6,22 +6,178 @@ import (
 	"github.com/neper-stars/houston/data"
 )
 
+// =============================================================================
+// Race Point Calculation Constants
+// These values are from the Stars! game engine and define the point costs
+// and bonuses for various race attributes.
+// =============================================================================
+
 // Starting advantage points before adjustments.
 const raceStartingPoints = 1650
 
-// LRT index for Total Terraforming (used in habitability calculation).
-const lrtTotalTerraforming = 1
-
-// LRT index for No Advanced Scanners.
-const lrtNAS = 10
-
-// PRT indices.
+// LRT indices for point calculation.
 const (
-	prtHE   = 0
-	prtSS   = 1
-	prtPP   = 6
-	prtAR   = 8
-	prtJoaT = 9
+	lrtTotalTerraforming = 1  // TT - Total Terraforming
+	lrtNAS               = 10 // NAS - No Advanced Scanners
+	lrtCount             = 14 // Total number of LRTs
+)
+
+// PRT indices for point calculation.
+const (
+	prtHE   = 0 // Hyper Expansion
+	prtSS   = 1 // Super Stealth
+	prtPP   = 6 // Packet Physics
+	prtAR   = 8 // Alternate Reality
+	prtJoaT = 9 // Jack of All Trades
+)
+
+// Habitability calculation constants.
+const (
+	habPointsDivisor           = 2000 // Divisor for hab range points
+	habGrowthPenaltyDivisor    = 24   // Divisor for growth rate penalty on hab
+	habCenterIdeal             = 50   // Ideal center value for off-center bonus
+	habOffCenterBonusPerPoint  = 4    // Points per unit away from center
+	habMultipleImmunityPenalty = 150  // Penalty for 2+ immunities
+	habMaxValue                = 100  // Maximum habitability value
+	habImmuneIterations        = 1    // Iteration count for immune dimensions
+	habNonImmuneIterations     = 11   // Iteration count for non-immune dimensions
+	habImmuneTestWidth         = 11   // Test width for immune dimensions
+	habImmuneTestCenter        = 50   // Test center for immune dimensions
+	habPerfectValue            = 10000
+	habRedMaxPenalty           = 15 // Maximum red planet penalty per dimension
+)
+
+// Terraforming correction factors.
+const (
+	ttCorrectionLoop1WithTT    = 8  // TT correction factor for loop 1 with TT
+	ttCorrectionLoop1WithoutTT = 5  // TT correction factor for loop 1 without TT
+	ttCorrectionLoop2WithTT    = 17 // TT correction factor for loop 2 with TT
+	ttCorrectionLoop2WithoutTT = 15 // TT correction factor for loop 2 without TT
+)
+
+// Loop multipliers for hab range calculation.
+const (
+	habLoopMultiplier0 = 7 // Multiplier for loop index 0
+	habLoopMultiplier1 = 5 // Multiplier for loop index 1
+	habLoopMultiplier2 = 6 // Multiplier for loop index 2
+)
+
+// Growth rate point values.
+const (
+	growthRateBaseMultiplier = 4200 // Points per growth rate below 6
+	growthRateBonus6         = 3600 // Bonus points for growth rate 6
+	growthRateBonus7         = 2250 // Bonus points for growth rate 7
+	growthRateBonus8         = 600  // Bonus points for growth rate 8
+	growthRateBonus9         = 225  // Bonus points for growth rate 9
+	growthRateMaxFactor      = 45   // Maximum growth factor for penalty calc
+)
+
+// Population efficiency thresholds and values.
+const (
+	popEfficiencyDivisor    = 100  // Divisor for colonists per resource
+	popEfficiencyMax        = 25   // Maximum effective pop efficiency
+	popEfficiencyPenalty7   = 2400 // Penalty for efficiency <= 7
+	popEfficiencyPenalty8   = 1260 // Penalty for efficiency == 8
+	popEfficiencyPenalty9   = 600  // Penalty for efficiency == 9
+	popEfficiencyBonusPer   = 120  // Bonus per efficiency above 10
+	popEfficiencyBonusStart = 10   // Efficiency level where bonus starts
+)
+
+// Factory/mine production point calculation.
+const (
+	productionBaseline = 10 // Baseline for production calculations
+
+	// Factory output multipliers
+	factoryOutputMultPositive = 100 // Multiplier when output > baseline
+	factoryOutputMultNegative = 121 // Multiplier when output <= baseline
+
+	// Factory cost multipliers
+	factoryCostMultPositive = -60 // Squared multiplier when cost > baseline
+	factoryCostMultNegative = -55 // Multiplier when cost <= baseline
+
+	// Factory/mine count multipliers
+	factoryCountMultPositive = 40 // Multiplier when count > baseline
+	factoryCountMultNegative = 35 // Multiplier when count <= baseline
+
+	// Low factory points limit and cap
+	lowFactoryPointsLimit   = 700 // Limit for factory point capping
+	factoryPointsCapDivisor = 3   // Divisor for capped factory points
+
+	// Factory operation penalties
+	factoryOpPenaltyThreshold1 = -7  // First threshold for operation penalty
+	factoryOpPenaltyThreshold2 = -11 // Second threshold for operation penalty
+	factoryOpPenaltyThreshold3 = -14 // Third threshold for operation penalty
+	factoryOpPenaltyValue      = 360 // Penalty value at threshold 3
+	factoryOpPenaltyMult1      = 45  // Multiplier between thresholds 2 and 3
+	factoryOpPenaltyMult2      = 30  // Multiplier between thresholds 1 and 2
+	factoryOpPenaltyOffset1    = 7   // Offset for penalty calc at threshold 2-3
+	factoryOpPenaltyOffset2    = 6   // Offset for penalty calc at threshold 1-2
+
+	// Factory production penalty
+	factoryProdPenaltyThreshold = -3 // Threshold for production penalty
+	factoryProdPenaltyMult      = 60 // Multiplier for production penalty
+	factoryProdPenaltyOffset    = 2  // Offset for production penalty
+
+	// Less germanium cost
+	factoryLessGermaniumCost = 175 // Cost for factories use less germanium
+
+	// AR race factory points
+	arFactoryPoints = 210 // Fixed factory points for AR races
+
+	// Mine-specific values
+	mineOutputMultNegative = 169 // Multiplier for mine output <= baseline
+	mineCostBaseline       = 3   // Baseline for mine cost calculation
+	mineCostPenalty        = 360 // Penalty for mine cost > baseline
+	mineCostMultNegative   = -65 // Multiplier for mine cost <= baseline
+	mineCostOffset         = 80  // Offset for mine cost penalty
+)
+
+// Factory efficiency penalty (when factory output/count exceed baseline).
+const (
+	factoryEfficiencyThreshold = 10 // Threshold for efficiency penalty
+	factoryEfficiencyOffset    = 9  // Offset for efficiency penalty calc
+	factoryEfficiencyMinValue  = 1  // Minimum value after offset
+	factoryProductionCostStd   = 2  // Production cost for non-HE races
+	factoryProductionCostHE    = 3  // Production cost for HE races
+	immunityPenaltyDivMulti    = 2  // Divisor for 2+ immunity penalty
+	immunityPenaltyDivSingle   = 9  // Divisor for single/no immunity penalty
+)
+
+// LRT balance constants.
+const (
+	lrtMaxBeforePenalty   = 4  // Max LRTs before penalty applies
+	lrtExcessPenaltyMult  = 10 // Multiplier for excess LRT penalty
+	lrtImbalanceThreshold = 3  // Threshold for imbalance penalty
+	lrtBadImbalanceMult   = 60 // Multiplier for too many bad LRTs
+	lrtGoodImbalanceMult  = 40 // Multiplier for too many good LRTs
+)
+
+// NAS (No Advanced Scanners) penalties by PRT.
+const (
+	nasPenaltyPP   = 280 // NAS penalty for Packet Physics
+	nasPenaltySS   = 200 // NAS penalty for Super Stealth
+	nasPenaltyJoaT = 40  // NAS penalty for Jack of All Trades
+)
+
+// Research cost calculation.
+const (
+	researchCostSquaredMult     = 130  // Squared multiplier for "less" research costs
+	researchCostAdj6Less        = 1430 // Adjustment when all 6 are "less"
+	researchCostAdj5Less        = 520  // Adjustment when 5 are "less"
+	researchCostLowPopThreshold = 1000 // Colonists threshold for extra penalty
+	researchCostLowPopPenalty   = 190  // Penalty for low pop with 5+ extra research
+)
+
+// Science cost table for extra research costs (indexed by count - 1).
+var scienceCostTable = [6]int{150, 330, 540, 780, 1050, 1380}
+
+// Miscellaneous penalties.
+const (
+	techsStartHighPenalty = 180 // Penalty for techs start at level 3
+	arCheapEnergyPenalty  = 100 // Penalty for AR with cheap energy
+	pointsFinalDivisor    = 3   // Final divisor for calculated points
+	habPointsFinalDivisor = 10.0
+	habPointsRoundAdjust  = 0.5
 )
 
 // CalculatePoints calculates the advantage points for a race.
@@ -31,7 +187,7 @@ func CalculatePoints(r *Race) int {
 	points := raceStartingPoints
 
 	// 1. Habitability range points
-	habPoints := getHabRangePoints(r) / 2000
+	habPoints := getHabRangePoints(r) / habPointsDivisor
 
 	// 2. Growth rate adjustment
 	growthRateFactor := r.GrowthRate
@@ -39,175 +195,174 @@ func CalculatePoints(r *Race) int {
 
 	switch {
 	case growthRateFactor <= 5:
-		points += (6 - growthRateFactor) * 4200
+		points += (6 - growthRateFactor) * growthRateBaseMultiplier
 	case growthRateFactor <= 13:
 		switch growthRateFactor {
 		case 6:
-			points += 3600
+			points += growthRateBonus6
 		case 7:
-			points += 2250
+			points += growthRateBonus7
 		case 8:
-			points += 600
+			points += growthRateBonus8
 		case 9:
-			points += 225
+			points += growthRateBonus9
 		}
 		growthRateFactor = growthRateFactor*2 - 5
 	case growthRateFactor < 20:
 		growthRateFactor = (growthRateFactor - 6) * 3
 	default:
-		growthRateFactor = 45
+		growthRateFactor = growthRateMaxFactor
 	}
 
-	points -= (habPoints * growthRateFactor) / 24
+	points -= (habPoints * growthRateFactor) / habGrowthPenaltyDivisor
 
 	// 3. Off-center habitability bonus
 	numImmunities := 0
 	if r.GravityImmune {
 		numImmunities++
 	} else {
-		points += abs(r.GravityCenter-50) * 4
+		points += abs(r.GravityCenter-habCenterIdeal) * habOffCenterBonusPerPoint
 	}
 	if r.TemperatureImmune {
 		numImmunities++
 	} else {
-		points += abs(r.TemperatureCenter-50) * 4
+		points += abs(r.TemperatureCenter-habCenterIdeal) * habOffCenterBonusPerPoint
 	}
 	if r.RadiationImmune {
 		numImmunities++
 	} else {
-		points += abs(r.RadiationCenter-50) * 4
+		points += abs(r.RadiationCenter-habCenterIdeal) * habOffCenterBonusPerPoint
 	}
 
 	// 4. Multiple immunity penalty
 	if numImmunities > 1 {
-		points -= 150
+		points -= habMultipleImmunityPenalty
 	}
 
 	// 5. Factory efficiency penalty (depends on growth rate)
 	operationPoints := r.FactoryCount
 	productionPoints := r.FactoryOutput
 
-	if operationPoints > 10 || productionPoints > 10 {
-		operationPoints -= 9
-		if operationPoints < 1 {
-			operationPoints = 1
+	if operationPoints > factoryEfficiencyThreshold || productionPoints > factoryEfficiencyThreshold {
+		operationPoints -= factoryEfficiencyOffset
+		if operationPoints < factoryEfficiencyMinValue {
+			operationPoints = factoryEfficiencyMinValue
 		}
-		productionPoints -= 9
-		if productionPoints < 1 {
-			productionPoints = 1
+		productionPoints -= factoryEfficiencyOffset
+		if productionPoints < factoryEfficiencyMinValue {
+			productionPoints = factoryEfficiencyMinValue
 		}
 
 		// HE penalty: 3 for HE, 2 for others
-		factoryProductionCost := 2
+		factoryProductionCost := factoryProductionCostStd
 		if r.PRT == prtHE {
-			factoryProductionCost = 3
+			factoryProductionCost = factoryProductionCostHE
 		}
 
 		productionPoints *= factoryProductionCost
 
 		// Additional penalty for 2+ immunities
 		if numImmunities >= 2 {
-			points -= int(float64(productionPoints*operationPoints) * grRate / 2)
+			points -= int(float64(productionPoints*operationPoints) * grRate / immunityPenaltyDivMulti)
 		} else {
-			points -= int(float64(productionPoints*operationPoints) * grRate / 9)
+			points -= int(float64(productionPoints*operationPoints) * grRate / immunityPenaltyDivSingle)
 		}
 	}
 
 	// 6. Population efficiency
-	popEfficiency := r.ColonistsPerResource / 100
-	if popEfficiency > 25 {
-		popEfficiency = 25
+	popEfficiency := r.ColonistsPerResource / popEfficiencyDivisor
+	if popEfficiency > popEfficiencyMax {
+		popEfficiency = popEfficiencyMax
 	}
 
 	switch {
 	case popEfficiency <= 7:
-		points -= 2400
+		points -= popEfficiencyPenalty7
 	case popEfficiency == 8:
-		points -= 1260
+		points -= popEfficiencyPenalty8
 	case popEfficiency == 9:
-		points -= 600
-	case popEfficiency > 10:
-		points += (popEfficiency - 10) * 120
+		points -= popEfficiencyPenalty9
+	case popEfficiency > popEfficiencyBonusStart:
+		points += (popEfficiency - popEfficiencyBonusStart) * popEfficiencyBonusPer
 	}
 
 	// 7. Factory/Mine production points
 	if r.PRT == prtAR {
 		// AR races have very simple factory points
-		points += 210
+		points += arFactoryPoints
 	} else {
 		// Factory points
-		productionPoints = 10 - r.FactoryOutput
-		costPoints := 10 - r.FactoryCost
-		operationPoints = 10 - r.FactoryCount
+		productionPoints = productionBaseline - r.FactoryOutput
+		costPoints := productionBaseline - r.FactoryCost
+		operationPoints = productionBaseline - r.FactoryCount
 		tmpPoints := 0
 
 		if productionPoints > 0 {
-			tmpPoints = productionPoints * 100
+			tmpPoints = productionPoints * factoryOutputMultPositive
 		} else {
-			tmpPoints = productionPoints * 121
+			tmpPoints = productionPoints * factoryOutputMultNegative
 		}
 
 		if costPoints > 0 {
-			tmpPoints += costPoints * costPoints * -60
+			tmpPoints += costPoints * costPoints * factoryCostMultPositive
 		} else {
-			tmpPoints += costPoints * -55
+			tmpPoints += costPoints * factoryCostMultNegative
 		}
 
 		if operationPoints > 0 {
-			tmpPoints += operationPoints * 40
+			tmpPoints += operationPoints * factoryCountMultPositive
 		} else {
-			tmpPoints += operationPoints * 35
+			tmpPoints += operationPoints * factoryCountMultNegative
 		}
 
 		// Limit low factory points
-		llfp := 700
-		if tmpPoints > llfp {
-			tmpPoints = (tmpPoints-llfp)/3 + llfp
+		if tmpPoints > lowFactoryPointsLimit {
+			tmpPoints = (tmpPoints-lowFactoryPointsLimit)/factoryPointsCapDivisor + lowFactoryPointsLimit
 		}
 
-		if operationPoints <= -7 {
-			if operationPoints < -11 {
-				if operationPoints < -14 {
-					tmpPoints -= 360
+		if operationPoints <= factoryOpPenaltyThreshold1 {
+			if operationPoints < factoryOpPenaltyThreshold2 {
+				if operationPoints < factoryOpPenaltyThreshold3 {
+					tmpPoints -= factoryOpPenaltyValue
 				} else {
-					tmpPoints += (operationPoints + 7) * 45
+					tmpPoints += (operationPoints + factoryOpPenaltyOffset1) * factoryOpPenaltyMult1
 				}
 			} else {
-				tmpPoints += (operationPoints + 6) * 30
+				tmpPoints += (operationPoints + factoryOpPenaltyOffset2) * factoryOpPenaltyMult2
 			}
 		}
 
-		if productionPoints <= -3 {
-			tmpPoints += (productionPoints + 2) * 60
+		if productionPoints <= factoryProdPenaltyThreshold {
+			tmpPoints += (productionPoints + factoryProdPenaltyOffset) * factoryProdPenaltyMult
 		}
 
 		points += tmpPoints
 
 		if r.FactoriesUseLessGerm {
-			points -= 175
+			points -= factoryLessGermaniumCost
 		}
 
 		// Mine points
-		productionPoints = 10 - r.MineOutput
-		costPoints = 3 - r.MineCost
-		operationPoints = 10 - r.MineCount
+		productionPoints = productionBaseline - r.MineOutput
+		costPoints = mineCostBaseline - r.MineCost
+		operationPoints = productionBaseline - r.MineCount
 
 		if productionPoints > 0 {
-			tmpPoints = productionPoints * 100
+			tmpPoints = productionPoints * factoryOutputMultPositive
 		} else {
-			tmpPoints = productionPoints * 169
+			tmpPoints = productionPoints * mineOutputMultNegative
 		}
 
 		if costPoints > 0 {
-			tmpPoints -= 360
+			tmpPoints -= mineCostPenalty
 		} else {
-			tmpPoints += costPoints*-65 + 80
+			tmpPoints += costPoints*mineCostMultNegative + mineCostOffset
 		}
 
 		if operationPoints > 0 {
-			tmpPoints += operationPoints * 40
+			tmpPoints += operationPoints * factoryCountMultPositive
 		} else {
-			tmpPoints += operationPoints * 35
+			tmpPoints += operationPoints * factoryCountMultNegative
 		}
 
 		points += tmpPoints
@@ -222,7 +377,7 @@ func CalculatePoints(r *Race) int {
 	badLRTs := 0
 	goodLRTs := 0
 
-	for i := 0; i < 14; i++ {
+	for i := 0; i < lrtCount; i++ {
 		if (r.LRT & (1 << i)) != 0 {
 			if lrt := data.GetLRT(i); lrt != nil {
 				points += lrt.PointCost
@@ -237,27 +392,27 @@ func CalculatePoints(r *Race) int {
 
 	// Too many LRTs penalty
 	totalLRTs := goodLRTs + badLRTs
-	if totalLRTs > 4 {
-		points -= totalLRTs * (totalLRTs - 4) * 10
+	if totalLRTs > lrtMaxBeforePenalty {
+		points -= totalLRTs * (totalLRTs - lrtMaxBeforePenalty) * lrtExcessPenaltyMult
 	}
 
 	// Imbalance penalty
-	if badLRTs-goodLRTs > 3 {
-		points -= (badLRTs - goodLRTs - 3) * 60
+	if badLRTs-goodLRTs > lrtImbalanceThreshold {
+		points -= (badLRTs - goodLRTs - lrtImbalanceThreshold) * lrtBadImbalanceMult
 	}
-	if goodLRTs-badLRTs > 3 {
-		points -= (goodLRTs - badLRTs - 3) * 40
+	if goodLRTs-badLRTs > lrtImbalanceThreshold {
+		points -= (goodLRTs - badLRTs - lrtImbalanceThreshold) * lrtGoodImbalanceMult
 	}
 
 	// 10. NAS penalty by PRT
 	if (r.LRT & (1 << lrtNAS)) != 0 {
 		switch r.PRT {
 		case prtPP:
-			points -= 280
+			points -= nasPenaltyPP
 		case prtSS:
-			points -= 200
+			points -= nasPenaltySS
 		case prtJoaT:
-			points -= 40
+			points -= nasPenaltyJoaT
 		}
 	}
 
@@ -283,32 +438,31 @@ func CalculatePoints(r *Race) int {
 
 	if techCosts > 0 {
 		// More "Less" than "Extra" - costs points
-		points -= techCosts * techCosts * 130
+		points -= techCosts * techCosts * researchCostSquaredMult
 		if techCosts >= 6 {
-			points += 1430 // Already paid 4680 so true cost is 3250
+			points += researchCostAdj6Less // Already paid 4680 so true cost is 3250
 		} else if techCosts == 5 {
-			points += 520 // Already paid 3250 so true cost is 2730
+			points += researchCostAdj5Less // Already paid 3250 so true cost is 2730
 		}
 	} else if techCosts < 0 {
 		// More "Extra" than "Less" - gives points
-		scienceCost := []int{150, 330, 540, 780, 1050, 1380}
-		points += scienceCost[-techCosts-1]
-		if techCosts < -4 && r.ColonistsPerResource < 1000 {
-			points -= 190
+		points += scienceCostTable[-techCosts-1]
+		if techCosts < -4 && r.ColonistsPerResource < researchCostLowPopThreshold {
+			points -= researchCostLowPopPenalty
 		}
 	}
 
 	// 12. Techs start high penalty
 	if r.TechsStartHigh {
-		points -= 180
+		points -= techsStartHighPenalty
 	}
 
 	// 13. AR + cheap energy penalty
 	if r.PRT == prtAR && r.ResearchEnergy == ResearchCostLess {
-		points -= 100
+		points -= arCheapEnergyPenalty
 	}
 
-	return points / 3
+	return points / pointsFinalDivisor
 }
 
 // getHabRangePoints calculates habitability range advantage points.
@@ -319,17 +473,17 @@ func getHabRangePoints(r *Race) int {
 	points := 0.0
 
 	// Determine iteration counts (1 for immune, 11 for non-immune)
-	numIterGrav := 11
-	numIterTemp := 11
-	numIterRad := 11
+	numIterGrav := habNonImmuneIterations
+	numIterTemp := habNonImmuneIterations
+	numIterRad := habNonImmuneIterations
 	if r.GravityImmune {
-		numIterGrav = 1
+		numIterGrav = habImmuneIterations
 	}
 	if r.TemperatureImmune {
-		numIterTemp = 1
+		numIterTemp = habImmuneIterations
 	}
 	if r.RadiationImmune {
-		numIterRad = 1
+		numIterRad = habImmuneIterations
 	}
 
 	// Three main loops with different terraforming correction factors
@@ -340,15 +494,15 @@ func getHabRangePoints(r *Race) int {
 			ttCorrectionFactor = 0
 		case 1:
 			if hasTT {
-				ttCorrectionFactor = 8
+				ttCorrectionFactor = ttCorrectionLoop1WithTT
 			} else {
-				ttCorrectionFactor = 5
+				ttCorrectionFactor = ttCorrectionLoop1WithoutTT
 			}
 		case 2:
 			if hasTT {
-				ttCorrectionFactor = 17
+				ttCorrectionFactor = ttCorrectionLoop2WithTT
 			} else {
-				ttCorrectionFactor = 15
+				ttCorrectionFactor = ttCorrectionLoop2WithoutTT
 			}
 		}
 
@@ -358,48 +512,48 @@ func getHabRangePoints(r *Race) int {
 
 		// Gravity
 		if r.GravityImmune {
-			testHabStart[0] = 50
-			testHabWidth[0] = 11
+			testHabStart[0] = habImmuneTestCenter
+			testHabWidth[0] = habImmuneTestWidth
 		} else {
 			testHabStart[0] = r.GravityLow() - ttCorrectionFactor
 			if testHabStart[0] < 0 {
 				testHabStart[0] = 0
 			}
 			tmpHab := r.GravityHigh() + ttCorrectionFactor
-			if tmpHab > 100 {
-				tmpHab = 100
+			if tmpHab > habMaxValue {
+				tmpHab = habMaxValue
 			}
 			testHabWidth[0] = tmpHab - testHabStart[0]
 		}
 
 		// Temperature
 		if r.TemperatureImmune {
-			testHabStart[1] = 50
-			testHabWidth[1] = 11
+			testHabStart[1] = habImmuneTestCenter
+			testHabWidth[1] = habImmuneTestWidth
 		} else {
 			testHabStart[1] = r.TemperatureLow() - ttCorrectionFactor
 			if testHabStart[1] < 0 {
 				testHabStart[1] = 0
 			}
 			tmpHab := r.TemperatureHigh() + ttCorrectionFactor
-			if tmpHab > 100 {
-				tmpHab = 100
+			if tmpHab > habMaxValue {
+				tmpHab = habMaxValue
 			}
 			testHabWidth[1] = tmpHab - testHabStart[1]
 		}
 
 		// Radiation
 		if r.RadiationImmune {
-			testHabStart[2] = 50
-			testHabWidth[2] = 11
+			testHabStart[2] = habImmuneTestCenter
+			testHabWidth[2] = habImmuneTestWidth
 		} else {
 			testHabStart[2] = r.RadiationLow() - ttCorrectionFactor
 			if testHabStart[2] < 0 {
 				testHabStart[2] = 0
 			}
 			tmpHab := r.RadiationHigh() + ttCorrectionFactor
-			if tmpHab > 100 {
-				tmpHab = 100
+			if tmpHab > habMaxValue {
+				tmpHab = habMaxValue
 			}
 			testHabWidth[2] = tmpHab - testHabStart[2]
 		}
@@ -436,44 +590,44 @@ func getHabRangePoints(r *Race) int {
 					// Modify by loop index factor
 					switch loopIndex {
 					case 0:
-						planetDesirability *= 7
+						planetDesirability *= habLoopMultiplier0
 					case 1:
-						planetDesirability *= 5
+						planetDesirability *= habLoopMultiplier1
 					default:
-						planetDesirability *= 6
+						planetDesirability *= habLoopMultiplier2
 					}
 
 					radiationSum += planetDesirability
 				}
 
 				if !r.RadiationImmune {
-					radiationSum = (radiationSum * int64(testHabWidth[2])) / 100
+					radiationSum = (radiationSum * int64(testHabWidth[2])) / habMaxValue
 				} else {
-					radiationSum *= 11
+					radiationSum *= habImmuneTestWidth
 				}
 
 				temperatureSum += float64(radiationSum)
 			}
 
 			if !r.TemperatureImmune {
-				temperatureSum = (temperatureSum * float64(testHabWidth[1])) / 100
+				temperatureSum = (temperatureSum * float64(testHabWidth[1])) / habMaxValue
 			} else {
-				temperatureSum *= 11
+				temperatureSum *= habImmuneTestWidth
 			}
 
 			gravitySum += temperatureSum
 		}
 
 		if !r.GravityImmune {
-			gravitySum = (gravitySum * float64(testHabWidth[0])) / 100
+			gravitySum = (gravitySum * float64(testHabWidth[0])) / habMaxValue
 		} else {
-			gravitySum *= 11
+			gravitySum *= habImmuneTestWidth
 		}
 
 		points += gravitySum
 	}
 
-	return int(points/10.0 + 0.5)
+	return int(points/habPointsFinalDivisor + habPointsRoundAdjust)
 }
 
 // getPlanetHabForIndex calculates the hab value for a test planet at a specific iteration.
@@ -507,7 +661,7 @@ func getPlanetHabForIndex(iterIndex, habType, loopIndex, numIterations, testHabS
 // getPlanetHabitability calculates the habitability of a planet for this race.
 // Returns a value from 0-100, or negative if uninhabitable.
 func getPlanetHabitability(r *Race, grav, temp, rad int) int64 {
-	var planetValuePoints, redValue, ideality int64 = 0, 0, 10000
+	var planetValuePoints, redValue, ideality int64 = 0, 0, habPerfectValue
 
 	habValues := [3]int{grav, temp, rad}
 	habCenters := [3]int{r.GravityCenter, r.TemperatureCenter, r.RadiationCenter}
@@ -522,11 +676,11 @@ func getPlanetHabitability(r *Race, grav, temp, rad int) int64 {
 		habUpper := habHighs[habType]
 
 		if isImmune[habType] {
-			planetValuePoints += 10000
+			planetValuePoints += habPerfectValue
 		} else {
 			if habLower <= habValue && habUpper >= habValue {
 				// Green planet
-				fromIdeal := abs(habValue-habCenter) * 100
+				fromIdeal := abs(habValue-habCenter) * habMaxValue
 				var habRadius, tmp int
 				if habCenter > habValue {
 					habRadius = habCenter - habLower
@@ -538,7 +692,7 @@ func getPlanetHabitability(r *Race, grav, temp, rad int) int64 {
 					tmp = habValue - habCenter
 				}
 				poorPlanetMod := tmp*2 - habRadius
-				fromIdeal = 100 - fromIdeal
+				fromIdeal = habMaxValue - fromIdeal
 				planetValuePoints += int64(fromIdeal * fromIdeal)
 				if poorPlanetMod > 0 {
 					ideality *= int64(habRadius*2 - poorPlanetMod)
@@ -553,8 +707,8 @@ func getPlanetHabitability(r *Race, grav, temp, rad int) int64 {
 					habRed = habLower - habValue
 				}
 
-				if habRed > 15 {
-					habRed = 15
+				if habRed > habRedMaxPenalty {
+					habRed = habRedMaxPenalty
 				}
 
 				redValue += int64(habRed)
@@ -567,7 +721,7 @@ func getPlanetHabitability(r *Race, grav, temp, rad int) int64 {
 	}
 
 	planetValuePoints = int64(math.Sqrt(float64(planetValuePoints)/3) + 0.9)
-	planetValuePoints = planetValuePoints * ideality / 10000
+	planetValuePoints = planetValuePoints * ideality / habPerfectValue
 
 	return planetValuePoints
 }
