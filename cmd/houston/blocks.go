@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/neper-stars/houston/lib/tools/displayblocks"
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/parser"
 )
 
 type blocksCommand struct {
@@ -16,16 +18,67 @@ type blocksCommand struct {
 }
 
 func (c *blocksCommand) Execute(args []string) error {
-	info, err := displayblocks.ReadFile(c.Args.File)
+	fileBytes, err := os.ReadFile(c.Args.File)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	if err := displayblocks.WriteBlocks(os.Stdout, info); err != nil {
-		return fmt.Errorf("error writing output: %w", err)
+	fd := parser.FileData(fileBytes)
+
+	blockList, err := fd.BlockList()
+	if err != nil {
+		return fmt.Errorf("failed to parse blocks: %w", err)
+	}
+
+	fmt.Printf("File: %s (%d bytes)\n", c.Args.File, len(fileBytes))
+	fmt.Printf("Blocks: %d\n\n", len(blockList))
+
+	for i, block := range blockList {
+		typeID := block.BlockTypeID()
+		typeName := blocks.BlockTypeName(typeID)
+		size := block.BlockSize()
+
+		fmt.Printf("Block %d: %s (type=%d, size=%d)\n", i, typeName, typeID, size)
+
+		decrypted := block.DecryptedData()
+		if len(decrypted) > 0 {
+			fmt.Printf("  Data: %s\n", hex.EncodeToString(decrypted))
+		}
+
+		printBlockDetails(block)
+		fmt.Println()
 	}
 
 	return nil
+}
+
+func printBlockDetails(block blocks.Block) {
+	switch b := block.(type) {
+	case blocks.FileHeader:
+		fmt.Printf("  GameID: %d, Turn: %d (Year %d), Player: %d\n",
+			b.GameID, b.Turn, b.Year(), b.PlayerIndex())
+	case blocks.PlanetsBlock:
+		fmt.Printf("  PlanetCount: %d\n", b.GetPlanetCount())
+	case blocks.PlanetBlock:
+		fmt.Printf("  PlanetNumber: %d, Owner: %d\n", b.PlanetNumber, b.Owner)
+	case blocks.PartialPlanetBlock:
+		fmt.Printf("  PlanetNumber: %d, Owner: %d\n", b.PlanetNumber, b.Owner)
+	case blocks.FleetBlock:
+		fmt.Printf("  FleetNumber: %d, Owner: %d, X: %d, Y: %d\n",
+			b.FleetNumber, b.Owner, b.X, b.Y)
+	case blocks.PartialFleetBlock:
+		fmt.Printf("  FleetNumber: %d, Owner: %d, X: %d, Y: %d\n",
+			b.FleetNumber, b.Owner, b.X, b.Y)
+	case blocks.DesignBlock:
+		fmt.Printf("  DesignNumber: %d, HullID: %d, Name: %s\n",
+			b.DesignNumber, b.HullId, b.Name)
+	case blocks.CountersBlock:
+		fmt.Printf("  Planets: %d, Fleets: %d\n", b.PlanetCount, b.FleetCount)
+	case blocks.MessageBlock:
+		fmt.Printf("  From: %d, To: %d\n", b.SenderId, b.ReceiverId)
+	case blocks.ObjectBlock:
+		fmt.Printf("  ObjectType: %d, Owner: %d\n", b.ObjectType, b.Owner)
+	}
 }
 
 func addBlocksCommand(parser *flags.Parser) {
