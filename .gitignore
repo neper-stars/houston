@@ -1,0 +1,13 @@
+mise.local.toml
+
+build/
+displayblocks
+houston
+
+TODOs.md
+exemple/exemple
+inspiration/stars_ods_extracted
+
+# special editor cruft
+.idea
+*.swp
