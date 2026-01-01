@@ -9,16 +9,15 @@ import (
 	"github.com/neper-stars/houston/encoding"
 )
 
-// TestBlockParsing tests parsing blocks from a known .x file
-// This test is based on TestBlockCoding.java from starsapi
-func TestBlockParsing(t *testing.T) {
-	// This is a .x file with blocks 8,9,29,0 (FileHeader, FileHash, ProductionQueueChange, FileFooter)
-	hexChars := "10204a334a33314e6b0b602a0100a0d00140112433f1044513bf612675ad0732" +
-		"f3ccb3aca2427437b4aa5a408947e2ed85eea601782cad8786032a95fb7ccae6" +
-		"63181e5be020eab3301fc5c036f5e9c3afe4936a3d0625b09f748ef373f920e2" +
-		"4c60a38e577be2d14f0000"
+// testXFileHex is a .x file with blocks 8,9,29,0 (FileHeader, FileHash, ProductionQueueChange, FileFooter)
+const testXFileHex = "10204a334a33314e6b0b602a0100a0d00140112433f1044513bf612675ad0732" +
+	"f3ccb3aca2427437b4aa5a408947e2ed85eea601782cad8786032a95fb7ccae6" +
+	"63181e5be020eab3301fc5c036f5e9c3afe4936a3d0625b09f748ef373f920e2" +
+	"4c60a38e577be2d14f0000"
 
-	fileBytes := encoding.HexToByteArray(hexChars)
+// TestBlockParsing tests parsing blocks from a known .x file
+func TestBlockParsing(t *testing.T) {
+	fileBytes := encoding.HexToByteArray(testXFileHex)
 	fd := FileData(fileBytes)
 
 	blockList, err := fd.BlockList()
@@ -70,13 +69,7 @@ func TestBlockParsing(t *testing.T) {
 
 // TestFileHeader tests parsing a file header block
 func TestFileHeader(t *testing.T) {
-	// Same hex data as above
-	hexChars := "10204a334a33314e6b0b602a0100a0d00140112433f1044513bf612675ad0732" +
-		"f3ccb3aca2427437b4aa5a408947e2ed85eea601782cad8786032a95fb7ccae6" +
-		"63181e5be020eab3301fc5c036f5e9c3afe4936a3d0625b09f748ef373f920e2" +
-		"4c60a38e577be2d14f0000"
-
-	fileBytes := encoding.HexToByteArray(hexChars)
+	fileBytes := encoding.HexToByteArray(testXFileHex)
 	fd := FileData(fileBytes)
 
 	header, err := fd.FileHeader()
