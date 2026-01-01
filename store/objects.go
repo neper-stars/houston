@@ -1,6 +1,10 @@
 package store
 
-import "github.com/neper-stars/houston/blocks"
+import (
+	"math"
+
+	"github.com/neper-stars/houston/blocks"
+)
 
 // Object type constants
 const (
@@ -93,6 +97,16 @@ func (o *ObjectEntity) IsWormhole() bool {
 // IsTrader returns true if this is a mystery trader.
 func (o *ObjectEntity) IsTrader() bool {
 	return o.ObjectType == ObjectTypeTrader
+}
+
+// Radius returns the minefield radius in light-years.
+// In Stars!, the minefield radius is the square root of the mine count.
+// Returns 0 for non-minefield objects.
+func (o *ObjectEntity) Radius() float64 {
+	if o.ObjectType != ObjectTypeMinefield {
+		return 0
+	}
+	return math.Sqrt(float64(o.MineCount))
 }
 
 // GetCargo returns the cargo for packets/salvage as a Cargo struct.

@@ -1,0 +1,18 @@
+{
+  "minefields": [
+    {
+      "owner": "MineMongers",
+      "x": 1260,
+      "y": 1255,
+      "mineCount": 6393,
+      "expectedRadius": 79
+    },
+    {
+      "owner": "MineMongers",
+      "x": 1308,
+      "y": 1204,
+      "mineCount": 3032,
+      "expectedRadius": 55
+    }
+  ]
+}

@@ -282,7 +282,7 @@ func (r *Renderer) Render(opts *RenderOptions) *image.RGBA {
 	if opts.ShowMines {
 		for _, mf := range r.minefields() {
 			px, py := transform(mf.X, mf.Y)
-			radius := int(math.Sqrt(float64(mf.MineCount)) * scale / 10)
+			radius := int(mf.Radius() * scale)
 			if radius < 2 {
 				radius = 2
 			}
@@ -536,7 +536,7 @@ func (r *Renderer) buildSVGInternal(opts *RenderOptions, forRasterization bool) 
 	if opts.ShowMines {
 		for _, mf := range r.minefields() {
 			px, py := transform(mf.X, mf.Y)
-			radius := math.Sqrt(float64(mf.MineCount)) * scale / 10
+			radius := mf.Radius() * scale
 			if radius < 2 {
 				radius = 2
 			}
