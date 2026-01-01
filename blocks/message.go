@@ -111,8 +111,16 @@ func encodeStarsMessage(message string) []byte {
 		return []byte{0, 0} // Empty message
 	}
 
-	// Encode as Stars! string
-	textBytes := encoding.EncodeStarsString(message)
+	// Encode the string to hex chars (without length prefix)
+	hexChars := encoding.EncodeHexStarsString(message)
+
+	// Pad to even length if needed
+	if len(hexChars)%2 != 0 {
+		hexChars += "F"
+	}
+
+	// Convert hex chars to bytes
+	textBytes := encoding.HexToByteArray(hexChars)
 
 	// Build header: byteSize in lower 10 bits
 	byteSize := len(textBytes)
