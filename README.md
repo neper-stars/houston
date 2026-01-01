@@ -38,7 +38,14 @@ As said above this lib would not exist without the inspiration from:
   - https://github.com/stars-4x/starsapi
   - https://github.com/ricks03/TotalHost
 
-Those two projects were tremendously usefull in understanding the stars!
+Those two projects were tremendously useful in understanding the stars!
 encryption, the stars fileheader algorithm and many different packets
 bits that were resisting analysis.
+
+Moreover a lot of useful information was gleaned from diverse sources:
+
+  - http://www.starsfaq.com/
+  - http://www.starsfaq.com/download/STARS%21.zip
+
+And certainly a few others I forgot along the way...
 

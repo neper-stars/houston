@@ -6,7 +6,7 @@ houston
 
 TODOs.md
 exemple/exemple
-inspiration/
+inspiration/stars_ods_extracted
 
 # task cache files should not be versionned ever
 .task/
