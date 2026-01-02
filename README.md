@@ -2,8 +2,8 @@
 
 This is a golang library to read and manipulate Stars! game files.
 
-It is intended to be used as a library for the Neper project to allow easy
-hosting a multiplayer games with a nice desktop client (Astrum).
+It is intended to be used as a library for the [Neper](https://github.com/neper-stars/neper) project to allow easy
+hosting a multiplayer games with a nice desktop client ([Astrum](https://github.com/neper-stars/astrum)).
 
 This library would not exit without the inspiration of multiple people
 who put the groundwork for understanding the stars file format. I "only"
