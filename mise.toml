@@ -1,21 +1,25 @@
+[env]
+_.path = ["./tools/bin"]
+
 [tools]
 go = "1.25"
 "golangci-lint" = "2.7.2"
+"asdf:pdemagny/asdf-changie" = "latest"
 
 [tasks.deps]
 description = "Download and tidy dependencies"
 run = "go mod download && go mod tidy"
 
 [tasks.build]
-description = "Build houston binary for development"
-run = "mkdir -p build && go build -o build/houston ./cmd/houston"
-
-[tasks.build-static]
-description = "Build static houston binary for distribution"
+description = "Build static houston binary"
 run = """
 mkdir -p build
 CGO_ENABLED=0 go build -ldflags='-s -w -extldflags "-static"' -o build/houston ./cmd/houston
 """
+
+[tasks.build-dev]
+description = "Build houston binary for development (faster, non-static)"
+run = "mkdir -p build && go build -o build/houston ./cmd/houston"
 
 [tasks.test]
 description = "Run all tests"
@@ -52,3 +56,16 @@ run = "rm -rf build/"
 [tasks.all]
 description = "Run deps, fmt, vet, lint, test, and build"
 depends = ["deps", "fmt", "vet", "lint", "test", "build"]
+
+[tasks.changelog]
+description = "Create a new changelog entry"
+run = "changie new"
+
+[tasks.build-release-tool]
+description = "Build the release tool"
+run = "mkdir -p tools/bin && go build -o tools/bin/release ./tools/release"
+
+[tasks.release]
+description = "Create a new release (batch changelog, commit, tag, push)"
+depends = ["build-release-tool"]
+run = "tools/bin/release"
