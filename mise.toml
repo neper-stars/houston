@@ -65,6 +65,10 @@ depends = ["deps", "fmt", "vet", "lint", "test", "build"]
 description = "Create a new changelog entry"
 run = "changie new"
 
+[tasks."changelog:add"]
+description = "Create a new changelog entry non-interactively: mise r changelog:add Changed 'Description'"
+run = "changie new -k {{arg(name=\"kind\")}} -b {{arg(name=\"body\")}}"
+
 [tasks.build-release-tool]
 description = "Build the release tool"
 run = "mkdir -p tools/bin && go build -o tools/bin/release ./tools/release"
