@@ -31,7 +31,11 @@ run = "go test -v ./..."
 
 [tasks.test-cover]
 description = "Run tests with coverage report"
-run = "mkdir -p build && go test -coverprofile=build/coverage.out ./... && go tool cover -html=build/coverage.out -o build/coverage.html"
+run = """
+mkdir -p build
+go test -coverprofile=build/coverage.out $(go list ./... | grep -v /tools/)
+go tool cover -html=build/coverage.out -o build/coverage.html
+"""
 
 [tasks.vet]
 description = "Run go vet"
