@@ -1,3 +1,0 @@
-kind: Added
-body: Removed tools from code coverage to avoid "false positives"
-time: 2026-01-02T16:11:14.522626509+01:00
