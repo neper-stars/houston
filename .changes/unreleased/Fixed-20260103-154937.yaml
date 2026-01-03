@@ -1,0 +1,3 @@
+kind: Fixed
+body: Animation rendering with consistent scaling across frames and proper XY file handling for ZIP archives
+time: 2026-01-03T15:49:37.856704717+01:00

@@ -180,6 +180,15 @@ func (r *Renderer) computeBounds() {
 	}
 }
 
+// setBounds sets the map bounds externally. Used by Animator to ensure
+// consistent scaling across all animation frames.
+func (r *Renderer) setBounds(minX, maxX, minY, maxY int) {
+	r.minX = minX
+	r.maxX = maxX
+	r.minY = minY
+	r.maxY = maxY
+}
+
 // minefields returns cached minefields or fetches them from store.
 func (r *Renderer) minefields() []*store.ObjectEntity {
 	if r.cachedMinefields == nil {
@@ -907,6 +916,11 @@ type Animator struct {
 	// palette is an optional shared color palette for GIF frames.
 	// Using a shared palette improves consistency and reduces per-frame work.
 	palette color.Palette
+	// baseFileName and baseFileData hold data that should be loaded into every frame.
+	// This is typically the .xy universe file that provides planet names and
+	// universe structure shared across all turns.
+	baseFileName string
+	baseFileData []byte
 }
 
 // NewAnimator creates a new Animator.
@@ -927,6 +941,15 @@ func (a *Animator) SetOptions(opts *RenderOptions) {
 // and eliminates per-frame palette computation overhead.
 func (a *Animator) SetPalette(p color.Palette) {
 	a.palette = p
+}
+
+// SetBaseData sets data that should be loaded into every frame.
+// This is typically the .xy universe file that provides planet names
+// and universe structure shared across all turns.
+// Must be called before AddBytes() for turn files.
+func (a *Animator) SetBaseData(name string, data []byte) {
+	a.baseFileName = name
+	a.baseFileData = data
 }
 
 // DefaultGIFPalette returns a 256-color palette suitable for Stars! maps.
@@ -1023,6 +1046,8 @@ func (a *Animator) AddFile(filename string) error {
 }
 
 // AddBytes adds game data from bytes. Files from the same year are merged into a single frame.
+// If SetBaseData was called, the base data (typically the .xy file) is loaded into each
+// new frame before the turn-specific data.
 func (a *Animator) AddBytes(name string, data []byte) error {
 	// Create a temporary renderer to get the year
 	tempR := New()
@@ -1039,7 +1064,21 @@ func (a *Animator) AddBytes(name string, data []byte) error {
 		}
 		existingR.computeBounds()
 	} else {
-		a.framesByYear[year] = tempR
+		// Creating new frame - load base data first if set
+		if a.baseFileData != nil {
+			r := New()
+			if err := r.LoadBytes(a.baseFileName, a.baseFileData); err != nil {
+				return err
+			}
+			// Now load the turn-specific data on top
+			if err := r.store.AddFile(name, data); err != nil {
+				return err
+			}
+			r.computeBounds()
+			a.framesByYear[year] = r
+		} else {
+			a.framesByYear[year] = tempR
+		}
 	}
 
 	return nil
@@ -1064,6 +1103,42 @@ func (a *Animator) SortByYear() {
 	sort.Slice(a.renderers, func(i, j int) bool {
 		return a.renderers[i].Year() < a.renderers[j].Year()
 	})
+}
+
+// NormalizeBounds calculates the global bounds across all frames and applies
+// them to each frame. This ensures consistent scaling across all animation
+// frames, preventing planets from appearing to drift as the explored galaxy
+// expands over time.
+func (a *Animator) NormalizeBounds() {
+	if len(a.renderers) == 0 {
+		return
+	}
+
+	// Calculate global bounds (union of all frames)
+	minX := math.MaxInt32
+	maxX := math.MinInt32
+	minY := math.MaxInt32
+	maxY := math.MinInt32
+
+	for _, r := range a.renderers {
+		if r.minX < minX {
+			minX = r.minX
+		}
+		if r.maxX > maxX {
+			maxX = r.maxX
+		}
+		if r.minY < minY {
+			minY = r.minY
+		}
+		if r.maxY > maxY {
+			maxY = r.maxY
+		}
+	}
+
+	// Apply global bounds to all frames
+	for _, r := range a.renderers {
+		r.setBounds(minX, maxX, minY, maxY)
+	}
 }
 
 // FrameCount returns the number of frames (unique years).
@@ -1092,6 +1167,9 @@ func (a *Animator) WriteGIF(w io.Writer, delayMs int) error {
 	if len(a.renderers) == 0 {
 		return fmt.Errorf("no frames to save")
 	}
+
+	// Normalize bounds across all frames to ensure consistent scaling
+	a.NormalizeBounds()
 
 	n := len(a.renderers)
 	delay := delayMs / 10
