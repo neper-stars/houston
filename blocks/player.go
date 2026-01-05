@@ -227,8 +227,8 @@ type ZipProdQueueItem struct {
 //   - Byte 0: Flags (purpose TBD, usually 0x00)
 //   - Byte 1: Number of items (can exceed 7 since items can repeat)
 //   - Bytes 2+: Item data, 2 bytes per item as uint16 LE:
-//       - Low 6 bits: Item ID (0-6 for auto-build items)
-//       - High 10 bits: Count (0-1023, max settable in GUI is 1020)
+//   - Low 6 bits: Item ID (0-6 for auto-build items)
+//   - High 10 bits: Count (0-1023, max settable in GUI is 1020)
 //
 // NOTE: The same item type can appear multiple times with different counts
 // (e.g., AutoMines(1) followed by AutoMines(2)). Maximum 12 items per queue.
@@ -758,7 +758,8 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		encoding.Write16(data, fullDataStart+76, flags)
 
 		// Bytes 86-111: Default zip production queue (26 bytes)
-		if len(p.ZipProdDefault.Items) > 0 {
+		switch {
+		case len(p.ZipProdDefault.Items) > 0:
 			// Encode from parsed items
 			data[fullDataStart+78] = p.ZipProdDefault.Flags
 			data[fullDataStart+79] = byte(len(p.ZipProdDefault.Items))
@@ -769,10 +770,10 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 					encoding.Write16(data, fullDataStart+80+i*2, val)
 				}
 			}
-		} else if len(p.ZipProdDefault.RawBytes) >= 26 {
+		case len(p.ZipProdDefault.RawBytes) >= 26:
 			// Fallback to raw bytes if items not parsed
 			copy(data[fullDataStart+78:fullDataStart+104], p.ZipProdDefault.RawBytes)
-		} else if len(p.FullDataBytes) >= 96 {
+		case len(p.FullDataBytes) >= 96:
 			// Fallback to FullDataBytes if RawBytes not set
 			copy(data[fullDataStart+78:fullDataStart+104], p.FullDataBytes[78:104])
 		}

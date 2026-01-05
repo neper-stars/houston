@@ -101,9 +101,9 @@ func verifyZipProdItems(t *testing.T, expected []ExpectedZipProdItem, actual []b
 
 	for i, expectedItem := range expected {
 		actualItem := actual[i]
-		assert.Equal(t, uint16(expectedItem.ItemType), actualItem.ItemType,
+		assert.Equal(t, uint16(expectedItem.ItemType), actualItem.ItemType, //nolint:gosec // test data is controlled
 			"%s: Item %d (%s) type should match", context, i, expectedItem.Name)
-		assert.Equal(t, uint16(expectedItem.Quantity), actualItem.Quantity,
+		assert.Equal(t, uint16(expectedItem.Quantity), actualItem.Quantity, //nolint:gosec // test data is controlled
 			"%s: Item %d (%s) quantity should match", context, i, expectedItem.Name)
 	}
 }
