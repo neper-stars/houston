@@ -218,6 +218,19 @@ const (
 
 	// SaveAndSubmitBlockType (46) marks a turn as submitted.
 	// Indicates the player has finished their turn and submitted orders.
+	//
+	// This block is also used to carry zip production order data:
+	//   - When present in .x files, contains the default zip prod template
+	//   - Format: variable size (2 + 2*itemCount bytes)
+	//     - Byte 0: Flags (purpose TBD, usually 0x00)
+	//     - Byte 1: Number of items (0-7, for 7 auto-build item types)
+	//     - Bytes 2+: Item data, 2 bytes per item as uint16 LE:
+	//         - Low 6 bits: Item ID (0=AutoMines, 1=AutoFactories, etc.)
+	//         - High 10 bits: Count (0-1023)
+	//   - The same data appears at offset 0x56 (bytes 86-111) in the player block
+	//     with padding to 26 bytes
+	//
+	// See also: ZipProdQueue in player.go
 	SaveAndSubmitBlockType // 46
 )
 

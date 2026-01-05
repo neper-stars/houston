@@ -195,6 +195,57 @@ type ResearchCosts struct {
 	Biotech      int
 }
 
+// PlayerFlags holds player state flags (wFlags at offset 0x54)
+type PlayerFlags struct {
+	Dead     bool // Player has been eliminated
+	Crippled bool // Player is crippled
+	Cheater  bool // Cheater flag
+	Learned  bool // Unknown purpose
+	Hacker   bool // Hacker flag
+}
+
+// ZipProdQueueItem represents a single item in a zip production template.
+// All zip prod items are Auto Build items (IDs 0-6):
+//   - 0: AutoMines
+//   - 1: AutoFactories
+//   - 2: AutoDefenses
+//   - 3: AutoAlchemy
+//   - 4: AutoMinTerraform
+//   - 5: AutoMaxTerraform
+//   - 6: AutoPackets
+type ZipProdQueueItem struct {
+	ItemType uint16 // Auto build item ID (0-6)
+	Quantity uint16 // Build limit (0 = unlimited for Alchemy)
+}
+
+// ZipProdQueue represents a "zip production" template (quick production orders).
+// These are production templates that can be quickly applied to any planet.
+// The default template (Q1) is auto-applied to newly conquered planets.
+// Players can define up to 4 templates (Default + 3 custom named ones).
+//
+// Binary format (variable size in .x order file, 26 bytes with padding in player block):
+//   - Byte 0: Flags (purpose TBD, usually 0x00)
+//   - Byte 1: Number of items (can exceed 7 since items can repeat)
+//   - Bytes 2+: Item data, 2 bytes per item as uint16 LE:
+//       - Low 6 bits: Item ID (0-6 for auto-build items)
+//       - High 10 bits: Count (0-1023, max settable in GUI is 1020)
+//
+// NOTE: The same item type can appear multiple times with different counts
+// (e.g., AutoMines(1) followed by AutoMines(2)). Maximum 12 items per queue.
+// In the GUI, zip queues are populated by importing from a planet's production queue.
+//
+// This format differs from ProductionQueueBlock which uses (ItemId << 10) | Count.
+// ZipProd uses the reverse: (Count << 6) | ItemId.
+//
+// The zip prod data also appears in SaveAndSubmitBlockType (46) in .x order files,
+// which is the source before being copied into the player block.
+// See constants.go for SaveAndSubmitBlockType documentation.
+type ZipProdQueue struct {
+	Items    []ZipProdQueueItem // Production items in the template
+	Flags    byte               // Flags byte (purpose TBD)
+	RawBytes []byte             // Raw bytes - preserved for round-trip encoding
+}
+
 // PlayerBlock represents player data (Type 6)
 type PlayerBlock struct {
 	GenericBlock
@@ -244,6 +295,13 @@ type PlayerBlock struct {
 
 	// Mystery Trader items owned (bitmask, always 0 in race files)
 	MTItems uint16
+
+	// Player state flags (offset 0x54, bytes 84-85)
+	Flags PlayerFlags
+
+	// Default zip production queue template (offset 0x56, bytes 86-111)
+	// This is auto-applied to newly conquered planets
+	ZipProdDefault ZipProdQueue
 
 	// PasswordHash stores the hashed password for encoding.
 	// When decoding, use HashedPass() to read from raw data.
@@ -398,6 +456,31 @@ func (p *PlayerBlock) decode() error {
 
 		// MT Items (bytes 82-83, FDB 74-75)
 		p.MTItems = encoding.Read16(p.Decrypted, 82)
+
+		// Player state flags (bytes 84-85, FDB 76-77)
+		flags := encoding.Read16(p.Decrypted, 84)
+		p.Flags.Dead = (flags & 0x01) != 0
+		p.Flags.Crippled = (flags & 0x02) != 0
+		p.Flags.Cheater = (flags & 0x04) != 0
+		p.Flags.Learned = (flags & 0x08) != 0
+		p.Flags.Hacker = (flags & 0x10) != 0
+
+		// Default zip production queue (bytes 86-111, FDB 78-103)
+		// This is the production template auto-applied to newly conquered planets
+		p.ZipProdDefault.RawBytes = make([]byte, 26)
+		copy(p.ZipProdDefault.RawBytes, p.Decrypted[86:112])
+		p.ZipProdDefault.Flags = p.Decrypted[86]
+		itemCount := int(p.Decrypted[87])
+		p.ZipProdDefault.Items = make([]ZipProdQueueItem, 0, itemCount)
+		for i := 0; i < itemCount && 88+i*2+1 < len(p.Decrypted); i++ {
+			val := encoding.Read16(p.Decrypted, 88+i*2)
+			// Format: (Count << 6) | ItemId
+			// Low 6 bits: Item ID, High 10 bits: Count
+			p.ZipProdDefault.Items = append(p.ZipProdDefault.Items, ZipProdQueueItem{
+				ItemType: val & 0x3F,
+				Quantity: val >> 6,
+			})
+		}
 
 		// Player relations
 		index = 0x70
@@ -655,9 +738,43 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		// Bytes 82-83: MT Items
 		encoding.Write16(data, fullDataStart+74, p.MTItems)
 
-		// Bytes 84-103: Remaining (preserved from FullDataBytes if available)
-		if len(p.FullDataBytes) >= 96 {
-			copy(data[fullDataStart+76:fullDataStart+96], p.FullDataBytes[76:96])
+		// Bytes 84-85: Player state flags
+		var flags uint16
+		if p.Flags.Dead {
+			flags |= 0x01
+		}
+		if p.Flags.Crippled {
+			flags |= 0x02
+		}
+		if p.Flags.Cheater {
+			flags |= 0x04
+		}
+		if p.Flags.Learned {
+			flags |= 0x08
+		}
+		if p.Flags.Hacker {
+			flags |= 0x10
+		}
+		encoding.Write16(data, fullDataStart+76, flags)
+
+		// Bytes 86-111: Default zip production queue (26 bytes)
+		if len(p.ZipProdDefault.Items) > 0 {
+			// Encode from parsed items
+			data[fullDataStart+78] = p.ZipProdDefault.Flags
+			data[fullDataStart+79] = byte(len(p.ZipProdDefault.Items))
+			for i, item := range p.ZipProdDefault.Items {
+				if fullDataStart+80+i*2+1 < len(data) {
+					// Format: (Count << 6) | ItemId
+					val := (item.Quantity << 6) | (item.ItemType & 0x3F)
+					encoding.Write16(data, fullDataStart+80+i*2, val)
+				}
+			}
+		} else if len(p.ZipProdDefault.RawBytes) >= 26 {
+			// Fallback to raw bytes if items not parsed
+			copy(data[fullDataStart+78:fullDataStart+104], p.ZipProdDefault.RawBytes)
+		} else if len(p.FullDataBytes) >= 96 {
+			// Fallback to FullDataBytes if RawBytes not set
+			copy(data[fullDataStart+78:fullDataStart+104], p.FullDataBytes[78:104])
 		}
 
 		index = fullDataStart + 104

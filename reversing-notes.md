@@ -1340,6 +1340,206 @@ these exploits can be detected and fixed:
 
 ---
 
+## Zip Production Queue (Player Block offset 0x56)
+
+The "Zip Production" feature allows players to define production templates that can be quickly applied to any planet. The Default template (Q1) is auto-applied to newly conquered planets.
+
+### Storage Location
+
+**In PlayerBlock (Type 6, M files):**
+- Offset 0x56 (86 decimal), 26 bytes total
+- Only the Default queue (Q1) is stored; other custom queues appear to be client-side only
+
+**In SaveAndSubmitBlock (Type 46, X files):**
+- Variable size: 2 + (2 × itemCount) bytes
+- Contains the zip prod order being submitted
+
+### Binary Format
+
+```
+FF NN [II II] [II II] ... [padding]
+│  │  └─────────────────┘
+│  │           └─── Items (2 bytes each, up to 7 items)
+│  └────────────── Item count (0-7)
+└───────────────── Flags byte (purpose TBD, usually 0x00)
+```
+
+### Item Encoding
+
+Each item is a 16-bit little-endian value with format `(Count << 6) | ItemId`:
+
+```
+Bits 0-5:   Item ID (0-6 for auto-build items)
+Bits 6-15:  Count (0-1023, max settable in GUI is 1020)
+```
+
+**IMPORTANT:** This differs from ProductionQueueBlock which uses `(ItemId << 10) | Count`. ZipProd has the fields reversed!
+
+### Auto-Build Item IDs
+
+| ID | Item               |
+|----|--------------------|
+| 0  | Auto Mines         |
+| 1  | Auto Factories     |
+| 2  | Auto Defenses      |
+| 3  | Auto Alchemy       |
+| 4  | Auto Min Terraform |
+| 5  | Auto Max Terraform |
+| 6  | Auto Packets       |
+
+### Example Decoding
+
+Raw data: `00 07 C0 02 81 4B 02 FF 43 00 04 FF C5 05 06 6F`
+
+```
+Flags: 0x00
+Item count: 7
+
+Item 0: 0x02C0 → ID=(0x02C0 & 0x3F)=0, Count=(0x02C0 >> 6)=11  → AutoMines(11)
+Item 1: 0x4B81 → ID=1, Count=302  → AutoFactories(302)
+Item 2: 0xFF02 → ID=2, Count=1020 → AutoDefenses(1020)
+Item 3: 0x0043 → ID=3, Count=1   → AutoAlchemy(1)
+Item 4: 0xFF04 → ID=4, Count=1020 → AutoMinTerraform(1020)
+Item 5: 0x05C5 → ID=5, Count=23  → AutoMaxTerraform(23)
+Item 6: 0x6F06 → ID=6, Count=444 → AutoPackets(444)
+```
+
+### Notes
+
+- **Items CAN repeat**: The same auto-build item type can appear multiple times with different counts (e.g., AutoMines(1) followed by AutoMines(2))
+- **Maximum 12 items**: The queue is limited to 12 items. In the GUI, zip queues are populated by "importing" from a planet's actual production queue, and only the first 12 items are imported
+- The "Contribute only leftover resources to research" checkbox state location is TBD (possibly in Flags byte or elsewhere in player data)
+- Count of 1 for AutoAlchemy may indicate "enabled" since alchemy doesn't have a meaningful quantity limit
+- Multiple SaveAndSubmit blocks may appear in X files, potentially for different queue slots or sequential updates
+
+### Client-Side Storage (Stars.ini)
+
+Custom zip queue definitions (Q2, Q3, Q4 names and contents) are stored in `Stars.ini`, typically at `C:\Windows\Stars.ini` (or under Wine: `~/.wine/drive_c/windows/Stars.ini`).
+
+**INI Section: `[ZipOrders]`**
+
+```ini
+[ZipOrders]
+ZipOrdersP1=agaeaabeaaceaaeiaafiaagiaa<Default>
+ZipOrdersP2=abaajbZO1
+ZipOrdersP3=abbajbZO2
+ZipOrdersP4=acaeaabeaaZO3
+ZipOrdersP5=
+```
+
+**Format**: `ZipOrdersP{n}=[encoded_data][QueueName]`
+- `n` = Queue slot number (1-4: Default, Q2, Q3, Q4)
+- `[encoded_data]` = Base-11 encoded queue items (lowercase letters a-k)
+- `[QueueName]` = Queue name appended directly after encoded data (no separator)
+  - Default queue uses angle brackets: `<Default>`
+  - Custom queues use plain text: `ZO1`, `zZoO`, etc. (can contain any characters including lowercase)
+
+**Encoded data length** is determined by the header:
+```
+length = 2 + (item_count × 4)
+```
+- Header (2 chars) + 4 chars per item
+- Example: `ab` (1 item) → 2 + 4 = 6 chars, then queue name follows
+
+#### Encoding Format
+
+The encoding uses lowercase letters where 'a'=0, 'b'=1, ..., 'k'=10.
+
+**Header**: `a[item_count_char]`
+- `ab` = 1 item ('b'=1)
+- `ac` = 2 items ('c'=2)
+- `ag` = 7 items ('g'=6, possibly 0-indexed or special case for Default)
+
+**Item Encoding** (varies by queue size):
+
+*Single-item queues*: `[type_char]a[count_high][count_low]`
+- Type: 'a'=AutoMines, 'b'=AutoFactories, 'c'=AutoDefenses, etc.
+- Count: 2 chars in base-11
+
+*Multi-item queues*: `[type_char]e[count_high][count_low]` per item
+- Type: same as above
+- Flag 'e' instead of 'a' for multi-item queues
+- Count: 2 chars in base-11
+
+**Count Encoding (Base-11)**:
+```
+count = (high_char - 'a') × 11 + (low_char - 'a')
+```
+
+Examples:
+- `aa` = 0×11 + 0 = 0 (no limit / empty)
+- `ab` = 0×11 + 1 = 1
+- `jb` = 9×11 + 1 = 100
+- `ba` = 1×11 + 0 = 11
+
+#### Detailed Examples
+
+**Example 1: `abaajbzZoO`** (1 item: AutoMines(100), name "zZoO")
+```
+ab  aajb  zZoO
+^^  ^^^^  ^^^^
+│   │     └── Queue name (everything after encoded data)
+│   └── Item 1: type 'a'=AutoMines, flag 'a', count 'jb'=100
+└── Header: 'a' prefix + 'b'=1 item
+```
+Length: 2 + (1 × 4) = 6 chars → `abaajb`, then `zZoO` is the name
+
+**Example 2: `acaeaabeaaZO3`** (2 items: AutoMines(0), AutoFactories(0), name "ZO3")
+```
+ac  aeaa  beaa  ZO3
+^^  ^^^^  ^^^^  ^^^
+│   │     │     └── Queue name
+│   │     └── Item 2: type 'b'=AutoFactories, flag 'e', count 'aa'=0
+│   └── Item 1: type 'a'=AutoMines, flag 'e', count 'aa'=0
+└── Header: 'a' prefix + 'c'=2 items
+```
+Length: 2 + (2 × 4) = 10 chars → `acaeaabeaa`, then `ZO3` is the name
+
+#### Summary Table
+
+| INI Value | Decoded |
+|-----------|---------|
+| `abaajb` | 1 item: AutoMines(100) |
+| `abbajb` | 1 item: AutoFactories(100) |
+| `acaeaabeaa` | 2 items: AutoMines(0), AutoFactories(0) |
+
+#### Notes
+
+- The Default queue (`<Default>`) encoding may differ slightly from custom queues
+- Empty entries (`ZipOrdersP3=`) indicate no custom queue defined for that slot
+- Data is only saved when the game client exits
+- This explains why custom queue names persist between sessions despite not being in the game files
+
+---
+
+## Player Flags (Player Block offset 0x54)
+
+Player state flags are stored at offset 0x54 (84 decimal) in the PlayerBlock as a 16-bit value.
+
+### Binary Format
+
+```
+Bits 0-4:   State flags
+Bits 5-15:  Unused (always 0)
+```
+
+### Flag Definitions
+
+| Bit | Mask | Name | Description |
+|-----|------|------|-------------|
+| 0 | 0x01 | Dead | Player has been eliminated |
+| 1 | 0x02 | Crippled | Player is crippled (definition TBD) |
+| 2 | 0x04 | Cheater | Cheater flag detected |
+| 3 | 0x08 | Learned | Unknown purpose |
+| 4 | 0x10 | Hacker | Hacker flag detected |
+
+### Notes
+
+- The Cheater and Hacker flags may be set by the game when certain exploit conditions are detected
+- The Crippled flag purpose needs further investigation (possibly related to victory conditions)
+
+---
+
 ## AI Player Configuration
 
 In PlayerBlock (Type 6), byte 7 encodes AI settings:

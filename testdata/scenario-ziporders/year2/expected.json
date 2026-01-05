@@ -1,0 +1,24 @@
+{
+  "scenario": "ziporders-year2",
+  "description": "Year 2 (turn 1) with all 4 zip prod queues defined from screenshots",
+  "files": {
+    "game.m1": {
+      "player": {
+        "number": 0,
+        "raceName": "Hobbit",
+        "zipProdDefault": {
+          "flags": 0,
+          "items": [
+            {"itemType": 0, "quantity": 11, "name": "AutoMines"},
+            {"itemType": 1, "quantity": 302, "name": "AutoFactories"},
+            {"itemType": 2, "quantity": 1020, "name": "AutoDefenses"},
+            {"itemType": 3, "quantity": 1, "name": "AutoAlchemy"},
+            {"itemType": 4, "quantity": 1020, "name": "AutoMinTerraform"},
+            {"itemType": 5, "quantity": 23, "name": "AutoMaxTerraform"},
+            {"itemType": 6, "quantity": 444, "name": "AutoPackets"}
+          ]
+        }
+      }
+    }
+  }
+}
