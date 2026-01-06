@@ -30,6 +30,22 @@ The library has been optimized for readability with two different layers.
   - The second, a high level API (store) insulates the user from the
     intricaties of the file format and tries to propose a high level
     logical API to "view" and manipulate the game "state"
+    This second layer is work in progress and does not expose
+    everything yet.
+ 
+# Standalone tools
+
+Many of the tools exposed by the API are also compiled in the houston binary
+with a command line interface. Try `houston -h` for more info.
+
+Per example to dump all deciphered block in a stars! file:
+
+```sh
+houston blocks -d game.m1
+```
+
+This command will produce a detailed output of all the blocks and their
+inner guts...
 
 # Acknowldgements:
 
