@@ -1,0 +1,298 @@
+package blockdetail
+
+import (
+	"fmt"
+
+	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/encoding"
+)
+
+func init() {
+	RegisterFormatter(blocks.PlayerBlockType, FormatPlayer)
+}
+
+// Auto-build item names for ZipProd display
+var autoBuildNames = []string{
+	"AutoMines",
+	"AutoFactories",
+	"AutoDefenses",
+	"AutoAlchemy",
+	"AutoMinTerraform",
+	"AutoMaxTerraform",
+	"AutoPackets",
+}
+
+// PRT names
+var prtNames = []string{
+	"HE (Hyper-Expansion)",
+	"SS (Super Stealth)",
+	"WM (War Monger)",
+	"CA (Claim Adjuster)",
+	"IS (Inner Strength)",
+	"SD (Space Demolition)",
+	"PP (Packet Physics)",
+	"IT (Interstellar Traveler)",
+	"AR (Alternate Reality)",
+	"JoaT (Jack of all Trades)",
+}
+
+// FormatPlayer provides detailed view for PlayerBlock
+func FormatPlayer(block blocks.Block, index int) string {
+	width := DefaultWidth
+	pb, ok := block.(blocks.PlayerBlock)
+	if !ok {
+		return FormatGeneric(block, index)
+	}
+
+	data := pb.DecryptedData()
+	header := FormatBlockHeader(block, index, width)
+	hexSection := FormatHexSection(data, width)
+
+	// Decode fields
+	var fields []string
+
+	// Bytes 0-7: Basic player info
+	fields = append(fields, FormatFieldRaw(0x00, 0x00, "Player Number",
+		fmt.Sprintf("0x%02X", data[0]),
+		fmt.Sprintf("%d", pb.PlayerNumber)))
+
+	fields = append(fields, FormatFieldRaw(0x01, 0x01, "Ship Design Count",
+		fmt.Sprintf("0x%02X", data[1]),
+		fmt.Sprintf("%d", pb.ShipDesignCount)))
+
+	fields = append(fields, FormatFieldRaw(0x02, 0x03, "Planets",
+		fmt.Sprintf("0x%02X%02X", data[3], data[2]),
+		fmt.Sprintf("(d[2] + (d[3] & 0x03) << 8) = %d", pb.Planets)))
+
+	fields = append(fields, FormatFieldRaw(0x04, 0x05, "Fleets",
+		fmt.Sprintf("0x%02X%02X", data[5], data[4]),
+		fmt.Sprintf("(d[4] + (d[5] & 0x03) << 8) = %d", pb.Fleets)))
+
+	fields = append(fields, FormatFieldRaw(0x05, 0x05, "Starbase Design Count",
+		fmt.Sprintf("0x%02X", data[5]),
+		fmt.Sprintf("(d[5] >> 4) = %d", pb.StarbaseDesignCount)))
+
+	fields = append(fields, FormatFieldRaw(0x06, 0x06, "Logo/Flags",
+		fmt.Sprintf("0x%02X", data[6]),
+		fmt.Sprintf("Logo=(d[6]>>3)=%d, FullData=(d[6]&0x04)=%v", pb.Logo, pb.FullDataFlag)))
+
+	fields = append(fields, FormatFieldRaw(0x07, 0x07, "Byte7 (AI settings)",
+		fmt.Sprintf("0x%02X", pb.Byte7),
+		decodeAIByte(pb)))
+
+	// Bytes 8-11: Unknown/header continuation (show inline)
+	if len(data) > 11 {
+		fields = append(fields, FormatFieldRaw(0x08, 0x08, "??? (unknown)",
+			fmt.Sprintf("0x%02X", data[8]),
+			"TBD"))
+		fields = append(fields, FormatFieldRaw(0x09, 0x09, "??? (unknown)",
+			fmt.Sprintf("0x%02X", data[9]),
+			"TBD"))
+		fields = append(fields, FormatFieldRaw(0x0A, 0x0A, "??? (unknown)",
+			fmt.Sprintf("0x%02X", data[10]),
+			"TBD"))
+		fields = append(fields, FormatFieldRaw(0x0B, 0x0B, "??? (unknown)",
+			fmt.Sprintf("0x%02X", data[11]),
+			"TBD"))
+	}
+
+	// Bytes 12-15: Password hash
+	if len(data) >= 16 {
+		passHash := pb.HashedPass().Uint32()
+		rawHex := fmt.Sprintf("0x%02X%02X%02X%02X", data[15], data[14], data[13], data[12])
+		if passHash == 0 {
+			fields = append(fields, FormatFieldRaw(0x0C, 0x0F, "Password Hash", rawHex, "uint32 LE = 0 (no password)"))
+		} else {
+			fields = append(fields, FormatFieldRaw(0x0C, 0x0F, "Password Hash", rawHex, fmt.Sprintf("uint32 LE = 0x%08X", passHash)))
+		}
+	}
+
+	// Full data section (if present)
+	if pb.FullDataFlag && len(data) > 112 {
+		fields = append(fields, "")
+		fields = append(fields, "── Full Data Section (starts at offset 0x08) ──")
+
+		// Habitability (bytes 8-16 relative to full data start)
+		// Full data offset 0 = block offset 8
+		fields = append(fields, FormatFieldRaw(0x10, 0x18, "Habitability",
+			fmt.Sprintf("0x%s", HexDumpSingleLine(data[16:25])),
+			fmt.Sprintf("Grav=%d-%d, Temp=%d-%d, Rad=%d-%d",
+				pb.Hab.GravityLow, pb.Hab.GravityHigh,
+				pb.Hab.TemperatureLow, pb.Hab.TemperatureHigh,
+				pb.Hab.RadiationLow, pb.Hab.RadiationHigh)))
+
+		// Growth rate (byte 17 in full data = offset 0x19)
+		fields = append(fields, FormatFieldRaw(0x19, 0x19, "Growth Rate",
+			fmt.Sprintf("0x%02X", data[25]),
+			fmt.Sprintf("%d%%", pb.GrowthRate)))
+
+		// Tech levels (bytes 18-23 in full data = offset 0x1A-0x1F)
+		fields = append(fields, FormatFieldRaw(0x1A, 0x1F, "Tech Levels",
+			fmt.Sprintf("0x%s", HexDumpSingleLine(data[26:32])),
+			fmt.Sprintf("E=%d W=%d P=%d C=%d El=%d B=%d",
+				pb.Tech.Energy, pb.Tech.Weapons, pb.Tech.Propulsion,
+				pb.Tech.Construction, pb.Tech.Electronics, pb.Tech.Biotech)))
+
+		// PRT (offset 0x4C = byte 76)
+		prtName := "Unknown"
+		if pb.PRT >= 0 && pb.PRT < len(prtNames) {
+			prtName = prtNames[pb.PRT]
+		}
+		fields = append(fields, FormatFieldRaw(0x4C, 0x4C, "PRT",
+			fmt.Sprintf("0x%02X", data[76]),
+			fmt.Sprintf("%d = %s", pb.PRT, prtName)))
+
+		// LRT (offset 0x4E-0x4F = bytes 78-79)
+		lrtRaw := encoding.Read16(data, 78)
+		fields = append(fields, FormatFieldRaw(0x4E, 0x4F, "LRT Bitmask",
+			fmt.Sprintf("0x%02X%02X", data[79], data[78]),
+			fmt.Sprintf("uint16 LE = 0x%04X", lrtRaw)))
+		if pb.LRT != 0 {
+			lrtList := decodeLRT(pb.LRT)
+			for _, lrt := range lrtList {
+				fields = append(fields, fmt.Sprintf("           %s %s", TreeBranch, lrt))
+			}
+		}
+
+		// Player Flags (offset 0x54 = byte 84)
+		fields = append(fields, "")
+		flagsRaw := encoding.Read16(data, 84)
+		fields = append(fields, FormatFieldRaw(0x54, 0x55, "Player Flags",
+			fmt.Sprintf("0x%02X%02X", data[85], data[84]),
+			fmt.Sprintf("uint16 LE = 0x%04X -> %s", flagsRaw, formatPlayerFlags(pb.Flags))))
+
+		// ZipProd Queue (offset 0x56 = byte 86)
+		fields = append(fields, "")
+		zipStart := 86
+		fields = append(fields, FormatFieldRaw(0x56, 0x6F, "ZipProd Default Queue",
+			fmt.Sprintf("0x%s", HexDumpSingleLine(data[zipStart:zipStart+26])),
+			""))
+		fields = append(fields, fmt.Sprintf("           %s Byte 0 (Flags): 0x%02X", TreeBranch, pb.ZipProdDefault.Flags))
+		fields = append(fields, fmt.Sprintf("           %s Byte 1 (Count): 0x%02X -> %d items", TreeBranch, data[zipStart+1], len(pb.ZipProdDefault.Items)))
+
+		for i, item := range pb.ZipProdDefault.Items {
+			itemName := "Unknown"
+			if int(item.ItemType) < len(autoBuildNames) {
+				itemName = autoBuildNames[item.ItemType]
+			}
+			// Raw uint16 value
+			rawVal := encoding.Read16(data, zipStart+2+i*2)
+			prefix := TreeBranch
+			if i == len(pb.ZipProdDefault.Items)-1 {
+				prefix = TreeEnd
+			}
+			fields = append(fields, fmt.Sprintf("           %s Item %d: 0x%04X -> (val & 0x3F)=%d (%s), (val >> 6)=%d",
+				prefix, i, rawVal, item.ItemType, itemName, item.Quantity))
+		}
+
+		// Player Relations (offset 0x70 = byte 112)
+		if len(pb.PlayerRelations) > 0 {
+			fields = append(fields, "")
+			relStart := 112
+			fields = append(fields, FormatFieldRaw(0x70, 0x70+len(pb.PlayerRelations),
+				"Player Relations",
+				fmt.Sprintf("0x%s", HexDumpSingleLine(data[relStart:relStart+1+len(pb.PlayerRelations)])),
+				fmt.Sprintf("len=%d", len(pb.PlayerRelations))))
+			for i, rel := range pb.PlayerRelations {
+				relName := "Neutral"
+				switch rel {
+				case 1:
+					relName = "Friend"
+				case 2:
+					relName = "Enemy"
+				}
+				prefix := TreeBranch
+				if i == len(pb.PlayerRelations)-1 {
+					prefix = TreeEnd
+				}
+				fields = append(fields, fmt.Sprintf("           %s [%d]: 0x%02X -> Player %d = %s", prefix, i, rel, i, relName))
+			}
+		}
+	}
+
+	// Race names (at end of block)
+	fields = append(fields, "")
+	fields = append(fields, "── Race Names (nibble-encoded at end of block) ──")
+	fields = append(fields, fmt.Sprintf("  Singular: %q", pb.NameSingular))
+	fields = append(fields, fmt.Sprintf("  Plural:   %q", pb.NamePlural))
+
+	fieldsSection := FormatFieldsSection(fields, width)
+	unknownSection := FormatUnknownSection(nil, width)
+
+	return BuildOutput(header, hexSection, fieldsSection, unknownSection)
+}
+
+// decodeAIByte decodes byte 7 AI settings to human readable string
+func decodeAIByte(pb blocks.PlayerBlock) string {
+	if pb.AIEnabled {
+		skillNames := []string{"Easy", "Standard", "Harder", "Expert"}
+		skill := "Unknown"
+		if pb.AISkill >= 0 && pb.AISkill < len(skillNames) {
+			skill = skillNames[pb.AISkill]
+		}
+		return fmt.Sprintf("AI=%v, Skill=(d[7]>>2&3)=%d (%s)", pb.AIEnabled, pb.AISkill, skill)
+	}
+	if pb.IsHumanInactive() {
+		return "Human (Inactive) - byte=0xE3"
+	}
+	return "Human player"
+}
+
+// formatPlayerFlags formats player flags as a string
+func formatPlayerFlags(flags blocks.PlayerFlags) string {
+	var parts []string
+	if flags.Dead {
+		parts = append(parts, "Dead(bit0)")
+	}
+	if flags.Crippled {
+		parts = append(parts, "Crippled(bit1)")
+	}
+	if flags.Cheater {
+		parts = append(parts, "Cheater(bit2)")
+	}
+	if flags.Learned {
+		parts = append(parts, "Learned(bit3)")
+	}
+	if flags.Hacker {
+		parts = append(parts, "Hacker(bit4)")
+	}
+	if len(parts) == 0 {
+		return "(none)"
+	}
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += ", "
+		}
+		result += p
+	}
+	return result
+}
+
+// decodeLRT decodes LRT bitmask to a list of trait names
+func decodeLRT(lrt uint16) []string {
+	lrtNames := []string{
+		"bit0: IFE (Improved Fuel Efficiency)",
+		"bit1: TT (Total Terraforming)",
+		"bit2: ARM (Advanced Remote Mining)",
+		"bit3: ISB (Improved Starbases)",
+		"bit4: GR (Generalised Research)",
+		"bit5: UR (Ultimate Recycling)",
+		"bit6: MA (Mineral Alchemy)",
+		"bit7: NRSE (No Ram Scoop Engines)",
+		"bit8: CE (Cheap Engines)",
+		"bit9: OBRM (Only Basic Remote Mining)",
+		"bit10: NAS (No Advanced Scanners)",
+		"bit11: LSP (Low Starting Population)",
+		"bit12: BET (Bleeding Edge Technology)",
+		"bit13: RS (Regenerating Shields)",
+	}
+
+	var result []string
+	for i, name := range lrtNames {
+		if lrt&(1<<i) != 0 {
+			result = append(result, name)
+		}
+	}
+	return result
+}

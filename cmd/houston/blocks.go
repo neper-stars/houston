@@ -4,15 +4,20 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/jessevdk/go-flags"
 
 	"github.com/neper-stars/houston/blocks"
+	"github.com/neper-stars/houston/cmd/houston/blockdetail"
 	"github.com/neper-stars/houston/parser"
 )
 
 type blocksCommand struct {
-	Args struct {
+	Detailed bool   `short:"d" long:"detailed" description:"Show detailed ASCII schema for each block"`
+	Filter   string `short:"f" long:"filter" description:"Filter by block type IDs (comma-separated, e.g. '8,6' for FileHeader and Player)"`
+	Args     struct {
 		File string `positional-arg-name:"file" description:"Stars! game file to read" required:"true"`
 	} `positional-args:"yes"`
 }
@@ -30,23 +35,48 @@ func (c *blocksCommand) Execute(args []string) error {
 		return fmt.Errorf("failed to parse blocks: %w", err)
 	}
 
+	// Parse filter if provided
+	filterSet := make(map[blocks.BlockTypeID]bool)
+	if c.Filter != "" {
+		for _, part := range strings.Split(c.Filter, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			typeID, err := strconv.ParseUint(part, 10, 16)
+			if err != nil {
+				return fmt.Errorf("invalid block type ID in filter: %q", part)
+			}
+			filterSet[blocks.BlockTypeID(typeID)] = true
+		}
+	}
+
 	fmt.Printf("File: %s (%d bytes)\n", c.Args.File, len(fileBytes))
 	fmt.Printf("Blocks: %d\n\n", len(blockList))
 
 	for i, block := range blockList {
-		typeID := block.BlockTypeID()
-		typeName := blocks.BlockTypeName(typeID)
-		size := block.BlockSize()
-
-		fmt.Printf("Block %d: %s (type=%d, size=%d)\n", i, typeName, typeID, size)
-
-		decrypted := block.DecryptedData()
-		if len(decrypted) > 0 {
-			fmt.Printf("  Data: %s\n", hex.EncodeToString(decrypted))
+		// Apply filter if set
+		if len(filterSet) > 0 && !filterSet[block.BlockTypeID()] {
+			continue
 		}
+		if c.Detailed {
+			fmt.Print(blockdetail.FormatDetailed(block, i))
+			fmt.Println()
+		} else {
+			typeID := block.BlockTypeID()
+			typeName := blocks.BlockTypeName(typeID)
+			size := block.BlockSize()
 
-		printBlockDetails(block)
-		fmt.Println()
+			fmt.Printf("Block %d: %s (type=%d, size=%d)\n", i, typeName, typeID, size)
+
+			decrypted := block.DecryptedData()
+			if len(decrypted) > 0 {
+				fmt.Printf("  Data: %s\n", hex.EncodeToString(decrypted))
+			}
+
+			printBlockDetails(block)
+			fmt.Println()
+		}
 	}
 
 	return nil
