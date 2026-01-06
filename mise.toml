@@ -17,6 +17,21 @@ mkdir -p build
 CGO_ENABLED=0 go build -ldflags='-s -w -extldflags "-static"' -o build/houston ./cmd/houston
 """
 
+[tasks.build-windows]
+description = "Build static houston binary for Windows"
+run = """
+mkdir -p build
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags='-s -w' -o build/houston.exe ./cmd/houston
+"""
+
+[tasks.build-all]
+description = "Build houston binaries for Linux and Windows"
+run = """
+mkdir -p build
+CGO_ENABLED=0 go build -ldflags='-s -w -extldflags "-static"' -o build/houston ./cmd/houston
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags='-s -w' -o build/houston.exe ./cmd/houston
+"""
+
 [tasks.build-dev]
 description = "Build houston binary for development (faster, non-static)"
 run = "mkdir -p build && go build -o build/houston ./cmd/houston"
