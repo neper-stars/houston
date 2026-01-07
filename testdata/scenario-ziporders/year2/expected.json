@@ -7,7 +7,7 @@
         "number": 0,
         "raceName": "Hobbit",
         "zipProdDefault": {
-          "flags": 0,
+          "fNoResearch": 0,
           "items": [
             {"itemType": 0, "quantity": 11, "name": "AutoMines"},
             {"itemType": 1, "quantity": 302, "name": "AutoFactories"},

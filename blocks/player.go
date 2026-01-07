@@ -224,11 +224,15 @@ type ZipProdQueueItem struct {
 // Players can define up to 4 templates (Default + 3 custom named ones).
 //
 // Binary format (variable size in .x order file, 26 bytes with padding in player block):
-//   - Byte 0: Flags (purpose TBD, usually 0x00)
-//   - Byte 1: Number of items (can exceed 7 since items can repeat)
+//   - Byte 0: fNoResearch flag (0=contribute to research, 1=don't contribute)
+//   - Byte 1: Number of items (0-12)
 //   - Bytes 2+: Item data, 2 bytes per item as uint16 LE:
 //   - Low 6 bits: Item ID (0-6 for auto-build items)
 //   - High 10 bits: Count (0-1023, max settable in GUI is 1020)
+//
+// The fNoResearch flag controls how the planet contributes to research:
+//   - 0: "Contribute to Research" - uses global research percentage
+//   - 1: "Don't contribute to Research" - only leftover resources go to research
 //
 // NOTE: The same item type can appear multiple times with different counts
 // (e.g., AutoMines(1) followed by AutoMines(2)). Maximum 12 items per queue.
@@ -240,10 +244,12 @@ type ZipProdQueueItem struct {
 // The zip prod data also appears in SaveAndSubmitBlockType (46) in .x order files,
 // which is the source before being copied into the player block.
 // See constants.go for SaveAndSubmitBlockType documentation.
+//
+// Source: Field fNoResearch in ZIPPRODQ1 structure (types.h:2331)
 type ZipProdQueue struct {
-	Items    []ZipProdQueueItem // Production items in the template
-	Flags    byte               // Flags byte (purpose TBD)
-	RawBytes []byte             // Raw bytes - preserved for round-trip encoding
+	Items      []ZipProdQueueItem // Production items in the template
+	NoResearch bool               // fNoResearch: true = don't contribute to research
+	RawBytes   []byte             // Raw bytes - preserved for round-trip encoding
 }
 
 // PlayerBlock represents player data (Type 6)
@@ -469,7 +475,7 @@ func (p *PlayerBlock) decode() error {
 		// This is the production template auto-applied to newly conquered planets
 		p.ZipProdDefault.RawBytes = make([]byte, 26)
 		copy(p.ZipProdDefault.RawBytes, p.Decrypted[86:112])
-		p.ZipProdDefault.Flags = p.Decrypted[86]
+		p.ZipProdDefault.NoResearch = p.Decrypted[86] != 0
 		itemCount := int(p.Decrypted[87])
 		p.ZipProdDefault.Items = make([]ZipProdQueueItem, 0, itemCount)
 		for i := 0; i < itemCount && 88+i*2+1 < len(p.Decrypted); i++ {
@@ -761,7 +767,11 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		switch {
 		case len(p.ZipProdDefault.Items) > 0:
 			// Encode from parsed items
-			data[fullDataStart+78] = p.ZipProdDefault.Flags
+			if p.ZipProdDefault.NoResearch {
+				data[fullDataStart+78] = 1
+			} else {
+				data[fullDataStart+78] = 0
+			}
 			data[fullDataStart+79] = byte(len(p.ZipProdDefault.Items))
 			for i, item := range p.ZipProdDefault.Items {
 				if fullDataStart+80+i*2+1 < len(data) {

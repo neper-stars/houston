@@ -167,7 +167,11 @@ func FormatPlayer(block blocks.Block, index int) string {
 		fields = append(fields, FormatFieldRaw(0x56, 0x6F, "ZipProd Default Queue",
 			fmt.Sprintf("0x%s", HexDumpSingleLine(data[zipStart:zipStart+26])),
 			""))
-		fields = append(fields, fmt.Sprintf("           %s Byte 0 (Flags): 0x%02X", TreeBranch, pb.ZipProdDefault.Flags))
+		noResearchStr := "Contribute to Research"
+		if pb.ZipProdDefault.NoResearch {
+			noResearchStr = "Don't contribute to Research"
+		}
+		fields = append(fields, fmt.Sprintf("           %s Byte 0 (fNoResearch): 0x%02X -> %s", TreeBranch, data[zipStart], noResearchStr))
 		fields = append(fields, fmt.Sprintf("           %s Byte 1 (Count): 0x%02X -> %d items", TreeBranch, data[zipStart+1], len(pb.ZipProdDefault.Items)))
 
 		for i, item := range pb.ZipProdDefault.Items {

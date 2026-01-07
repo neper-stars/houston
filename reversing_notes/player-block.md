@@ -57,12 +57,25 @@ The "Zip Production" feature allows players to define production templates that 
 ### Binary Format
 
 ```
-FF NN [II II] [II II] ... [padding]
+FR NN [II II] [II II] ... [padding]
 │  │  └─────────────────┘
-│  │           └─── Items (2 bytes each, up to 7 items)
-│  └────────────── Item count (0-7)
-└───────────────── Flags byte (purpose TBD, usually 0x00)
+│  │           └─── Items (2 bytes each, up to 12 items)
+│  └────────────── Item count (0-12)
+└───────────────── fNoResearch flag (0 or 1)
 ```
+
+### fNoResearch Flag (offset 0)
+
+Controls how the planet contributes to research:
+
+| Value | GUI Label                      | Behavior                                                    |
+|-------|--------------------------------|-------------------------------------------------------------|
+| 0     | "Contribute to Research"       | Uses global research percentage (normal contribution)       |
+| 1     | "Don't contribute to Research" | Only leftover resources after production go to research     |
+
+When `fNoResearch=1`, the planet prioritizes production - research only receives resources remaining after the production queue has been fully processed for the year.
+
+**Source:** Field `fNoResearch` in `ZIPPRODQ1` structure (types.h:2331)
 
 ### Item Encoding
 
@@ -92,7 +105,7 @@ Bits 6-15:  Count (0-1023, max settable in GUI is 1020)
 Raw data: `00 07 C0 02 81 4B 02 FF 43 00 04 FF C5 05 06 6F`
 
 ```
-Flags: 0x00
+fNoResearch: 0x00 (uses global research percentage)
 Item count: 7
 
 Item 0: 0x02C0 → ID=(0x02C0 & 0x3F)=0, Count=(0x02C0 >> 6)=11  → AutoMines(11)

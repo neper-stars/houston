@@ -20,8 +20,8 @@ type ExpectedZipProdItem struct {
 }
 
 type ExpectedZipProdDefault struct {
-	Flags int                   `json:"flags"`
-	Items []ExpectedZipProdItem `json:"items"`
+	NoResearch int                   `json:"fNoResearch"` // 0=contribute to research, 1=don't
+	Items      []ExpectedZipProdItem `json:"items"`
 }
 
 type ExpectedZipOrdersPlayer struct {
@@ -121,8 +121,9 @@ func TestScenarioZipOrders_Year2(t *testing.T) {
 
 				assert.Equal(t, fileExpected.Player.Number, player.PlayerNumber, "Player number should match")
 				assert.Equal(t, fileExpected.Player.RaceName, player.NameSingular, "Race name should match")
-				assert.Equal(t, byte(fileExpected.Player.ZipProdDefault.Flags), player.ZipProdDefault.Flags,
-					"ZipProd flags should match")
+				expectedNoResearch := fileExpected.Player.ZipProdDefault.NoResearch != 0
+				assert.Equal(t, expectedNoResearch, player.ZipProdDefault.NoResearch,
+					"ZipProd fNoResearch should match")
 
 				verifyZipProdItems(t, fileExpected.Player.ZipProdDefault.Items,
 					player.ZipProdDefault.Items, "Player.ZipProdDefault")
@@ -144,8 +145,9 @@ func TestScenarioZipOrders_Year2NewOrders(t *testing.T) {
 
 				assert.Equal(t, fileExpected.Player.Number, player.PlayerNumber, "Player number should match")
 				assert.Equal(t, fileExpected.Player.RaceName, player.NameSingular, "Race name should match")
-				assert.Equal(t, byte(fileExpected.Player.ZipProdDefault.Flags), player.ZipProdDefault.Flags,
-					"ZipProd flags should match")
+				expectedNoResearch := fileExpected.Player.ZipProdDefault.NoResearch != 0
+				assert.Equal(t, expectedNoResearch, player.ZipProdDefault.NoResearch,
+					"ZipProd fNoResearch should match")
 
 				verifyZipProdItems(t, fileExpected.Player.ZipProdDefault.Items,
 					player.ZipProdDefault.Items, "Player.ZipProdDefault")
@@ -166,11 +168,15 @@ func TestScenarioZipOrders_Year2NewOrders(t *testing.T) {
 				// Format: byte 0 = flags, byte 1 = item count, then 2 bytes per item
 				require.GreaterOrEqual(t, len(saveAndSubmitData), 2, "SaveAndSubmit should have at least 2 bytes")
 
-				flags := saveAndSubmitData[0]
+				fNoResearch := saveAndSubmitData[0]
 				itemCount := int(saveAndSubmitData[1])
 
-				assert.Equal(t, byte(fileExpected.SaveAndSubmit.ZipProdDefault.Flags), flags,
-					"SaveAndSubmit ZipProd flags should match")
+				expectedNoResearch := byte(0)
+				if fileExpected.SaveAndSubmit.ZipProdDefault.NoResearch != 0 {
+					expectedNoResearch = 1
+				}
+				assert.Equal(t, expectedNoResearch, fNoResearch,
+					"SaveAndSubmit ZipProd fNoResearch should match")
 				assert.Equal(t, len(fileExpected.SaveAndSubmit.ZipProdDefault.Items), itemCount,
 					"SaveAndSubmit ZipProd item count should match")
 
