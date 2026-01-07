@@ -1083,12 +1083,14 @@ func TestFileTypeNames(t *testing.T) {
 		fileType uint8
 		expected string
 	}{
+		{FileTypeXY, "XY"},      // XY files use type 0
+		{FileTypeUnknown, "XY"}, // Alias for XY
+		{FileTypeX, "X"},
 		{FileTypeHST, "HST"},
 		{FileTypeM, "M"},
 		{FileTypeH, "H"},
 		{FileTypeRace, "Race"},
-		{FileTypeX, "X"},
-		{FileTypeUnknown, "Unknown(0)"},
+		{99, "Unknown(99)"}, // True unknown type
 	}
 
 	header := &FileHeader{}

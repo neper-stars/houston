@@ -58,19 +58,22 @@ func FormatFileHeader(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X", data[14]),
 		fmt.Sprintf("%d = %s", fh.FileType, fh.FileTypeName())))
 
-	// Byte 15: Flags
+	// Byte 15: Flags + wGen
 	fields = append(fields, FormatFieldRaw(0x0F, 0x0F, "Flags",
 		fmt.Sprintf("0x%02X", data[15]),
 		fmt.Sprintf("0b%08b", fh.Flags)))
 	// Decode individual flag bits
-	fields = append(fields, fmt.Sprintf("           %s bit0: TurnSubmitted = %v", TreeBranch, fh.TurnSubmitted()))
-	fields = append(fields, fmt.Sprintf("           %s bit1: HostUsing = %v", TreeBranch, fh.HostUsing()))
-	fields = append(fields, fmt.Sprintf("           %s bit2: MultipleTurns = %v", TreeBranch, fh.MultipleTurns()))
-	fields = append(fields, fmt.Sprintf("           %s bit3: GameOver = %v", TreeBranch, fh.GameOver()))
-	fields = append(fields, fmt.Sprintf("           %s bit4: Shareware = %v", TreeBranch, fh.Shareware()))
-	fields = append(fields, fmt.Sprintf("           %s bit5: ??? (unknown) = %v", TreeBranch, (fh.Flags&(1<<5)) != 0))
-	fields = append(fields, fmt.Sprintf("           %s bit6: ??? (unknown) = %v", TreeBranch, (fh.Flags&(1<<6)) != 0))
-	fields = append(fields, fmt.Sprintf("           %s bit7: ??? (unknown) = %v", TreeEnd, (fh.Flags&(1<<7)) != 0))
+	fields = append(fields, fmt.Sprintf("           %s bit0: fDone (TurnSubmitted) = %v", TreeBranch, fh.TurnSubmitted()))
+	fields = append(fields, fmt.Sprintf("           %s bit1: fInUse (HostUsing) = %v", TreeBranch, fh.HostUsing()))
+	fields = append(fields, fmt.Sprintf("           %s bit2: fMulti (MultipleTurns) = %v", TreeBranch, fh.MultipleTurns()))
+	fields = append(fields, fmt.Sprintf("           %s bit3: fGameOverMan (GameOver) = %v", TreeBranch, fh.GameOver()))
+	fields = append(fields, fmt.Sprintf("           %s bit4: fCrippled = %v", TreeBranch, fh.Crippled()))
+	// wGen field (bits 5-7)
+	genValidated := ""
+	if fh.IsGenerationValidated() {
+		genValidated = " (VALIDATED for X files)"
+	}
+	fields = append(fields, fmt.Sprintf("           %s bits5-7: wGen (generation) = %d%s", TreeEnd, fh.Generation(), genValidated))
 
 	fieldsSection := FormatFieldsSection(fields, width)
 
