@@ -34,18 +34,38 @@ type ExpectedEnemyPlanetEstimates struct {
 }
 
 type ExpectedEnemyPlanet struct {
-	Name               string                            `json:"name"`
-	DisplayID          int                               `json:"displayId"`
-	PlanetNumber       int                               `json:"planetNumber"`
-	Owner              int                               `json:"owner"`
-	OwnerName          string                            `json:"ownerName"`
-	IsHomeworld        bool                              `json:"isHomeworld"`
-	HasEnvironmentInfo bool                              `json:"hasEnvironmentInfo"`
-	HasStarbase        bool                              `json:"hasStarbase"`
-	StarbaseDesign     int                               `json:"starbaseDesign"`
-	Environment        ExpectedEnemyPlanetEnvironment    `json:"environment"`
-	Concentrations     ExpectedEnemyPlanetConcentrations `json:"concentrations"`
-	Estimates          ExpectedEnemyPlanetEstimates      `json:"estimates"`
+	Name           string                            `json:"name"`
+	DisplayID      int                               `json:"displayId"`
+	PlanetNumber   int                               `json:"planetNumber"`
+	Owner          int                               `json:"owner"`
+	OwnerName      string                            `json:"ownerName"`
+	IsHomeworld    bool                              `json:"isHomeworld"`
+	DetectionLevel string                            `json:"detectionLevel"` // "NotVisible", "PenScan", "Special", "NormalScan", "Full", "Maximum"
+	HasStarbase    bool                              `json:"hasStarbase"`
+	StarbaseDesign int                               `json:"starbaseDesign"`
+	Environment    ExpectedEnemyPlanetEnvironment    `json:"environment"`
+	Concentrations ExpectedEnemyPlanetConcentrations `json:"concentrations"`
+	Estimates      ExpectedEnemyPlanetEstimates      `json:"estimates"`
+}
+
+// parseDetectionLevel converts a detection level string to its numeric value.
+func parseDetectionLevel(s string) int {
+	switch s {
+	case "NotVisible":
+		return blocks.DetNotVisible
+	case "PenScan":
+		return blocks.DetPenScan
+	case "Special":
+		return blocks.DetSpecial
+	case "NormalScan":
+		return blocks.DetNormalScan
+	case "Full":
+		return blocks.DetFull
+	case "Maximum":
+		return blocks.DetMaximum
+	default:
+		return 0
+	}
 }
 
 type ExpectedEnemyDesign struct {
@@ -116,8 +136,9 @@ func TestScenarioEnemyPlanetFull_PartialPlanetBlocks(t *testing.T) {
 			assert.Equal(t, exp.Owner, planet.Owner, "Owner should match")
 			assert.Equal(t, exp.IsHomeworld, planet.IsHomeworld, "IsHomeworld should match")
 
-			// Environment flags
-			assert.Equal(t, exp.HasEnvironmentInfo, planet.HasEnvironmentInfo, "HasEnvironmentInfo should match")
+			// Detection level (determines what info is visible)
+			assert.Equal(t, parseDetectionLevel(exp.DetectionLevel), planet.DetectionLevel,
+				"DetectionLevel should match (expected=%s)", exp.DetectionLevel)
 
 			// Starbase
 			assert.Equal(t, exp.HasStarbase, planet.HasStarbase, "HasStarbase should match")

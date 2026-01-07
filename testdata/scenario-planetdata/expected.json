@@ -27,7 +27,7 @@
         "factories": 32,
         "defenses": 10
       },
-      "hasScanner": true,
+      "scannerId": 0,
       "hasStarbase": true,
       "starbaseDesign": 0
     }

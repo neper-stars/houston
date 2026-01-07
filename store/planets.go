@@ -18,11 +18,18 @@ type PlanetEntity struct {
 	Name string
 	X, Y int
 
+	// Detection level (bits 0-6 of flags word)
+	// Determines what information is available about this planet.
+	// Use blocks.DetNotVisible, DetPenScan, DetSpecial, DetNormalScan, DetFull, DetMaximum constants.
+	DetectionLevel int
+
 	// Status flags
-	HasStarbase      bool
-	HasArtifact      bool
-	IsTerraformed    bool
-	HasInstallations bool
+	Include          bool // fInclude: planet included in scans/reports
+	HasStarbase      bool // fStarbase: planet has a starbase
+	HasArtifact      bool // fIsArtifact: planet has an ancient artifact (from header)
+	IsTerraformed    bool // fIncEVO: original environment values included
+	HasInstallations bool // fIncImp: installations data included
+	FirstYear        bool // fFirstYear: first year this planet is visible to player
 
 	// Environment data
 	IroniumConc   int
@@ -42,13 +49,15 @@ type PlanetEntity struct {
 	Boranium  int64
 	Germanium int64
 
-	// Installations
-	Mines      int
-	Factories  int
-	Defenses   int
-	ExcessPop  int
-	HasScanner bool
-	Population int64
+	// Installations (from 8-byte installations block if HasInstallations)
+	Mines        int  // 12-bit mine count (0-4095)
+	Factories    int  // 12-bit factory count (0-4095)
+	Defenses     int  // 12-bit defense count (0-4095)
+	DeltaPop     int  // 8-bit population change indicator
+	ScannerID    int  // 5-bit planetary scanner ID (0=none, 31=no scanner)
+	InstArtifact bool // fArtifact from installations dword (bit 22)
+	NoResearch   bool // fNoResearch: don't contribute to research (bit 23)
+	Population   int64
 
 	// Starbase design slot (if HasStarbase)
 	StarbaseDesign int
@@ -100,9 +109,43 @@ func (p *PlanetEntity) SetMinerals(c Cargo) {
 	p.SetDirty()
 }
 
+// HasScanner returns true if the planet has a planetary scanner installed.
+// ScannerID of 0 or 31 means no scanner.
+func (p *PlanetEntity) HasScanner() bool {
+	return p.ScannerID > 0 && p.ScannerID != 31
+}
+
+// CanSeeEnvironment returns true if environment data (gravity, temp, radiation,
+// mineral concentrations) is available for this planet.
+// This is true when DetectionLevel >= DetSpecial (2).
+func (p *PlanetEntity) CanSeeEnvironment() bool {
+	return p.DetectionLevel >= blocks.DetSpecial
+}
+
+// DetectionLevelName returns a human-readable name for the detection level.
+func (p *PlanetEntity) DetectionLevelName() string {
+	switch p.DetectionLevel {
+	case blocks.DetNotVisible:
+		return "NotVisible"
+	case blocks.DetPenScan:
+		return "PenScan"
+	case blocks.DetSpecial:
+		return "Special"
+	case blocks.DetNormalScan:
+		return "NormalScan"
+	case blocks.DetMaximum:
+		return "Maximum"
+	default:
+		if p.DetectionLevel >= blocks.DetFull {
+			return "Full"
+		}
+		return "Unknown"
+	}
+}
+
 // GetScannerRanges returns the best scanner ranges for this planet.
 // This handles:
-// - Planetary scanner (based on owner's tech level, if HasScanner)
+// - Planetary scanner (based on owner's tech level, if ScannerID is valid)
 // - Starbase scanner (if HasStarbase)
 // - AR PRT intrinsic scanner (sqrt(population/10), or √2 multiplier with NAS)
 // - NAS LRT effects: 2× normal scanner range, no penetrating scanners
@@ -125,7 +168,7 @@ func (p *PlanetEntity) GetScannerRanges(gs *GameStore) (int, int) {
 	hasNAS := nasLRT != nil && player.HasLRT(nasLRT.Bitmask)
 
 	// 1. Planetary scanner (if planet has scanner building)
-	if p.HasScanner {
+	if p.HasScanner() {
 		scanner, _ := data.GetBestPlanetaryScanner(player.Tech)
 		if scanner != nil {
 			scanNormal := scanner.NormalRange
@@ -191,8 +234,8 @@ func qualityFromPlanetBlock(pb *blocks.PartialPlanetBlock) DataQuality {
 	if pb.HasInstallations {
 		return QualityFull
 	}
-	// Has environment info but not full data
-	if pb.HasEnvironmentInfo {
+	// Has environment info (detection level >= DetSpecial) but not full data
+	if pb.DetectionLevel >= blocks.DetSpecial {
 		return QualityPartial
 	}
 	// Minimal - just position and owner
@@ -215,10 +258,13 @@ func newPlanetEntityFromBlock(pb *blocks.PartialPlanetBlock, source *FileSource)
 		PlanetNumber:     pb.PlanetNumber,
 		Owner:            pb.Owner,
 		IsHomeworld:      pb.IsHomeworld,
+		DetectionLevel:   pb.DetectionLevel,
+		Include:          pb.Include,
 		HasStarbase:      pb.HasStarbase,
 		HasArtifact:      pb.HasArtifact,
 		IsTerraformed:    pb.IsTerraformed,
 		HasInstallations: pb.HasInstallations,
+		FirstYear:        pb.FirstYear,
 		IroniumConc:      pb.IroniumConc,
 		BoraniumConc:     pb.BoraniumConc,
 		GermaniumConc:    pb.GermaniumConc,
@@ -234,8 +280,10 @@ func newPlanetEntityFromBlock(pb *blocks.PartialPlanetBlock, source *FileSource)
 		Mines:            pb.Mines,
 		Factories:        pb.Factories,
 		Defenses:         pb.Defenses,
-		ExcessPop:        pb.ExcessPop,
-		HasScanner:       pb.HasScanner,
+		DeltaPop:         pb.DeltaPop,
+		ScannerID:        pb.ScannerID,
+		InstArtifact:     pb.InstArtifact,
+		NoResearch:       pb.NoResearch,
 		// Population in Stars! files is stored in 100s of colonists
 		Population:     pb.Population * 100,
 		StarbaseDesign: pb.StarbaseDesign,

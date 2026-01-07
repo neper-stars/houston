@@ -4,29 +4,50 @@ import (
 	"github.com/neper-stars/houston/encoding"
 )
 
+// Detection level constants for planet visibility.
+// The det field (bits 0-6 of flags word) controls what information is visible.
+// Source: IO::MarkPlanet function and WritePlanet logic in Stars! decompilation.
+const (
+	DetNotVisible = 0 // Planet not visible to player
+	DetPenScan    = 1 // Pen Scan - basic visibility (planet exists, maybe position)
+	DetSpecial    = 2 // Special - used for special cases (avoids starbase updates)
+	DetNormalScan = 3 // Normal Scan - standard scan, can see starbase, some details
+	DetFull       = 4 // Full - owner can see all planet details (4+ values)
+	DetMaximum    = 7 // Maximum - complete information
+)
+
 // PartialPlanetBlock represents planet data with conditional fields (Type 14)
-// The fields present depend on various flag bits
+// The fields present depend on various flag bits.
+//
+// Header format (RTPLANET, 4 bytes):
+//
+//	Bytes 0-1: Planet ID (bits 0-10) + Owner (bits 11-15)
+//	Bytes 2-3: Flags word with det field (bits 0-6) and various flags (bits 7-15)
+//
+// Source: RTPLANET structure in types.h and IO::WritePlanet function
 type PartialPlanetBlock struct {
 	GenericBlock
 
 	// Planet identification
-	PlanetNumber int  // 0-511 (9 bits)
-	Owner        int  // -1 = no owner, 0-15 = player ID
-	IsHomeworld  bool // True if this is a homeworld
+	PlanetNumber int  // 0-2047 (11 bits)
+	Owner        int  // -1 = no owner (31), 0-15 = player ID
+	IsHomeworld  bool // Bit 7: fHomeworld - this is a player's homeworld
+
+	// Detection level (bits 0-6 of flags word)
+	// 1=Pen Scan, 2=Special, 3=Normal Scan, 4+=Full, 7=Maximum
+	DetectionLevel int
 
 	// Status flags (from 2-byte flag word at offset 2)
-	IsInUseOrRobberBaron                       bool
-	HasEnvironmentInfo                         bool
-	BitWhichIsOffForRemoteMiningAndRobberBaron bool
-	WeirdBit                                   bool
-	HasRoute                                   bool
-	HasSurfaceMinerals                         bool
-	HasArtifact                                bool
-	HasInstallations                           bool
-	IsTerraformed                              bool
-	HasStarbase                                bool
+	Include            bool // Bit 8: fInclude - planet included in scans/reports
+	HasStarbase        bool // Bit 9: fStarbase - planet has a starbase
+	IsTerraformed      bool // Bit 10: fIncEVO - original environment values included
+	HasInstallations   bool // Bit 11: fIncImp - 8 bytes of installations data included
+	HasArtifact        bool // Bit 12: fIsArtifact - planet has an ancient artifact
+	HasSurfaceMinerals bool // Bit 13: fIncSurfMin - surface minerals data included
+	HasRoute           bool // Bit 14: fRouting - fleet route destination is set
+	FirstYear          bool // Bit 15: fFirstYear - first year this planet is visible to player
 
-	// Environment data (if HasEnvironmentInfo or can see environment)
+	// Environment data (if DetectionLevel >= 2)
 	IroniumConc   int // 0-100
 	BoraniumConc  int // 0-100
 	GermaniumConc int // 0-100
@@ -50,13 +71,15 @@ type PartialPlanetBlock struct {
 	Population int64
 
 	// Installations (if HasInstallations)
-	ExcessPop                                 int
-	Mines                                     int // 12-bit value
-	Factories                                 int // 12-bit value
-	Defenses                                  int
-	UnknownInstallationsByte                  byte
-	ContributeOnlyLeftoverResourcesToResearch bool
-	HasScanner                                bool
+	// Bytes 0-3: iDeltaPop(8) + cMines(12) + cFactories(12)
+	// Bytes 4-7: cDefenses(12) + iScanner(5) + unused5(5) + fArtifact(1) + fNoResearch(1) + unused(8)
+	DeltaPop     int  // 8-bit population change indicator
+	Mines        int  // 12-bit mine count (0-4095)
+	Factories    int  // 12-bit factory count (0-4095)
+	Defenses     int  // 12-bit defense count (0-4095)
+	ScannerID    int  // 5-bit planetary scanner ID (0=none, 31=no scanner)
+	InstArtifact bool // Bit 22: fArtifact in installations (also in header)
+	NoResearch   bool // Bit 23: fNoResearch - don't contribute to research
 
 	// Starbase (if HasStarbase)
 	StarbaseDesign     int    // Design number 0-15
@@ -81,9 +104,10 @@ func NewPartialPlanetBlock(b GenericBlock) *PartialPlanetBlock {
 	return pb
 }
 
-// CanSeeEnvironment returns true if environment data should be present
+// CanSeeEnvironment returns true if environment data should be present.
+// Environment data is present when detection level >= DetSpecial (2).
 func (pb *PartialPlanetBlock) CanSeeEnvironment() bool {
-	return pb.HasEnvironmentInfo || pb.IsInUseOrRobberBaron
+	return pb.DetectionLevel >= DetSpecial
 }
 
 func (pb *PartialPlanetBlock) decode(isPlanet bool) {
@@ -92,7 +116,7 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 		return
 	}
 
-	// Bytes 0-1: Planet number and owner
+	// Bytes 0-1: Planet ID (bits 0-10) + Owner (bits 11-15)
 	pb.PlanetNumber = int(data[0]&0xFF) + (int(data[1]&0x07) << 8)
 	ownerBits := (int(data[1]) & 0xF8) >> 3
 	if ownerBits == 31 {
@@ -102,18 +126,27 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 	}
 
 	// Bytes 2-3: 16-bit flag word
+	// Bits 0-6: det (detection level, 7 bits)
+	// Bit 7: fHomeworld
+	// Bit 8: fInclude
+	// Bit 9: fStarbase
+	// Bit 10: fIncEVO (terraformed)
+	// Bit 11: fIncImp (installations)
+	// Bit 12: fIsArtifact
+	// Bit 13: fIncSurfMin (surface minerals)
+	// Bit 14: fRouting (route)
+	// Bit 15: fFirstYear
 	flags := encoding.Read16(data, 2)
-	pb.IsInUseOrRobberBaron = (flags & 0x04) != 0
-	pb.HasEnvironmentInfo = (flags & 0x02) != 0
-	pb.BitWhichIsOffForRemoteMiningAndRobberBaron = (flags & 0x01) != 0
-	pb.WeirdBit = (flags & 0x8000) != 0
-	pb.HasRoute = (flags & 0x4000) != 0
-	pb.HasSurfaceMinerals = (flags & 0x2000) != 0
-	pb.HasArtifact = (flags & 0x1000) != 0
-	pb.HasInstallations = (flags & 0x0800) != 0
-	pb.IsTerraformed = (flags & 0x0400) != 0
-	pb.HasStarbase = (flags & 0x0200) != 0
-	pb.IsHomeworld = (flags & 0x0080) != 0 // Bit 7 of low byte (flag1)
+	pb.DetectionLevel = int(flags & 0x7F)         // Bits 0-6
+	pb.IsHomeworld = (flags & 0x0080) != 0        // Bit 7
+	pb.Include = (flags & 0x0100) != 0            // Bit 8
+	pb.HasStarbase = (flags & 0x0200) != 0        // Bit 9
+	pb.IsTerraformed = (flags & 0x0400) != 0      // Bit 10
+	pb.HasInstallations = (flags & 0x0800) != 0   // Bit 11
+	pb.HasArtifact = (flags & 0x1000) != 0        // Bit 12
+	pb.HasSurfaceMinerals = (flags & 0x2000) != 0 // Bit 13
+	pb.HasRoute = (flags & 0x4000) != 0           // Bit 14
+	pb.FirstYear = (flags & 0x8000) != 0          // Bit 15
 
 	index := 4
 
@@ -192,15 +225,23 @@ func (pb *PartialPlanetBlock) decode(isPlanet bool) {
 	}
 
 	// Fixed 8-byte installations block
+	// Bytes 0-3 (32-bit packed): iDeltaPop(8) + cMines(12) + cFactories(12)
+	// Bytes 4-7 (32-bit packed): cDefenses(12) + iScanner(5) + unused5(5) + fArtifact(1) + fNoResearch(1) + unused2(8)
 	if pb.HasInstallations && index+8 <= len(data) {
-		pb.ExcessPop = int(data[index] & 0xFF)
-		pb.Mines = int(data[index+1]&0xFF) | (int(data[index+2]&0x0F) << 8)
-		pb.Factories = (int(data[index+2]&0xF0) >> 4) | (int(data[index+3]&0xFF) << 4)
-		pb.Defenses = int(data[index+4] & 0xFF)
-		pb.UnknownInstallationsByte = data[index+5]
-		installFlags := data[index+6]
-		pb.ContributeOnlyLeftoverResourcesToResearch = (installFlags & 0x80) != 0
-		pb.HasScanner = (installFlags & 0x01) == 0 // Note: bit 0 = 0 means HAS scanner
+		// First dword: population change + mines + factories
+		dword1 := encoding.Read32(data, index)
+		pb.DeltaPop = int(dword1 & 0xFF)           // Bits 0-7
+		pb.Mines = int((dword1 >> 8) & 0xFFF)      // Bits 8-19
+		pb.Factories = int((dword1 >> 20) & 0xFFF) // Bits 20-31
+
+		// Second dword: defenses + scanner + flags
+		dword2 := encoding.Read32(data, index+4)
+		pb.Defenses = int(dword2 & 0xFFF)         // Bits 0-11
+		pb.ScannerID = int((dword2 >> 12) & 0x1F) // Bits 12-16
+		// Bits 17-21: unused5 (5 bits)
+		pb.InstArtifact = (dword2 & (1 << 22)) != 0 // Bit 22
+		pb.NoResearch = (dword2 & (1 << 23)) != 0   // Bit 23
+		// Bits 24-31: unused2 (8 bits)
 		index += 8
 	}
 
@@ -260,40 +301,37 @@ func (pb *PartialPlanetBlock) Encode() []byte {
 	}
 	data[1] = byte((pb.PlanetNumber>>8)&0x07) | byte(ownerBits<<3)
 
-	// Bytes 2-3: Flags
+	// Bytes 2-3: Flags word
+	// Bits 0-6: det (detection level)
+	// Bits 7-15: various flags
 	var flags uint16
-	if pb.IsInUseOrRobberBaron {
-		flags |= 0x04
+	flags = uint16(pb.DetectionLevel & 0x7F) // Bits 0-6
+	if pb.IsHomeworld {
+		flags |= 0x0080 // Bit 7
 	}
-	if pb.HasEnvironmentInfo {
-		flags |= 0x02
-	}
-	if pb.BitWhichIsOffForRemoteMiningAndRobberBaron {
-		flags |= 0x01
-	}
-	if pb.WeirdBit {
-		flags |= 0x8000
-	}
-	if pb.HasRoute {
-		flags |= 0x4000
-	}
-	if pb.HasSurfaceMinerals {
-		flags |= 0x2000
-	}
-	if pb.HasArtifact {
-		flags |= 0x1000
-	}
-	if pb.HasInstallations {
-		flags |= 0x0800
-	}
-	if pb.IsTerraformed {
-		flags |= 0x0400
+	if pb.Include {
+		flags |= 0x0100 // Bit 8
 	}
 	if pb.HasStarbase {
-		flags |= 0x0200
+		flags |= 0x0200 // Bit 9
 	}
-	if pb.IsHomeworld {
-		flags |= 0x0080
+	if pb.IsTerraformed {
+		flags |= 0x0400 // Bit 10
+	}
+	if pb.HasInstallations {
+		flags |= 0x0800 // Bit 11
+	}
+	if pb.HasArtifact {
+		flags |= 0x1000 // Bit 12
+	}
+	if pb.HasSurfaceMinerals {
+		flags |= 0x2000 // Bit 13
+	}
+	if pb.HasRoute {
+		flags |= 0x4000 // Bit 14
+	}
+	if pb.FirstYear {
+		flags |= 0x8000 // Bit 15
 	}
 	encoding.Write16(data, 2, flags)
 

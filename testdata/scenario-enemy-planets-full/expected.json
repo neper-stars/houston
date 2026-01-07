@@ -9,7 +9,7 @@
       "owner": 1,
       "ownerName": "Halflings",
       "isHomeworld": true,
-      "hasEnvironmentInfo": true,
+      "detectionLevel": "NormalScan",
       "hasStarbase": true,
       "starbaseDesign": 0,
       "environment": {

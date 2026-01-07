@@ -47,7 +47,7 @@ type ExpectedOwnedPlanet struct {
 	SurfaceMinerals ExpectedSurfaceMinerals `json:"surfaceMinerals"`
 	Population      int64                   `json:"population"`
 	Installations   ExpectedInstallations   `json:"installations"`
-	HasScanner      bool                    `json:"hasScanner"`
+	ScannerID       int                     `json:"scannerId"` // 0=none, 31=no scanner, 1-30=scanner type
 	HasStarbase     bool                    `json:"hasStarbase"`
 	StarbaseDesign  int                     `json:"starbaseDesign"`
 }
@@ -169,7 +169,7 @@ func TestScenarioPlanetData_OwnedPlanet(t *testing.T) {
 			assert.Equal(t, exp.Installations.Defenses, planet.Defenses, "Defenses should match")
 
 			// Validate scanner and starbase
-			assert.Equal(t, exp.HasScanner, planet.HasScanner, "HasScanner should match")
+			assert.Equal(t, exp.ScannerID, planet.ScannerID, "ScannerID should match")
 			assert.Equal(t, exp.HasStarbase, planet.HasStarbase, "HasStarbase should match")
 			if exp.HasStarbase {
 				assert.Equal(t, exp.StarbaseDesign, planet.StarbaseDesign, "StarbaseDesign should match")
