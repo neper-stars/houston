@@ -274,9 +274,14 @@ type PlayerBlock struct {
 	AISkill   int // 0=Easy, 1=Standard, 2=Harder, 3=Expert
 	AIRace    int // PRT used when AI enabled
 
+	// Header fields (bytes 0x08-0x0B, always present when FullDataFlag is true)
+	HomePlanetID int // idPlanetHome: Home planet ID (bytes 0x08-0x09)
+	Rank         int // Bytes 0x0A-0x0B: Player ranking position (1=1st, 2=2nd, etc.)
+	//               // NOTE: Decompiled source names this field "wScore", but in the game UI
+	//               // this is the Rank value, not the Score. The actual Score shown in the
+	//               // Player Scores dialog appears to be computed client-side and not stored.
+
 	// Race settings (from FullDataBytes when FullDataFlag is true)
-	Homeworld    int // Homeworld planet ID
-	Rank         int // Player rank
 	Hab          Habitability
 	GrowthRate   int // Max population growth rate percentage (1-20)
 	Tech         TechLevels
@@ -386,10 +391,13 @@ func (p *PlayerBlock) decode() error {
 		// Decode full race data from FullDataBytes
 		// Offsets are relative to start of decrypted data (add 8 for FullDataBytes index)
 
-		// Homeworld and rank (bytes 8-11, FDB 0-3)
-		p.Homeworld = int(encoding.Read16(p.Decrypted, 8))
+		// Header fields (bytes 8-15)
+		// idPlanetHome: Home planet ID (bytes 0x08-0x09)
+		p.HomePlanetID = int(encoding.Read16(p.Decrypted, 8))
+		// Rank: Player ranking position (bytes 0x0A-0x0B)
+		// NOTE: Decompiled source calls this "wScore" but it's actually the Rank in the UI
 		p.Rank = int(encoding.Read16(p.Decrypted, 10))
-		// Password at bytes 12-15 (handled by HashedPass())
+		// lSalt: Password at bytes 12-15 (handled by HashedPass())
 
 		// Habitability (bytes 16-24, FDB 8-16)
 		p.Hab.GravityCenter = int(p.Decrypted[16])
@@ -657,11 +665,11 @@ func (p *PlayerBlock) Encode() ([]byte, error) {
 		// Full data section (104 bytes starting at index 8)
 		fullDataStart := index
 
-		// Bytes 8-9: Homeworld
-		encoding.Write16(data, fullDataStart, uint16(p.Homeworld))
-		// Bytes 10-11: Rank
+		// Bytes 8-9: idPlanetHome (Home planet ID)
+		encoding.Write16(data, fullDataStart, uint16(p.HomePlanetID))
+		// Bytes 10-11: Rank (decompiled source calls this "wScore")
 		encoding.Write16(data, fullDataStart+2, uint16(p.Rank))
-		// Bytes 12-15: Password hash
+		// Bytes 12-15: lSalt (Password hash)
 		encoding.Write32(data, fullDataStart+4, p.PasswordHash)
 
 		// Bytes 16-24: Habitability (9 bytes)

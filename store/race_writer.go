@@ -51,9 +51,9 @@ func raceToPlayerBlock(r *race.Race) *blocks.PlayerBlock {
 		NamePlural:      r.PluralName,
 		PlayerRelations: nil, // Empty for race files
 
-		// Race data
-		Homeworld: 0,
-		Rank:      0,
+		// Race data (header fields - always 0 for race files)
+		HomePlanetID: 0,
+		Rank:         0,
 		Hab: blocks.Habitability{
 			GravityCenter:     habCenter(r.GravityCenter, r.GravityImmune),
 			TemperatureCenter: habCenter(r.TemperatureCenter, r.TemperatureImmune),

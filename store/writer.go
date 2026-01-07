@@ -167,7 +167,7 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 	// Initialize encryption
 	shareware := 0
-	if header.Shareware() {
+	if header.Crippled() {
 		shareware = 1
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
@@ -302,7 +302,7 @@ func (gs *GameStore) generateXFileFromSource(source *FileSource) ([]byte, error)
 
 	// Initialize encryption
 	shareware := 0
-	if header.Shareware() {
+	if header.Crippled() {
 		shareware = 1
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
@@ -360,7 +360,7 @@ func (gs *GameStore) generateXYFileFromSource(source *FileSource) ([]byte, error
 
 	// Initialize encryption
 	shareware := 0
-	if header.Shareware() {
+	if header.Crippled() {
 		shareware = 1
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
@@ -416,7 +416,7 @@ func (gs *GameStore) generateHFileFromSource(source *FileSource) ([]byte, error)
 
 	// Initialize encryption
 	shareware := 0
-	if header.Shareware() {
+	if header.Crippled() {
 		shareware = 1
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
@@ -573,7 +573,7 @@ func (gs *GameStore) regenerateWithChanges(source *FileSource) ([]byte, error) {
 
 	// Initialize encryption
 	shareware := 0
-	if header.Shareware() {
+	if header.Crippled() {
 		shareware = 1
 	}
 	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)

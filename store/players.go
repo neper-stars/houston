@@ -26,6 +26,11 @@ type PlayerEntity struct {
 	PlanetCount         int
 	FleetCount          int
 
+	// Player state (from header, bytes 0x08-0x0B)
+	HomePlanetID int // idPlanetHome: ID of player's homeworld planet
+	Rank         int // Player ranking position (1=1st, 2=2nd, etc.)
+	//               // NOTE: Decompiled source names this "wScore" but it's actually Rank in the UI
+
 	// Race info (if full data available)
 	GrowthRate  int
 	HasFullData bool
@@ -94,6 +99,8 @@ func newPlayerEntityFromBlock(pb *blocks.PlayerBlock, source *FileSource) *Playe
 		StarbaseDesignCount: pb.StarbaseDesignCount,
 		PlanetCount:         pb.Planets,
 		FleetCount:          pb.Fleets,
+		HomePlanetID:        pb.HomePlanetID,
+		Rank:                pb.Rank,
 		GrowthRate:          pb.GrowthRate,
 		HasFullData:         pb.FullDataFlag,
 		Tech: TechLevels{

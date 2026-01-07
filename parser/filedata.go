@@ -94,7 +94,7 @@ func (fd FileData) BlockList() ([]blocks.Block, error) {
 				return nil, err
 			}
 			var sw int
-			if header.Shareware() {
+			if header.Crippled() {
 				sw = 1
 			}
 			decryptor.InitDecryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), sw)

@@ -87,7 +87,7 @@ func TestFileHeader(t *testing.T) {
 	_ = header.Turn
 	_ = header.PlayerIndex()
 	_ = header.Salt()
-	_ = header.Shareware()
+	_ = header.Crippled()
 }
 
 // TestParseBlock tests parsing individual blocks at offsets

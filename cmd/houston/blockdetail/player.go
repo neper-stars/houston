@@ -80,20 +80,20 @@ func FormatPlayer(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X", pb.Byte7),
 		decodeAIByte(pb)))
 
-	// Bytes 8-11: Unknown/header continuation (show inline)
+	// Bytes 8-11: idPlanetHome and Rank (header fields)
 	if len(data) > 11 {
-		fields = append(fields, FormatFieldRaw(0x08, 0x08, "??? (unknown)",
-			fmt.Sprintf("0x%02X", data[8]),
-			"TBD"))
-		fields = append(fields, FormatFieldRaw(0x09, 0x09, "??? (unknown)",
-			fmt.Sprintf("0x%02X", data[9]),
-			"TBD"))
-		fields = append(fields, FormatFieldRaw(0x0A, 0x0A, "??? (unknown)",
-			fmt.Sprintf("0x%02X", data[10]),
-			"TBD"))
-		fields = append(fields, FormatFieldRaw(0x0B, 0x0B, "??? (unknown)",
-			fmt.Sprintf("0x%02X", data[11]),
-			"TBD"))
+		// idPlanetHome: Home planet ID (bytes 0x08-0x09, uint16 LE)
+		homePlanetID := encoding.Read16(data, 8)
+		fields = append(fields, FormatFieldRaw(0x08, 0x09, "idPlanetHome",
+			fmt.Sprintf("0x%02X%02X", data[9], data[8]),
+			fmt.Sprintf("uint16 LE = %d (Home planet ID)", homePlanetID)))
+
+		// Rank: Player ranking position (bytes 0x0A-0x0B, uint16 LE)
+		// NOTE: Decompiled source calls this "wScore" but it's actually the Rank in the UI
+		rank := encoding.Read16(data, 10)
+		fields = append(fields, FormatFieldRaw(0x0A, 0x0B, "Rank (wScore)",
+			fmt.Sprintf("0x%02X%02X", data[11], data[10]),
+			fmt.Sprintf("uint16 LE = %d (Ranking position)", rank)))
 	}
 
 	// Bytes 12-15: Password hash

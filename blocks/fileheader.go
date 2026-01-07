@@ -164,6 +164,7 @@ func (fh *FileHeader) Crippled() bool {
 }
 
 // Shareware is an alias for Crippled() for backward compatibility.
+//
 // Deprecated: Use Crippled() instead.
 func (fh *FileHeader) Shareware() bool {
 	return fh.Crippled()
