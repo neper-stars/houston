@@ -208,14 +208,61 @@ func (bpb *BattlePlanBlock) AttackWhoName() string {
 	}
 }
 
-// BattleStack represents a "stack" in a Stars! battle.
+// BattleStack represents a "stack" in a Stars! battle (TOK structure, 29 bytes).
 // A stack is a group of ships of the same design that move and fight as a unit.
 // When a fleet enters battle, it splits into stacks - one per ship design.
 // Example: A fleet with 3 Scouts and 5 Destroyers becomes 2 stacks.
+//
+// Structure from Stars! binary (TOK, 0x1d = 29 bytes):
+//
+//	+0x00: uint16 id         - Fleet/Planet ID
+//	+0x02: uint8  iplr       - Owner player ID (0-15)
+//	+0x03: uint8  grobj      - Object type (1=starbase, other=fleet)
+//	+0x04: uint8  ishdef     - Ship design ID
+//	+0x05: uint8  brc        - Battle grid position
+//	+0x06: uint8  initBase   - Base initiative
+//	+0x07: uint8  initMin    - Min initiative
+//	+0x08: uint8  initMac    - Max initiative
+//	+0x09: uint8  itokTarget - Target stack index
+//	+0x0a: uint8  pctCloak   - Cloak percentage
+//	+0x0b: uint8  pctJam     - Jammer percentage
+//	+0x0c: uint8  pctBC      - Battle computer percentage
+//	+0x0d: uint8  pctCap     - Capacitor percentage
+//	+0x0e: uint8  pctBeamDef - Beam deflector percentage
+//	+0x0f: uint16 wt         - Mass/weight
+//	+0x11: uint16 dpShield   - Shield hitpoints
+//	+0x13: uint16 csh        - Ship count
+//	+0x15: uint16 dv         - Armor damage value
+//	+0x17: uint16 mdTarget   - Target mode bitfield
+//	+0x19-0x1c: additional fields
 type BattleStack struct {
-	DesignID  int // Ship design ID (references the player's ship design list)
-	ShipCount int // Number of ships in this stack
-	OwnerID   int // Owner: 0 = Side 1, 1 = Side 2 (derived from position in stack list)
+	// Identification
+	FleetOrPlanetID int  // ID of fleet or planet (offset 0x00)
+	OwnerPlayerID   int  // Owner player 0-15 (offset 0x02)
+	IsStarbase      bool // True if starbase (grobj==1), false if fleet (offset 0x03)
+	DesignID        int  // Ship design ID (offset 0x04)
+
+	// Position and targeting
+	GridPosition int // Battle grid position (offset 0x05)
+	TargetStack  int // Target stack index (offset 0x09)
+
+	// Initiative
+	InitiativeBase int // Base initiative (offset 0x06)
+	InitiativeMin  int // Minimum initiative (offset 0x07)
+	InitiativeMax  int // Maximum initiative (offset 0x08)
+
+	// Combat modifiers (percentages)
+	CloakPercent       int // Cloak percentage (offset 0x0a)
+	JammerPercent      int // Jammer percentage (offset 0x0b)
+	BattleCompPercent  int // Battle computer percentage (offset 0x0c)
+	CapacitorPercent   int // Capacitor percentage (offset 0x0d)
+	BeamDeflectPercent int // Beam deflector percentage (offset 0x0e)
+
+	// Stats
+	Mass        int // Ship mass/weight (offset 0x0f)
+	ShieldHP    int // Shield hitpoints (offset 0x11)
+	ShipCount   int // Number of ships in stack (offset 0x13)
+	ArmorDamage int // Armor damage value (offset 0x15)
 }
 
 // BattleActionType represents the type of battle action
@@ -255,11 +302,20 @@ func (e BattleRecordEvent) String() string {
 	}
 }
 
-// BattleAction represents a single action record in the battle (22 bytes).
+// KillRecord represents ships destroyed in a single attack.
+// Note: Shield damage (dpShield) is available in the raw KILL record but not exposed here.
+// Armor damage is NOT stored in the KILL record - it must be computed from weapon stats.
+type KillRecord struct {
+	StackID     int // Stack that took losses
+	ShipsKilled int // Number of ships destroyed
+}
+
+// BattleAction represents a single action record in the battle.
 // Each record can contain multiple events (movement, firing, damage).
 type BattleAction struct {
-	RawData []byte              // Raw 22-byte action data
+	RawData []byte              // Raw action data (variable size)
 	Events  []BattleRecordEvent // Decoded events from this action
+	Kills   []KillRecord        // Ships destroyed in this action
 }
 
 // BattlePhase represents one stack's turn in the battle, matching the
@@ -291,37 +347,46 @@ func (p BattlePhase) String() string {
 }
 
 // BattleBlock represents a battle record (Type 31)
-// Structure:
-//   - Header: 18 bytes
-//   - Stack definitions: 29 bytes each
-//   - Action records: 22 bytes each
+//
+// Structure from Stars! binary (BTLDATA):
+//
+//	Header (14 bytes):
+//	  +0x00: uint16 id       - Battle identifier
+//	  +0x02: uint8  cplr     - Player count involved in battle
+//	  +0x03: uint8  ctok     - Total stack count
+//	  +0x04: uint16 grfPlr   - Player bitmask (bit N = player N involved)
+//	  +0x06: uint16 cbData   - Total data size in bytes
+//	  +0x08: uint16 idPlanet - Planet ID (-1 if in deep space)
+//	  +0x0a: uint16 x        - X coordinate
+//	  +0x0c: uint16 y        - Y coordinate
+//	  +0x0e: TOK rgtok[]     - Stack array starts here
+//
+//	Stack definitions (TOK): 29 bytes each
+//	Action records (BTLREC): variable size (ctok*8 + 6 bytes each)
 type BattleBlock struct {
 	GenericBlock
 
-	// Header fields (18 bytes)
-	BattleID       int // Battle identifier
-	Rounds         int // Number of battle rounds (stored as rounds-1)
-	Side1Stacks    int // Number of stacks on side 1 (viewer's side)
-	TotalStacks    int // Total number of stacks in battle
-	RecordedSize   int // Block size as recorded in header (bytes 6-7)
-	PlanetID       int // Planet where battle occurred
-	X              int // X coordinate
-	Y              int // Y coordinate
-	AttackerStacks int // Attacker stack count
-	DefenderStacks int // Defender stack count
-	AttackerLosses int // Ships lost by attacker
-	Unknown17      int // Unknown field at byte 17 (not defender losses)
+	// Header fields (14 bytes from BTLDATA)
+	BattleID      int    // Battle identifier (+0x00)
+	PlayerCount   int    // Number of players involved (+0x02)
+	TotalStacks   int    // Total stack count (+0x03)
+	PlayerBitmask uint16 // Which players are involved (+0x04)
+	RecordedSize  int    // Total data size (+0x06)
+	PlanetID      int    // Planet ID, -1 if deep space (+0x08)
+	X             int    // X coordinate (+0x0a)
+	Y             int    // Y coordinate (+0x0c)
+
+	// Derived fields
+	Rounds int // Calculated from action data
 
 	// Parsed data
-	Stacks  []BattleStack  // Stack definitions
-	Actions []BattleAction // Action records
+	Stacks  []BattleStack  // Stack definitions (TOK array)
+	Actions []BattleAction // Action records (BTLREC array)
 }
 
 const (
-	battleHeaderSize  = 18
-	battleStackSize   = 29
-	battleActionSize  = 22
-	battleStackMarker = 0x41
+	battleHeaderSize = 14 // BTLDATA header is 14 bytes, not 18
+	battleStackSize  = 29 // TOK structure is 0x1d = 29 bytes
 )
 
 // NewBattleBlock creates a BattleBlock from a GenericBlock
@@ -337,67 +402,151 @@ func (bb *BattleBlock) decode() {
 		return
 	}
 
-	// Decode header (18 bytes)
-	bb.BattleID = int(data[0])
-	bb.Rounds = int(data[1]) + 1 // Stored as rounds-1
-	bb.Side1Stacks = int(data[2])
-	bb.TotalStacks = int(data[3])
-	// bytes 4-5: unknown
-	bb.RecordedSize = int(encoding.Read16(data, 6))
-	bb.PlanetID = int(encoding.Read16(data, 8))
-	bb.X = int(encoding.Read16(data, 10))
-	bb.Y = int(encoding.Read16(data, 12))
-	bb.AttackerStacks = int(data[14])
-	bb.DefenderStacks = int(data[15])
-	bb.AttackerLosses = int(data[16])
-	bb.Unknown17 = int(data[17])
+	// Decode header (14 bytes from BTLDATA structure)
+	bb.BattleID = int(encoding.Read16(data, 0))        // +0x00: uint16 id
+	bb.PlayerCount = int(data[2])                      // +0x02: uint8 cplr
+	bb.TotalStacks = int(data[3])                      // +0x03: uint8 ctok
+	bb.PlayerBitmask = encoding.Read16(data, 4)        // +0x04: uint16 grfPlr
+	bb.RecordedSize = int(encoding.Read16(data, 6))    // +0x06: uint16 cbData
+	bb.PlanetID = int(int16(encoding.Read16(data, 8))) // +0x08: uint16 idPlanet (signed, -1 = deep space)
+	bb.X = int(encoding.Read16(data, 10))              // +0x0a: uint16 x
+	bb.Y = int(encoding.Read16(data, 12))              // +0x0c: uint16 y
 
-	// Decode stack definitions
+	// Decode stack definitions (TOK array starts at offset 0x0e)
 	stackStart := battleHeaderSize
 	for s := 0; s < bb.TotalStacks && stackStart+battleStackSize <= len(data); s++ {
 		stack := data[stackStart : stackStart+battleStackSize]
-		bs := bb.decodeStack(stack, s)
+		bs := bb.decodeStack(stack)
 		bb.Stacks = append(bb.Stacks, bs)
 		stackStart += battleStackSize
 	}
 
-	// Decode action records
+	// Action records (BTLREC) follow the stacks
+	// Each BTLREC has variable size: base 6 bytes + ctok*8 bytes for kills
 	actionStart := battleHeaderSize + bb.TotalStacks*battleStackSize
-	numActions := (len(data) - actionStart) / battleActionSize
-	for i := 0; i < numActions; i++ {
-		offset := actionStart + i*battleActionSize
-		if offset+battleActionSize > len(data) {
-			break
-		}
-		actionData := data[offset : offset+battleActionSize]
-		action := BattleAction{
-			RawData: actionData,
-			Events:  bb.decodeActionEvents(actionData),
-		}
-		bb.Actions = append(bb.Actions, action)
-	}
+	bb.decodeActionRecords(data[actionStart:])
 
-	// Calculate actual rounds from action data (header byte[1] is unreliable)
+	// Calculate actual rounds from action data
 	bb.Rounds = bb.calculateRoundsFromActions()
 }
 
-// calculateRoundsFromActions scans action data for round markers and returns
-// the actual number of rounds. The header byte[1] is unreliable for some battles.
+// decodeActionRecords parses the BTLREC array which has variable-size records.
+// Each BTLREC structure:
+//
+//	+0x00: uint8  itok       - Acting stack index
+//	+0x01: uint8  brcDest    - Destination grid position
+//	+0x02: int16  ctok       - Kill record count
+//	+0x04: uint16 bitfield   - iRound:4, dzDis:4, itokAttack:8
+//	+0x06: KILL[] rgkill     - Array of kill records (8 bytes each)
+//
+// Record size = 6 + (ctok * 8) bytes
+func (bb *BattleBlock) decodeActionRecords(data []byte) {
+	offset := 0
+	for offset+6 <= len(data) {
+		// Read BTLREC header
+		itok := int(data[offset])
+		brcDest := int(data[offset+1])
+		ctok := int(int16(encoding.Read16(data, offset+2)))
+		bitfield := encoding.Read16(data, offset+4)
+
+		iRound := int(bitfield & 0x0F)
+		_ = int((bitfield >> 4) & 0x0F) // dzDis - distance moved, unused for now
+		itokAttack := int((bitfield >> 8) & 0xFF)
+
+		// Calculate record size
+		recordSize := 6
+		if ctok > 0 {
+			recordSize += ctok * 8 // Each KILL is 8 bytes
+		}
+
+		if offset+recordSize > len(data) {
+			break
+		}
+
+		// Create action from this record
+		action := BattleAction{
+			RawData: data[offset : offset+recordSize],
+		}
+
+		// Add a move/fire event based on the record
+		event := BattleRecordEvent{
+			Round:   iRound,
+			StackID: itok,
+		}
+
+		// Decode grid position from brcDest
+		if isValidPosition(brcDest) {
+			event.GridX, event.GridY = posToGrid(brcDest)
+			event.ActionType = ActionMove
+		}
+
+		// If there's a target, it's a fire action
+		if itokAttack < bb.TotalStacks && itokAttack != itok {
+			event.ActionType = ActionFire
+			event.TargetID = itokAttack
+		}
+
+		action.Events = append(action.Events, event)
+
+		// Decode kill records if present
+		// KILL record structure (8 bytes):
+		//   +0x00: uint8  killItok   - target stack index that took damage
+		//   +0x01: uint8  grfWeapon  - weapon flags (0x01, 0x04 observed)
+		//   +0x02: uint16 cshKill    - number of ships destroyed
+		//   +0x04: uint16 dpShield   - shield damage dealt (verified against VCR)
+		//   +0x06: uint16 dv         - purpose unknown; does NOT directly store armor
+		//                              damage. Values observed don't correlate with
+		//                              armor damage shown in Battle VCR. Armor damage
+		//                              is likely computed by VCR from weapon stats.
+		if ctok > 0 {
+			killOffset := offset + 6
+			for k := 0; k < ctok && killOffset+8 <= len(data); k++ {
+				killItok := int(data[killOffset])
+				// grfWeapon := data[killOffset+1] // weapon flags, not yet decoded
+				cshKill := int(encoding.Read16(data, killOffset+2))
+				dpShield := int(encoding.Read16(data, killOffset+4))
+				// dv := encoding.Read16(data, killOffset+6) // unknown purpose, not armor damage
+
+				// Track ship kills
+				if cshKill > 0 {
+					action.Kills = append(action.Kills, KillRecord{
+						StackID:     killItok,
+						ShipsKilled: cshKill,
+					})
+				}
+
+				if cshKill > 0 || dpShield > 0 {
+					dmgEvent := BattleRecordEvent{
+						Round:      iRound,
+						StackID:    killItok,
+						ActionType: ActionDamage,
+						Damage:     dpShield + cshKill*100, // Approximate damage
+					}
+					action.Events = append(action.Events, dmgEvent)
+				}
+				killOffset += 8
+			}
+		}
+
+		bb.Actions = append(bb.Actions, action)
+		offset += recordSize
+
+		// Safety check - if ctok is negative or we're not advancing, break
+		if recordSize <= 0 {
+			break
+		}
+	}
+}
+
+// calculateRoundsFromActions finds the maximum round number from decoded action
+// events and returns the total round count. Rounds are 0-indexed in the data,
+// so we add 1 to convert to count.
 func (bb *BattleBlock) calculateRoundsFromActions() int {
 	maxRound := -1
-	actionData := bb.RawActionData()
-
-	// Scan for phase markers: [round][stack1][stack2][0x04 or 0xC4]
-	for i := 0; i < len(actionData)-3; i++ {
-		round := int(actionData[i])
-		stack1 := int(actionData[i+1])
-		stack2 := int(actionData[i+2])
-		actionType := actionData[i+3]
-
-		if round <= 15 && stack1 <= 5 && stack2 <= 5 &&
-			(actionType == 0x04 || actionType == 0xC4) {
-			if round > maxRound {
-				maxRound = round
+	for _, action := range bb.Actions {
+		for _, event := range action.Events {
+			if event.Round > maxRound {
+				maxRound = event.Round
 			}
 		}
 	}
@@ -405,99 +554,7 @@ func (bb *BattleBlock) calculateRoundsFromActions() int {
 	if maxRound >= 0 {
 		return maxRound + 1 // Convert 0-indexed to count
 	}
-	return 1 // Default to 1 round if no markers found
-}
-
-// decodeActionEvents parses individual events from a 22-byte action record.
-// Each action record can contain multiple events encoded as:
-//   - [round][stack][stack][0x04] = movement
-//   - [round][stack][stack][0xC4] = fire
-//   - [0x64|0xE4][damage][stack][position] = damage taken
-//   - [stack][position] = position update
-func (bb *BattleBlock) decodeActionEvents(actionData []byte) []BattleRecordEvent {
-	var events []BattleRecordEvent
-	currentRound := 0
-	pos := 0
-
-	for pos < len(actionData)-1 {
-		b := actionData[pos]
-
-		// Pattern 1: Round marker followed by stack actions
-		// Format: [round] [stack] [stack/target] [type]
-		if b <= 15 && pos+3 < len(actionData) {
-			stack1 := actionData[pos+1]
-			stack2 := actionData[pos+2]
-			actionType := actionData[pos+3]
-
-			if stack1 <= 5 && stack2 <= 5 {
-				if actionType == 0x04 {
-					// Movement action
-					events = append(events, BattleRecordEvent{
-						Round:      int(b),
-						StackID:    int(stack1),
-						ActionType: ActionMove,
-					})
-					currentRound = int(b)
-					pos += 4
-					continue
-				} else if actionType == 0xC4 {
-					// Fire action
-					events = append(events, BattleRecordEvent{
-						Round:      int(b),
-						StackID:    int(stack1),
-						ActionType: ActionFire,
-					})
-					currentRound = int(b)
-					pos += 4
-					continue
-				}
-			}
-		}
-
-		// Pattern 2: Damage marker
-		// Format: [0x64 or 0xE4] [amount] [stack] [position]
-		if (b == 0x64 || b == 0xE4) && pos+3 < len(actionData) {
-			dmgAmount := int(actionData[pos+1])
-			stackID := int(actionData[pos+2])
-			position := int(actionData[pos+3])
-
-			if stackID <= 5 && isValidPosition(position) {
-				gridX, gridY := posToGrid(position)
-				events = append(events, BattleRecordEvent{
-					Round:      currentRound,
-					StackID:    stackID,
-					ActionType: ActionDamage,
-					Damage:     dmgAmount,
-					GridX:      gridX,
-					GridY:      gridY,
-				})
-				pos += 4
-				continue
-			}
-		}
-
-		// Pattern 3: Stack + Position (position update)
-		// Format: [stack] [position]
-		if b <= 5 && pos+1 < len(actionData) {
-			position := int(actionData[pos+1])
-			if isValidPosition(position) {
-				gridX, gridY := posToGrid(position)
-				events = append(events, BattleRecordEvent{
-					Round:      currentRound,
-					StackID:    int(b),
-					ActionType: ActionMove,
-					GridX:      gridX,
-					GridY:      gridY,
-				})
-				pos += 2
-				continue
-			}
-		}
-
-		pos++
-	}
-
-	return events
+	return 1 // Default to 1 round if no actions found
 }
 
 // posToGrid converts a position byte to grid coordinates.
@@ -522,39 +579,34 @@ func isValidPosition(pos int) bool {
 	return col <= 9 && row <= 9
 }
 
-func (bb *BattleBlock) decodeStack(stack []byte, stackIndex int) BattleStack {
+func (bb *BattleBlock) decodeStack(stack []byte) BattleStack {
 	bs := BattleStack{}
 
-	// Find the 0x41 marker in the stack data
-	markerPos := -1
-	for i := 0; i < len(stack); i++ {
-		if stack[i] == battleStackMarker {
-			markerPos = i
-			break
-		}
+	if len(stack) < battleStackSize {
+		return bs
 	}
 
-	if markerPos >= 1 {
-		bs.DesignID = int(stack[markerPos-1])
-	}
-	if markerPos >= 0 && markerPos+1 < len(stack) {
-		bs.ShipCount = int(stack[markerPos+1])
-	}
-
-	// Determine owner: stacks 0 to Side1Stacks-1 belong to side 1 (viewer)
-	// stacks Side1Stacks to TotalStacks-1 belong to side 2 (enemy)
-	if stackIndex < bb.Side1Stacks {
-		bs.OwnerID = 0 // Side 1 (viewer)
-	} else {
-		bs.OwnerID = 1 // Side 2 (enemy)
-	}
+	// Decode TOK structure (29 bytes)
+	bs.FleetOrPlanetID = int(encoding.Read16(stack, 0)) // +0x00: uint16 id
+	bs.OwnerPlayerID = int(stack[2])                    // +0x02: uint8 iplr
+	bs.IsStarbase = stack[3] == 1                       // +0x03: uint8 grobj (1=starbase)
+	bs.DesignID = int(stack[4])                         // +0x04: uint8 ishdef
+	bs.GridPosition = int(stack[5])                     // +0x05: uint8 brc
+	bs.InitiativeBase = int(stack[6])                   // +0x06: uint8 initBase
+	bs.InitiativeMin = int(stack[7])                    // +0x07: uint8 initMin
+	bs.InitiativeMax = int(stack[8])                    // +0x08: uint8 initMac
+	bs.TargetStack = int(stack[9])                      // +0x09: uint8 itokTarget
+	bs.CloakPercent = int(stack[10])                    // +0x0a: uint8 pctCloak
+	bs.JammerPercent = int(stack[11])                   // +0x0b: uint8 pctJam
+	bs.BattleCompPercent = int(stack[12])               // +0x0c: uint8 pctBC
+	bs.CapacitorPercent = int(stack[13])                // +0x0d: uint8 pctCap
+	bs.BeamDeflectPercent = int(stack[14])              // +0x0e: uint8 pctBeamDef
+	bs.Mass = int(encoding.Read16(stack, 15))           // +0x0f: uint16 wt
+	bs.ShieldHP = int(encoding.Read16(stack, 17))       // +0x11: uint16 dpShield
+	bs.ShipCount = int(encoding.Read16(stack, 19))      // +0x13: uint16 csh
+	bs.ArmorDamage = int(encoding.Read16(stack, 21))    // +0x15: uint16 dv
 
 	return bs
-}
-
-// Side2Stacks returns the number of stacks on side 2 (enemy)
-func (bb *BattleBlock) Side2Stacks() int {
-	return bb.TotalStacks - bb.Side1Stacks
 }
 
 // AllEvents returns all decoded battle events across all action records.
@@ -573,6 +625,67 @@ func (bb *BattleBlock) EventsByRound() map[int][]BattleRecordEvent {
 		byRound[event.Round] = append(byRound[event.Round], event)
 	}
 	return byRound
+}
+
+// StacksForPlayer returns the number of stacks belonging to a specific player.
+func (bb *BattleBlock) StacksForPlayer(playerID int) int {
+	count := 0
+	for _, stack := range bb.Stacks {
+		if stack.OwnerPlayerID == playerID {
+			count++
+		}
+	}
+	return count
+}
+
+// StackCountByPlayer returns a map of player ID to stack count.
+func (bb *BattleBlock) StackCountByPlayer() map[int]int {
+	counts := make(map[int]int)
+	for _, stack := range bb.Stacks {
+		counts[stack.OwnerPlayerID]++
+	}
+	return counts
+}
+
+// CasualtiesForPlayer returns the total ships lost by a specific player.
+func (bb *BattleBlock) CasualtiesForPlayer(playerID int) int {
+	total := 0
+	for _, action := range bb.Actions {
+		for _, kill := range action.Kills {
+			// Map stack ID to player
+			if kill.StackID < len(bb.Stacks) && bb.Stacks[kill.StackID].OwnerPlayerID == playerID {
+				total += kill.ShipsKilled
+			}
+		}
+	}
+	return total
+}
+
+// CasualtiesByPlayer returns a map of player ID to total ships lost.
+func (bb *BattleBlock) CasualtiesByPlayer() map[int]int {
+	casualties := make(map[int]int)
+	for _, action := range bb.Actions {
+		for _, kill := range action.Kills {
+			// Map stack ID to player
+			if kill.StackID < len(bb.Stacks) {
+				playerID := bb.Stacks[kill.StackID].OwnerPlayerID
+				casualties[playerID] += kill.ShipsKilled
+			}
+		}
+	}
+	return casualties
+}
+
+// TotalPhases returns the total number of phases as displayed in the Battle VCR.
+// The game shows "Phase X of Y" where Y = len(Actions) + 1.
+//
+// The +1 accounts for the initial "setup" phase (Phase 1 in the VCR) which displays
+// all stacks at their starting positions before any movement occurs. This setup phase
+// has no corresponding action record - the initial positions come from the stack
+// definitions (TOK structures). Each subsequent phase (2 through Y) corresponds to
+// one action record (BTLREC structure).
+func (bb *BattleBlock) TotalPhases() int {
+	return len(bb.Actions) + 1
 }
 
 // Phases returns the battle as a sequence of phases matching the Battle VCR display.

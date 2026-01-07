@@ -16,14 +16,63 @@
     "hasRecording": true
   },
   "battleBlock": {
-    "rounds": 10,
-    "side1Stacks": 2,
+    "rounds": 11,
     "totalStacks": 4,
     "planetId": 392,
-    "attackerStacks": 2,
-    "defenderStacks": 0,
-    "attackerLosses": 0,
-    "numActions": 28
+    "numActions": 60,
+    "totalPhases": 61,
+    "ourStacks": 3,
+    "theirStacks": 1,
+    "ourCasualties": 0,
+    "theirCasualties": 1,
+    "stacks": [
+      {"stackId": 0, "playerId": 0, "designId": 10, "shipCount": 1, "comment": "Cruiser"},
+      {"stackId": 1, "playerId": 1, "designId": 4, "shipCount": 1, "comment": "Stalwart Defender (enemy)"},
+      {"stackId": 2, "playerId": 0, "designId": 8, "shipCount": 1, "comment": "Unknown design"},
+      {"stackId": 3, "playerId": 0, "designId": 1, "shipCount": 1, "comment": "Unknown design"}
+    ],
+    "verifiedPhases": [
+      {
+        "phase": 9,
+        "action": 7,
+        "round": 0,
+        "attacker": 1,
+        "target": 0,
+        "shipsKilled": 0,
+        "shieldDamage": 2,
+        "comment": "Stalwart Defender attacks Cruiser: 2 shield + 2 armor (screenshot 9.png)"
+      },
+      {
+        "phase": 12,
+        "action": 10,
+        "round": 1,
+        "attacker": 0,
+        "target": 1,
+        "shipsKilled": 0,
+        "shieldDamage": 0,
+        "comment": "Cruiser attacks Stalwart Defender: 4 armor (screenshot 12.png)"
+      },
+      {
+        "phase": 13,
+        "action": 11,
+        "round": 1,
+        "attacker": 1,
+        "target": 0,
+        "shipsKilled": 0,
+        "shieldDamage": 2,
+        "comment": "Stalwart Defender attacks Cruiser: 2 shield + 2 armor (screenshot 13.png)"
+      },
+      {
+        "phase": 61,
+        "action": 59,
+        "round": 10,
+        "attacker": 0,
+        "target": 1,
+        "shipsKilled": 1,
+        "shieldDamage": 0,
+        "comment": "Cruiser destroys Stalwart Defender: 1 armor, 1 ship killed (screenshot 61.png)"
+      }
+    ]
   },
-  "notes": "This is the second battle at Redmond. Ships carry damage from battle-01. The Stalwart Defender is destroyed at phase 61."
+  "notes": "This is the second battle at Redmond. Ships carry damage from battle-01. The Stalwart Defender is destroyed at phase 61. Phase N corresponds to Action (N-2) since Phase 1 is the setup phase with no action record."
 }

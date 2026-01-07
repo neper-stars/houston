@@ -17,12 +17,13 @@
   },
   "battleBlock": {
     "rounds": 16,
-    "side1Stacks": 2,
     "totalStacks": 6,
     "planetId": 392,
-    "attackerStacks": 4,
-    "defenderStacks": 2,
-    "attackerLosses": 1,
-    "numActions": 30
+    "numActions": 67,
+    "totalPhases": 68,
+    "ourStacks": 2,
+    "theirStacks": 4,
+    "ourCasualties": 1,
+    "theirCasualties": 1
   }
 }

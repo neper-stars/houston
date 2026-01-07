@@ -174,14 +174,15 @@ type battleExpected struct {
 		HasRecording  bool   `json:"hasRecording"`
 	} `json:"battle"`
 	BattleBlock struct {
-		Rounds         int `json:"rounds"`
-		Side1Stacks    int `json:"side1Stacks"`
-		TotalStacks    int `json:"totalStacks"`
-		PlanetID       int `json:"planetId"`
-		AttackerStacks int `json:"attackerStacks"`
-		DefenderStacks int `json:"defenderStacks"`
-		AttackerLosses int `json:"attackerLosses"`
-		NumActions     int `json:"numActions"`
+		Rounds          int `json:"rounds"`
+		TotalStacks     int `json:"totalStacks"`
+		PlanetID        int `json:"planetId"`
+		NumActions      int `json:"numActions"`
+		TotalPhases     int `json:"totalPhases"`
+		OurStacks       int `json:"ourStacks"`
+		TheirStacks     int `json:"theirStacks"`
+		OurCasualties   int `json:"ourCasualties"`
+		TheirCasualties int `json:"theirCasualties"`
 	} `json:"battleBlock"`
 }
 
@@ -248,22 +249,30 @@ func TestScenarioBattle(t *testing.T) {
 		bb := battleBlocks[0]
 		assert.Equal(t, expected.BattleBlock.Rounds, bb.Rounds,
 			"rounds should be %d", expected.BattleBlock.Rounds)
-		assert.Equal(t, expected.BattleBlock.Side1Stacks, bb.Side1Stacks,
-			"side1 stacks should be %d", expected.BattleBlock.Side1Stacks)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, bb.TotalStacks,
 			"total stacks should be %d", expected.BattleBlock.TotalStacks)
 		assert.Equal(t, expected.BattleBlock.PlanetID, bb.PlanetID,
 			"planet ID should be %d", expected.BattleBlock.PlanetID)
-		assert.Equal(t, expected.BattleBlock.AttackerStacks, bb.AttackerStacks,
-			"attacker stacks should be %d", expected.BattleBlock.AttackerStacks)
-		assert.Equal(t, expected.BattleBlock.DefenderStacks, bb.DefenderStacks,
-			"defender stacks should be %d", expected.BattleBlock.DefenderStacks)
-		assert.Equal(t, expected.BattleBlock.AttackerLosses, bb.AttackerLosses,
-			"attacker losses should be %d", expected.BattleBlock.AttackerLosses)
 		assert.Equal(t, expected.BattleBlock.NumActions, len(bb.Actions),
 			"number of actions should be %d", expected.BattleBlock.NumActions)
+		assert.Equal(t, expected.BattleBlock.TotalPhases, bb.TotalPhases(),
+			"total phases should be %d", expected.BattleBlock.TotalPhases)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, len(bb.Stacks),
 			"number of stacks should match total stacks")
+
+		// Verify stacks by player (side1 = player 0)
+		viewingPlayer := 0
+		enemyPlayer := 1
+		assert.Equal(t, expected.BattleBlock.OurStacks, bb.StacksForPlayer(viewingPlayer),
+			"our stacks should be %d", expected.BattleBlock.OurStacks)
+		assert.Equal(t, expected.BattleBlock.TheirStacks, bb.TotalStacks-bb.StacksForPlayer(viewingPlayer),
+			"their stacks should be %d", expected.BattleBlock.TheirStacks)
+
+		// Verify casualties
+		assert.Equal(t, expected.BattleBlock.OurCasualties, bb.CasualtiesForPlayer(viewingPlayer),
+			"our casualties should be %d", expected.BattleBlock.OurCasualties)
+		assert.Equal(t, expected.BattleBlock.TheirCasualties, bb.CasualtiesForPlayer(enemyPlayer),
+			"their casualties should be %d", expected.BattleBlock.TheirCasualties)
 	})
 
 	t.Run("BattleRecordEvents", func(t *testing.T) {
@@ -408,28 +417,29 @@ func TestScenarioBattleSide2(t *testing.T) {
 		bb := battleBlocks[0]
 		assert.Equal(t, expected.BattleBlock.Rounds, bb.Rounds,
 			"rounds should be %d", expected.BattleBlock.Rounds)
-		assert.Equal(t, expected.BattleBlock.Side1Stacks, bb.Side1Stacks,
-			"side1 stacks should be %d (viewer's stacks)", expected.BattleBlock.Side1Stacks)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, bb.TotalStacks,
 			"total stacks should be %d", expected.BattleBlock.TotalStacks)
 		assert.Equal(t, expected.BattleBlock.PlanetID, bb.PlanetID,
 			"planet ID should be %d", expected.BattleBlock.PlanetID)
-		assert.Equal(t, expected.BattleBlock.AttackerStacks, bb.AttackerStacks,
-			"attacker stacks should be %d", expected.BattleBlock.AttackerStacks)
-		assert.Equal(t, expected.BattleBlock.DefenderStacks, bb.DefenderStacks,
-			"defender stacks should be %d", expected.BattleBlock.DefenderStacks)
-		assert.Equal(t, expected.BattleBlock.AttackerLosses, bb.AttackerLosses,
-			"attacker losses should be %d", expected.BattleBlock.AttackerLosses)
 		assert.Equal(t, expected.BattleBlock.NumActions, len(bb.Actions),
 			"number of actions should be %d", expected.BattleBlock.NumActions)
+		assert.Equal(t, expected.BattleBlock.TotalPhases, bb.TotalPhases(),
+			"total phases should be %d", expected.BattleBlock.TotalPhases)
 		assert.Equal(t, expected.BattleBlock.TotalStacks, len(bb.Stacks),
 			"number of stacks should match total stacks")
 
-		// Cross-validate: BattleBlock is a recording of the battle and is identical
-		// for both sides. The "Side 1" refers to a fixed battle side, not the viewer.
-		assert.Equal(t, expected.BattleBlock.Side1Stacks, bb.Side1Stacks,
-			"Side 1 stacks should match expected")
-		assert.Equal(t, expected.BattleBlock.TotalStacks-expected.BattleBlock.Side1Stacks, bb.Side2Stacks(),
-			"Side 2 stacks should be total minus side1")
+		// Verify stacks by player (side2 = player 1)
+		viewingPlayer := 1
+		enemyPlayer := 0
+		assert.Equal(t, expected.BattleBlock.OurStacks, bb.StacksForPlayer(viewingPlayer),
+			"our stacks should be %d", expected.BattleBlock.OurStacks)
+		assert.Equal(t, expected.BattleBlock.TheirStacks, bb.TotalStacks-bb.StacksForPlayer(viewingPlayer),
+			"their stacks should be %d", expected.BattleBlock.TheirStacks)
+
+		// Verify casualties
+		assert.Equal(t, expected.BattleBlock.OurCasualties, bb.CasualtiesForPlayer(viewingPlayer),
+			"our casualties should be %d", expected.BattleBlock.OurCasualties)
+		assert.Equal(t, expected.BattleBlock.TheirCasualties, bb.CasualtiesForPlayer(enemyPlayer),
+			"their casualties should be %d", expected.BattleBlock.TheirCasualties)
 	})
 }

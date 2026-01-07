@@ -765,86 +765,227 @@ This event is generated when a battle takes place. The battle VCR recording is s
 
 **Game message**: "A battle took place at Redmond against the Halflings. Neither your 4 forces nor the enemy's 2 forces were completely wiped out. You lost 1 and the enemy lost 1."
 
-### BattleBlock (Type 31) Structure
+### BattleBlock (Type 31) Structure - UPDATED FROM BINARY ANALYSIS
 
-The BattleBlock contains the battle VCR recording data with three sections:
+**Source**: Decompiled from `stars26jrc3.exe` using Ghidra. Structure names from NB09 CodeView debug symbols.
 
-#### Header (18 bytes)
+The BattleBlock contains the battle VCR recording data. The structure was previously misunderstood - the header is **14 bytes** (not 18), and action records are **variable size** (not fixed 22 bytes).
+
+#### BTLDATA Header (14 bytes)
+
+From the Stars! binary `BTLDATA` structure:
+
+```c
+typedef struct _btldata {
+    uint16_t id;        // +0x00: Battle identifier
+    uint8_t  cplr;      // +0x02: Number of players involved
+    uint8_t  ctok;      // +0x03: Total stack count (TOK = token/stack)
+    uint16_t grfPlr;    // +0x04: Player bitmask (bit N = player N involved)
+    uint16_t cbData;    // +0x06: Total data size in bytes
+    uint16_t idPlanet;  // +0x08: Planet ID (-1 = deep space, signed)
+    POINT    pt;        // +0x0a: X,Y coordinates (4 bytes)
+    TOK      rgtok[0];  // +0x0e: Stack array starts here
+} BTLDATA;  // Total header: 14 bytes
+```
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0x00 | 2 | id | Battle identifier (uint16 LE) |
+| 0x02 | 1 | cplr | Number of players involved in battle |
+| 0x03 | 1 | ctok | Total number of stacks |
+| 0x04 | 2 | grfPlr | Player bitmask - bit N set = player N is in battle |
+| 0x06 | 2 | cbData | Total block data size |
+| 0x08 | 2 | idPlanet | Planet ID (int16 LE, -1 = deep space) |
+| 0x0a | 2 | x | X coordinate |
+| 0x0c | 2 | y | Y coordinate |
+
+**Note**: The old interpretation of bytes 14-17 as attacker/defender counts was incorrect. Those bytes are part of the first TOK structure.
+
+#### TOK Stack Structure (29 bytes each)
+
+Each participating stack is defined by a `TOK` structure (0x1d = 29 bytes):
+
+```c
+typedef struct _tok {
+    uint16_t id;          // +0x00: Fleet/Planet ID
+    uint8_t  iplr;        // +0x02: Owner player ID (0-15)
+    uint8_t  grobj;       // +0x03: Object type (1=starbase, other=fleet)
+    uint8_t  ishdef;      // +0x04: Ship design ID
+    uint8_t  brc;         // +0x05: Battle grid position (row*11 + col)
+    uint8_t  initBase;    // +0x06: Base initiative
+    uint8_t  initMin;     // +0x07: Minimum initiative
+    uint8_t  initMac;     // +0x08: Maximum initiative
+    uint8_t  itokTarget;  // +0x09: Target stack index
+    uint8_t  pctCloak;    // +0x0a: Cloak percentage
+    uint8_t  pctJam;      // +0x0b: Jammer percentage
+    uint8_t  pctBC;       // +0x0c: Battle computer percentage
+    uint8_t  pctCap;      // +0x0d: Capacitor percentage
+    uint8_t  pctBeamDef;  // +0x0e: Beam deflector percentage
+    uint16_t wt;          // +0x0f: Mass/weight
+    uint16_t dpShield;    // +0x11: Shield hitpoints
+    uint16_t csh;         // +0x13: Ship count
+    DV       dv;          // +0x15: Armor damage value (2 bytes)
+    uint16_t mdTarget;    // +0x17: Target mode bitfield
+    // +0x19-0x1c: Additional fields (5 bytes)
+} TOK;  // Total: 29 bytes (0x1d)
+```
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0x00 | 2 | id | Fleet or planet ID |
+| 0x02 | 1 | iplr | Owner player (0-15) |
+| 0x03 | 1 | grobj | 1 = starbase, other = fleet |
+| 0x04 | 1 | ishdef | Ship design index |
+| 0x05 | 1 | brc | Grid position (encoded) |
+| 0x06 | 1 | initBase | Base initiative value |
+| 0x07 | 1 | initMin | Minimum initiative |
+| 0x08 | 1 | initMac | Maximum initiative |
+| 0x09 | 1 | itokTarget | Target stack index |
+| 0x0a | 1 | pctCloak | Cloak % (0-100) |
+| 0x0b | 1 | pctJam | Jammer % |
+| 0x0c | 1 | pctBC | Battle computer % |
+| 0x0d | 1 | pctCap | Capacitor % |
+| 0x0e | 1 | pctBeamDef | Beam deflector % |
+| 0x0f | 2 | wt | Ship mass |
+| 0x11 | 2 | dpShield | Shield HP |
+| 0x13 | 2 | csh | Ship count in stack |
+| 0x15 | 2 | dv | Armor damage (DV struct) |
+| 0x17 | 2 | mdTarget | Target mode bits |
+| 0x19 | 5 | - | Additional fields |
+
+#### BTLREC Action Records (VARIABLE SIZE!)
+
+**IMPORTANT**: Action records are NOT fixed 22-byte chunks. Each `BTLREC` has variable size:
 
 ```
-Offset  Size  Field
-------  ----  -----
-0       1     Battle ID (usually 1)
-1       1     Rounds field (see note below)
-2       1     Side 1 stack count
-3       1     Total stack count (Side 2 = total - side1)
-4-5     2     Unknown (always 0x0003 observed)
-6-7     2     Block size (16-bit LE, self-referencing)
-8-9     2     Planet ID (16-bit LE)
-10-11   2     X coordinate (16-bit LE)
-12-13   2     Y coordinate (16-bit LE)
-14      1     Attacker stack count
-15      1     Defender stack count
-16      1     Attacker losses (matches game display)
-17      1     Unknown17 (NOT defender losses - see analysis below)
+Record size = 6 + (ctok × 8) bytes
 ```
 
-**IMPORTANT: Header Field Analysis (battle-01 vs battle-02)**
+Where `ctok` is the number of kill events in that action.
 
-| Field | Battle-01 | Battle-02 | Notes |
-|-------|-----------|-----------|-------|
-| byte[1] (Rounds) | 15 → 16 rounds | 0 → 1 round? | Action data shows 10 rounds! |
-| byte[16] (AttackerLosses) | 1 | 0 | Matches game messages ✓ |
-| byte[17] (Unknown17) | 2 | 2 | NOT defender losses (both show 1 in game) |
+```c
+typedef struct _btlrec {
+    uint8_t  itok;      // +0x00: Acting stack index
+    uint8_t  brcDest;   // +0x01: Destination grid position
+    int16_t  ctok;      // +0x02: Kill record count (determines size!)
+    // +0x04: Bitfield (16 bits):
+    //   bits 0-3:  iRound (round number 0-15)
+    //   bits 4-7:  dzDis (distance moved)
+    //   bits 8-15: itokAttack (target stack index)
+    KILL     rgkill[0]; // +0x06: Array of kill records
+} BTLREC;  // Base: 6 bytes + ctok×8 bytes
+```
 
-**byte[1] interpretation issue:**
-- Battle-01: byte[1]=15, action data has rounds 0-15 (16 rounds) ✓
-- Battle-02: byte[1]=0, but action data has rounds 0-9 (10 rounds!) ✗
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0x00 | 1 | itok | Acting stack index (0 to ctok-1) |
+| 0x01 | 1 | brcDest | Destination grid position |
+| 0x02 | 2 | ctok | Number of KILL records following |
+| 0x04 | 2 | bitfield | Round (4 bits) + distance (4 bits) + target (8 bits) |
+| 0x06 | N×8 | rgkill | Array of KILL structures |
 
-The naive interpretation `Rounds = byte[1] + 1` only works for some battles. Battle-02 (a "continuation" battle where ships carried damage from a previous turn) has byte[1]=0 but clearly 10 rounds of action data.
+#### KILL Structure (8 bytes each)
 
-**Solution implemented**: The parser now calculates rounds by scanning action data for phase markers `[round][stack1][stack2][0x04|0xC4]` and finding the maximum round number. This gives accurate results for both battles:
-- Battle-01: max round 15 → 16 rounds ✓
-- Battle-02: max round 9 → 10 rounds ✓
+Each kill event within a BTLREC:
 
-The header byte[1] is unreliable and should not be trusted for round count.
+```c
+typedef struct _kill {
+    uint8_t  itok;      // +0x00: Target stack index
+    uint8_t  grfWeapon; // +0x01: Weapon type flags
+    uint16_t cshKill;   // +0x02: Number of ships killed
+    uint16_t dpShield;  // +0x04: Shield damage dealt
+    DV       dv;        // +0x06: Armor damage (2 bytes)
+} KILL;  // Total: 8 bytes
+```
 
-**byte[17] is NOT defender losses:**
-Both battles have byte[17]=2, but actual defender losses from game messages:
-- Battle-01: 1 enemy ship lost (game shows "losing one of their own")
-- Battle-02: 1 enemy ship lost (Stalwart Defender destroyed at phase 61)
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0x00 | 1 | itok | Target stack that was hit |
+| 0x01 | 1 | grfWeapon | Weapon type flags |
+| 0x02 | 2 | cshKill | Ships destroyed |
+| 0x04 | 2 | dpShield | Shield damage |
+| 0x06 | 2 | dv | Armor damage |
 
-The true defender losses are stored in BattleEvent (Type 0x4F in EventsBlock) as `enemyLosses`, not in the BattleBlock header.
+#### DV (Damage Value) Structure (2 bytes)
 
-#### Stack Definitions (29 bytes each)
+```c
+typedef struct _dv {
+    union {
+        uint16_t dp;      // Raw 16-bit value
+        struct {
+            uint16_t pctSh : 7;  // Shield damage percentage (bits 0-6)
+            uint16_t pctDp : 9;  // Armor damage percentage (bits 7-15)
+        };
+    };
+} DV;
+```
 
-Each participating stack has a 29-byte definition containing:
-- Ship design information
-- Ship count
-- Initial stats (armor, shields, initiative)
+#### Block Continuation (Type 39)
 
-The 0x41 or 0x58 byte serves as a marker within the stack structure:
-- Byte at marker-1: Design ID
-- Byte at marker+1: Initiative value
-- Following bytes: Ship count, movement, and other stats
+When battle data exceeds 1024 bytes (0x400), the game splits it across multiple blocks:
 
-**Stack mapping from battle-02 (Hobbits vs Halflings):**
-| Stack | Design | Marker | Init | Ship | Armor | Shields |
-|-------|--------|--------|------|------|-------|---------|
-| 0 | 0x0A | 0x41 | 6 | Cruiser | 975 | 100 |
-| 1 | 0x04 | 0x58 | 4 | Stalwart Defender | 275 | 0 |
-| 2 | 0x08 | 0x41 | 0 | Super-Fuel Xport | 12 | 0 |
-| 3 | 0x01 | 0x41 | 0 | Long Range Scout | 20 | 0 |
+1. **First block (Type 31)**: Header + up to 35 stacks + initial action records
+2. **Continuation blocks (Type 39)**: Additional stacks and/or action records
 
-Note: Marker 0x58 appears on enemy stack (Halflings), while 0x41 appears on friendly stacks (Hobbits). This may indicate player ownership.
+From `WriteBattles` in the binary:
+```c
+if (cbData >= 0x400) {
+    // Write header + stacks first (max 0x22 = 34 stacks per block)
+    WriteRt(0x1f, ctok * 0x1d + 0x0e, lpbtldata);  // Type 31
 
-#### Action Records (22 bytes each)
+    // Write remaining stacks in continuation blocks
+    while (remaining_stacks > 0) {
+        WriteRt(0x27, min(remaining * 0x1d, 0x3f7), data);  // Type 39
+    }
 
-Battle actions are recorded in fixed 22-byte records containing:
-- Position and state data
-- Damage information (0x64 = base 100, 0xE4 = variant)
-- Stack references and movement
-- Round numbers (0-15 for 16 rounds)
+    // Write action records in continuation blocks
+    WriteRt(0x27, action_data_size, action_data);  // Type 39
+}
+```
+
+#### Grid Position Encoding
+
+Battle grid positions use base-11 encoding for a 10×10 grid:
+
+```
+position = col × 11 + row
+```
+
+Where col and row are 0-9. Decoding:
+```
+col = position / 11
+row = position % 11
+```
+
+Examples:
+| Encoded | Decimal | Grid (col, row) |
+|---------|---------|-----------------|
+| 0x00 | 0 | (0, 0) |
+| 0x25 | 37 | (3, 4) |
+| 0x52 | 82 | (7, 5) |
+| 0x6D | 109 | (9, 10) - invalid |
+
+#### Round Calculation
+
+The header does NOT reliably store round count. Calculate from action data:
+1. Scan BTLREC records for the `iRound` field (bits 0-3 of offset 0x04)
+2. Find maximum round number
+3. Rounds = max_round + 1
+
+#### Example Battle Layout
+
+```
+Offset  Content
+------  -------
+0x000   BTLDATA header (14 bytes)
+0x00E   TOK[0] - Stack 0 (29 bytes)
+0x02B   TOK[1] - Stack 1 (29 bytes)
+0x048   TOK[2] - Stack 2 (29 bytes)
+...
+0x0XX   BTLREC[0] - First action (6+ bytes)
+0x0YY   BTLREC[1] - Second action (6+ bytes)
+...
+```
 
 **Example structure:**
 ```
@@ -1711,5 +1852,78 @@ for _, slot := range design.Slots {
         // Use stats.NormalRange, stats.PenetratingRange
     }
 }
+```
+
+---
+
+## Block Type Mappings from Binary Analysis
+
+From decompiling the Stars! binary (stars26jrc3.exe), the following block type mappings were confirmed:
+
+### Writing Functions
+
+Blocks are written using two key functions:
+- `WriteMemRt(rt, cb, data)` - Writes to memory log buffer (for X files, player orders)
+- `WriteRt(rt, cb, data)` - Writes directly to file stream (for M/H files)
+
+Block header format: `(size & 0x3FF) | (type << 10)` (10-bit size + 6-bit type)
+
+### Confirmed Block Type to Function Mappings
+
+| Type | Block Name | Writing Function | Purpose |
+|------|------------|-----------------|---------|
+| 1 | ManualSmallLoadUnloadTask | LogMakeValidXfer (qty < 0x80) | Small cargo transfer (signed byte) |
+| 2 | ManualMediumLoadUnloadTask | LogMakeValidXfer (qty < 0x8000) | Medium cargo transfer (signed word) |
+| 3 | WaypointDelete | LogChangeFleet | Remove waypoint from fleet |
+| 4 | WaypointAdd | LogChangeFleet | Add new waypoint to fleet |
+| 5 | WaypointChangeTask | LogChangeFleet | Modify task at existing waypoint |
+| 23 (0x17) | MoveShips | LogMakeValidXferf | Transfer ships between fleets |
+| 24 (0x18) | FleetSplit | LogSplitFleet | Split a fleet into two |
+| 25 (0x19) | ManualLargeLoadUnloadTask | LogMakeValidXfer (large) | Large cargo transfer (32-bit) |
+| 27 (0x1b) | DesignChange | LogChangeShDef | Ship/starbase design changes |
+| 29 (0x1d) | ProductionQueueChange | LogChangePlanet | Production queue orders |
+| 35 (0x23) | PlanetChange | LogChangePlanet | Planet setting changes |
+| 37 (0x25) | FleetsMerge | LogMergeFleet | Merge multiple fleets |
+| 38 (0x26) | PlayersRelationChange | LogChangeRelations | Diplomatic relation changes |
+| 44 (0x2c) | RenameFleet | LogChangeName | Fleet renaming |
+
+### Unknown Block Types
+
+Block types 11, 15, 18, and 22 were not found in the standard game operation functions. Possible explanations:
+- Used only in specific edge cases (AI host file records, tutorial mode)
+- Legacy/deprecated types no longer written by modern game versions
+- Used only in M-file read operations but never written to X files
+
+### Key Structures
+
+From the NB09 debug symbols in the binary:
+
+```c
+// RTSHIPINT - Simple fleet/waypoint reference (4 bytes)
+typedef struct _rtshipint {
+    int16_t id;   // Fleet ID
+    int16_t i;    // Index (e.g., waypoint index)
+} RTSHIPINT;
+
+// RTSHIPINT2 - Extended fleet/waypoint reference (6 bytes)
+typedef struct _rtshipint2 {
+    int16_t id;   // Fleet ID
+    int16_t i;    // Index 1
+    int16_t i2;   // Index 2
+} RTSHIPINT2;
+
+// LOGXFER - Cargo transfer log entry (24 bytes)
+typedef struct _logxfer {
+    int16_t id;           // Target ID
+    int16_t grobj;        // Object type (planet=1, fleet=2)
+    int32_t rgdItem[5];   // Quantities: Ironium, Boranium, Germanium, Colonists, Fuel
+} LOGXFER;
+
+// RTCHGNAME - Rename record (variable size)
+typedef struct _rtchgname {
+    int16_t grobj;        // Object type
+    int16_t id;           // Object ID
+    uint8_t rgb[1];       // Compressed name data
+} RTCHGNAME;
 ```
 
