@@ -107,8 +107,13 @@ func FormatBattle(block blocks.Block, index int) string {
 				prefix, i, offset, stack.OwnerPlayerID, objType, stack.DesignID, stack.ShipCount))
 			fields = append(fields, fmt.Sprintf("      Position: %d, Init: %d-%d (base %d)",
 				stack.GridPosition, stack.InitiativeMin, stack.InitiativeMax, stack.InitiativeBase))
-			fields = append(fields, fmt.Sprintf("      Shields: %d HP, Armor: %d dmg, Mass: %d",
-				stack.ShieldHP, stack.ArmorDamage, stack.Mass))
+			dmgState := "undamaged"
+			if !stack.DamageState.IsZero() {
+				dmgState = fmt.Sprintf("%.1f%% armor (%d%% ships)",
+					stack.DamageState.ArmorDamagePercent(), stack.DamageState.PctSh())
+			}
+			fields = append(fields, fmt.Sprintf("      Shields: %d HP, State: %s, Mass: %d",
+				stack.ShieldHP, dmgState, stack.Mass))
 			if stack.CloakPercent > 0 || stack.JammerPercent > 0 || stack.BattleCompPercent > 0 || stack.BeamDeflectPercent > 0 {
 				fields = append(fields, fmt.Sprintf("      Modifiers: Cloak %d%%, Jammer %d%%, BC %d%%, Cap %d%%, Deflect %d%%",
 					stack.CloakPercent, stack.JammerPercent, stack.BattleCompPercent,
@@ -177,8 +182,9 @@ func FormatBattle(block blocks.Block, index int) string {
 	fields = append(fields, "")
 	fields = append(fields, "── Notes ──")
 	fields = append(fields, "  Phase N = Action (N-2), since Phase 1 is setup")
-	fields = append(fields, "  KILL record: shipsKilled and shieldDamage are verified")
-	fields = append(fields, "  KILL record: armorDamage field (dv) purpose unknown")
+	fields = append(fields, "  KILL record: shipsKilled, shieldDamage verified against VCR")
+	fields = append(fields, "  DV field = target's damage STATE after attack (not dmg dealt)")
+	fields = append(fields, "  DV: pctDp (bits 7-15) = armor dmg %, pctSh (bits 0-6) = % ships")
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
@@ -231,7 +237,7 @@ func formatActionDetail(action blocks.BattleAction, idx int, totalStacks int, _ 
 	lines = append(lines, fmt.Sprintf("    %s Phase %d (R%d): Stack %d %s",
 		TreeBranch, phase, iRound, itok, actionDesc))
 
-	// Show kill records
+	// Show kill records with DV state
 	if ctok > 0 && len(raw) >= 6+ctok*8 {
 		for k := 0; k < ctok; k++ {
 			killOffset := 6 + k*8
@@ -239,10 +245,11 @@ func formatActionDetail(action blocks.BattleAction, idx int, totalStacks int, _ 
 			weaponFlags := raw[killOffset+1]
 			shipsKilled := int(encoding.Read16(raw, killOffset+2))
 			shieldDmg := int(encoding.Read16(raw, killOffset+4))
+			targetDV := blocks.DV(encoding.Read16(raw, killOffset+6))
 
 			var dmgParts []string
 			if shieldDmg > 0 {
-				dmgParts = append(dmgParts, fmt.Sprintf("%d shield dmg", shieldDmg))
+				dmgParts = append(dmgParts, fmt.Sprintf("%d shield", shieldDmg))
 			}
 			if shipsKilled > 0 {
 				dmgParts = append(dmgParts, fmt.Sprintf("%d killed", shipsKilled))
@@ -253,8 +260,11 @@ func formatActionDetail(action blocks.BattleAction, idx int, totalStacks int, _ 
 				dmgStr = strings.Join(dmgParts, ", ")
 			}
 
-			lines = append(lines, fmt.Sprintf("        -> Stack %d: %s (0x%02X)",
-				killTarget, dmgStr, weaponFlags))
+			// Show target's damage state after attack
+			stateStr := fmt.Sprintf("-> %.1f%% armor", targetDV.ArmorDamagePercent())
+
+			lines = append(lines, fmt.Sprintf("        -> Stack %d: %s %s (0x%02X)",
+				killTarget, dmgStr, stateStr, weaponFlags))
 		}
 	}
 

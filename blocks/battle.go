@@ -6,6 +6,76 @@ import (
 	"github.com/neper-stars/houston/encoding"
 )
 
+// DV represents a damage value structure (2 bytes) that stores the damage STATE
+// of a stack (not the damage dealt). It's a bit-packed 16-bit value from decompilation.
+//
+// Structure (from stars26jrc3.exe FDamageTok @ 10f0:81d4):
+//
+//	Bits 0-6 (pctSh): % of ships with partial damage (0-100+)
+//	Bits 7-15 (pctDp): Armor damage % (0-499, capped)
+//
+// Encoding: dv = (pctDp << 7) | (pctSh & 0x7F)
+type DV uint16
+
+// NewDV creates a DV value from percentages.
+//   - armorDamagePercent: Armor damage as a percentage (0.0 to 99.8)
+//   - shipsAffectedPercent: Percentage of ships with damage (0 to 100)
+//
+// Example: NewDV(50.0, 100) creates a DV representing 50% armor damage on all ships.
+func NewDV(armorDamagePercent float64, shipsAffectedPercent int) DV {
+	// Convert percentage to internal pctDp (scaled by 5, capped at 499)
+	pctDp := int(armorDamagePercent * 5)
+	if pctDp > 499 {
+		pctDp = 499
+	}
+	if pctDp < 0 {
+		pctDp = 0
+	}
+
+	// pctSh is stored directly (0-127)
+	pctSh := shipsAffectedPercent
+	if pctSh > 127 {
+		pctSh = 127
+	}
+	if pctSh < 0 {
+		pctSh = 0
+	}
+
+	return DV((pctDp << 7) | (pctSh & 0x7F))
+}
+
+// PctSh returns the percentage of ships with partial damage (bits 0-6).
+// Value range is 0-100+ (can exceed 100 in some edge cases).
+func (dv DV) PctSh() int {
+	return int(dv & 0x7F)
+}
+
+// PctDp returns the armor damage percentage (bits 7-15).
+// Value range is 0-499 (capped at 499 = 99.8% damage).
+func (dv DV) PctDp() int {
+	return int(dv >> 7)
+}
+
+// ArmorDamagePercent returns the armor damage as a human-readable percentage.
+// The pctDp value is scaled: actual % = pctDp / 5.
+func (dv DV) ArmorDamagePercent() float64 {
+	return float64(dv.PctDp()) / 5.0
+}
+
+// IsZero returns true if this DV represents no damage state.
+func (dv DV) IsZero() bool {
+	return dv == 0
+}
+
+// String returns a human-readable representation of the damage state.
+func (dv DV) String() string {
+	if dv.IsZero() {
+		return "undamaged"
+	}
+	return fmt.Sprintf("%.1f%% armor damage (%d%% ships affected)",
+		dv.ArmorDamagePercent(), dv.PctSh())
+}
+
 // Battle tactics
 const (
 	TacticDisengage             = 0
@@ -262,7 +332,7 @@ type BattleStack struct {
 	Mass        int // Ship mass/weight (offset 0x0f)
 	ShieldHP    int // Shield hitpoints (offset 0x11)
 	ShipCount   int // Number of ships in stack (offset 0x13)
-	ArmorDamage int // Armor damage value (offset 0x15)
+	DamageState DV  // Damage state at battle start (offset 0x15, DV struct)
 }
 
 // BattleActionType represents the type of battle action
@@ -302,12 +372,24 @@ func (e BattleRecordEvent) String() string {
 	}
 }
 
-// KillRecord represents ships destroyed in a single attack.
-// Note: Shield damage (dpShield) is available in the raw KILL record but not exposed here.
-// Armor damage is NOT stored in the KILL record - it must be computed from weapon stats.
+// KillRecord represents damage dealt in a single attack (KILL structure, 8 bytes).
+//
+// Structure from Stars! binary (KILL):
+//
+//	+0x00: uint8  itok      - Target stack index
+//	+0x01: uint8  grfWeapon - Weapon type flags
+//	+0x02: uint16 cshKill   - Ships destroyed (verified against VCR)
+//	+0x04: uint16 dpShield  - Shield damage dealt (verified against VCR)
+//	+0x06: DV     dv        - Target's damage STATE after attack (not damage dealt!)
+//
+// Note: The armor damage displayed in the VCR is calculated from weapon stats,
+// NOT read from the KILL record. The DV field stores the cumulative damage state.
 type KillRecord struct {
-	StackID     int // Stack that took losses
-	ShipsKilled int // Number of ships destroyed
+	StackID      int // Target stack that took damage
+	WeaponFlags  int // Weapon type flags (0x01=beam, 0x04=torp, 0xC4 observed)
+	ShipsKilled  int // Number of ships destroyed
+	ShieldDamage int // Shield damage dealt
+	TargetDV     DV  // Target's damage state AFTER this attack
 }
 
 // BattleAction represents a single action record in the battle.
@@ -490,30 +572,28 @@ func (bb *BattleBlock) decodeActionRecords(data []byte) {
 
 		// Decode kill records if present
 		// KILL record structure (8 bytes):
-		//   +0x00: uint8  killItok   - target stack index that took damage
-		//   +0x01: uint8  grfWeapon  - weapon flags (0x01, 0x04 observed)
-		//   +0x02: uint16 cshKill    - number of ships destroyed
+		//   +0x00: uint8  itok       - target stack index that took damage
+		//   +0x01: uint8  grfWeapon  - weapon flags (0x01=beam, 0x04=torp, 0xC4 observed)
+		//   +0x02: uint16 cshKill    - number of ships destroyed (verified against VCR)
 		//   +0x04: uint16 dpShield   - shield damage dealt (verified against VCR)
-		//   +0x06: uint16 dv         - purpose unknown; does NOT directly store armor
-		//                              damage. Values observed don't correlate with
-		//                              armor damage shown in Battle VCR. Armor damage
-		//                              is likely computed by VCR from weapon stats.
+		//   +0x06: DV     dv         - target's damage STATE after attack (not damage dealt!)
 		if ctok > 0 {
 			killOffset := offset + 6
 			for k := 0; k < ctok && killOffset+8 <= len(data); k++ {
 				killItok := int(data[killOffset])
-				// grfWeapon := data[killOffset+1] // weapon flags, not yet decoded
+				grfWeapon := int(data[killOffset+1])
 				cshKill := int(encoding.Read16(data, killOffset+2))
 				dpShield := int(encoding.Read16(data, killOffset+4))
-				// dv := encoding.Read16(data, killOffset+6) // unknown purpose, not armor damage
+				targetDV := DV(encoding.Read16(data, killOffset+6))
 
-				// Track ship kills
-				if cshKill > 0 {
-					action.Kills = append(action.Kills, KillRecord{
-						StackID:     killItok,
-						ShipsKilled: cshKill,
-					})
-				}
+				// Track all damage records (not just kills)
+				action.Kills = append(action.Kills, KillRecord{
+					StackID:      killItok,
+					WeaponFlags:  grfWeapon,
+					ShipsKilled:  cshKill,
+					ShieldDamage: dpShield,
+					TargetDV:     targetDV,
+				})
 
 				if cshKill > 0 || dpShield > 0 {
 					dmgEvent := BattleRecordEvent{
@@ -604,7 +684,7 @@ func (bb *BattleBlock) decodeStack(stack []byte) BattleStack {
 	bs.Mass = int(encoding.Read16(stack, 15))           // +0x0f: uint16 wt
 	bs.ShieldHP = int(encoding.Read16(stack, 17))       // +0x11: uint16 dpShield
 	bs.ShipCount = int(encoding.Read16(stack, 19))      // +0x13: uint16 csh
-	bs.ArmorDamage = int(encoding.Read16(stack, 21))    // +0x15: uint16 dv
+	bs.DamageState = DV(encoding.Read16(stack, 21))     // +0x15: DV (damage state)
 
 	return bs
 }

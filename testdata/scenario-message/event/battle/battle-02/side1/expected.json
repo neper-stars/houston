@@ -40,6 +40,7 @@
         "target": 0,
         "shipsKilled": 0,
         "shieldDamage": 2,
+        "armorDamage": 2,
         "comment": "Stalwart Defender attacks Cruiser: 2 shield + 2 armor (screenshot 9.png)"
       },
       {
@@ -50,6 +51,7 @@
         "target": 1,
         "shipsKilled": 0,
         "shieldDamage": 0,
+        "armorDamage": 4,
         "comment": "Cruiser attacks Stalwart Defender: 4 armor (screenshot 12.png)"
       },
       {
@@ -60,6 +62,7 @@
         "target": 0,
         "shipsKilled": 0,
         "shieldDamage": 2,
+        "armorDamage": 2,
         "comment": "Stalwart Defender attacks Cruiser: 2 shield + 2 armor (screenshot 13.png)"
       },
       {
@@ -70,6 +73,7 @@
         "target": 1,
         "shipsKilled": 1,
         "shieldDamage": 0,
+        "armorDamage": 1,
         "comment": "Cruiser destroys Stalwart Defender: 1 armor, 1 ship killed (screenshot 61.png)"
       }
     ]

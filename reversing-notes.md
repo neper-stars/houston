@@ -849,7 +849,7 @@ typedef struct _tok {
 | 0x0f   | 2    | wt         | Ship mass                   |
 | 0x11   | 2    | dpShield   | Shield HP                   |
 | 0x13   | 2    | csh        | Ship count in stack         |
-| 0x15   | 2    | dv         | Armor damage (DV struct)    |
+| 0x15   | 2    | dv         | **VERIFIED** Damage state (DV struct) |
 | 0x17   | 2    | mdTarget   | Target mode bits            |
 | 0x19   | 5    | -          | Additional fields           |
 
@@ -904,50 +904,178 @@ typedef struct _kill {
 | 0x01   | 1    | grfWeapon | Partial      | Weapon type flags (values 0x01, 0x04, 0xC4 observed) |
 | 0x02   | 2    | cshKill   | **VERIFIED** | Ships destroyed (matches VCR display)                |
 | 0x04   | 2    | dpShield  | **VERIFIED** | Shield damage dealt (matches VCR display)            |
-| 0x06   | 2    | dv        | **UNKNOWN**  | Does NOT store armor damage directly!                |
+| 0x06   | 2    | dv        | **VERIFIED** | Target's damage STATE after attack (DV struct)       |
 
-**IMPORTANT: The `dv` field does NOT contain armor damage dealt!**
+**IMPORTANT: The `dv` field contains the target's damage STATE, not damage dealt!**
 
-Verified against Battle VCR screenshots (battle-02 test data):
-- Phase 9: VCR shows "2 shield + 2 armor damage", dpShield=2 ✓, dv=868 ✗
-- Phase 12: VCR shows "4 armor damage", dpShield=0 ✓, dv=15076 ✗
-- Phase 61: VCR shows "1 armor damage, 1 killed", cshKill=1 ✓, dpShield=0 ✓, dv=63972 ✗
+The VCR-displayed "armor damage" is calculated from weapon damage vs shields/armor, not read from the `dv` field. The `dv` stores how damaged the target is AFTER the attack.
 
-The dv values don't correlate with armor damage. Possible interpretations:
-- Cumulative damage state
-- Target's remaining armor
-- Packed damage/state data
-- Weapon damage capacity
+Example interpretation of observed values:
+- Phase 9: dv=868 (0x0364) → pctSh=100, pctDp=6 → target at 1.2% armor damage
+- Phase 12: dv=15076 (0x3AE4) → pctSh=100, pctDp=117 → target at 23.4% armor damage
+- Phase 61: dv=63972 (0xF9E4) → pctSh=100, pctDp=499 → target at 99.8% armor damage (nearly dead)
 
-Armor damage displayed in the VCR is likely computed from weapon stats and game mechanics, not stored in the KILL record.
+#### DV (Damage Value) Structure (2 bytes) - **VERIFIED FROM DECOMPILATION**
 
-#### DV (Damage Value) Structure (2 bytes) - **UNVERIFIED**
-
-The original interpretation of this structure as shield/armor damage percentages does NOT match observed data:
+The DV structure stores the **damage STATE** of a stack (not the damage dealt). It's a bit-packed 16-bit value:
 
 ```c
-// ORIGINAL INTERPRETATION (likely incorrect):
+// From stars26jrc3.exe decompilation (FDamageTok @ 10f0:81d4)
 typedef struct _dv {
     union {
         uint16_t dp;      // Raw 16-bit value
         struct {
-            uint16_t pctSh : 7;  // Shield damage percentage (bits 0-6)
-            uint16_t pctDp : 9;  // Armor damage percentage (bits 7-15)
+            uint16_t pctSh : 7;  // Bits 0-6: % of ships with partial damage (0-100+)
+            uint16_t pctDp : 9;  // Bits 7-15: Armor damage % (0-499, capped)
         };
     };
 } DV;
 ```
 
-**Observed values do NOT correlate with armor damage:**
-- Phase 9: 2 armor damage → dv=868 (0x0364) - bits 7-15 would be 6, not 2
-- Phase 12: 4 armor damage → dv=15076 (0x3AE4) - bits 7-15 would be 117, not 4
-- Phase 61: 1 armor damage → dv=63972 (0xF9E4) - bits 7-15 would be 499, not 1
+**How DV is encoded** (from FDamageTok):
+```c
+if (pctDp > 499) pctDp = 499;  // Cap at 499%
+dv = (pctDp << 7) | (pctSh & 0x7F);
+```
 
-The actual meaning of this field remains unknown. Possible uses:
-- Target's total armor capacity or remaining armor
-- Cumulative damage state across the battle
-- Weapon-specific data or random seed
-- Encoded game state for replay consistency
+**How DV is decoded to remaining armor** (from LdpFromItokDv @ 10e8:07a8):
+```c
+// Get base armor per ship from ship definition (HUL.dp at offset 0x38)
+int baseArmor = shdef->hul.dp;
+int shipCount = tok->csh;
+
+// Total armor capacity
+long totalArmor = baseArmor * shipCount;
+
+if (dv != 0) {
+    // Ships with distributed damage
+    int affectedShips = (shipCount * (dv & 0x7F)) / 100;
+    if (affectedShips < 1) affectedShips = 1;
+
+    // Damage to subtract
+    int dmg = (baseArmor * (dv >> 7)) / 10 * affectedShips / 50;
+    totalArmor -= dmg;
+}
+return totalArmor;  // Remaining armor HP
+```
+
+**Corrected interpretation of observed values:**
+- dv=868 (0x0364): pctSh=100, pctDp=6 → 100% ships have 6×10/500=1.2% armor damage
+- dv=15076 (0x3AE4): pctSh=100, pctDp=117 → 100% ships have 23.4% armor damage
+- dv=63972 (0xF9E4): pctSh=100, pctDp=499 → 100% ships have 99.8% armor damage (nearly dead)
+
+**Key insight**: The DV in KILL records stores the TARGET's damage state AFTER the attack, not the damage dealt. The VCR calculates "armor damage dealt" from weapon stats - it's not stored directly in the record.
+
+#### Battle Damage Formulas - **VERIFIED FROM DECOMPILATION**
+
+**Source**: Decompiled from `stars26jrc3.exe` - functions `FDamageTok`, `RegenShield`, `CTorpHit`, `DpFromPtokBrcToBrc`
+
+##### Shield Damage (FDamageTok @ 10f0:81d4)
+
+Shields are a pool shared across all ships in a stack:
+```c
+// TOK offsets: 0x11 = dpShield (per ship), 0x13 = csh (ship count)
+long totalShields = dpShield * shipCount;
+
+if (damage < totalShields) {
+    // Shields absorb all damage
+    dpShield = (totalShields - damage) / shipCount;
+    remainingDamage = 0;
+} else {
+    // Shields destroyed, excess goes to armor
+    remainingDamage = damage - totalShields;
+    dpShield = 0;
+}
+```
+
+##### Armor Damage (FDamageTok @ 10f0:81d4)
+
+Armor damage is distributed across ships, with damaged ships killed first:
+```c
+// Get existing damage state from DV (offset 0x15)
+int pctDp = dv >> 7;       // Armor damage % (0-499)
+int pctSh = dv & 0x7F;     // % of ships already damaged
+
+// Ships with existing damage
+int cshDamaged = (shipCount * pctSh) / 100;
+int damagePerShip = (baseArmor * pctDp) / 500;
+
+// 1. Kill damaged ships first (they have less armor remaining)
+int remainingArmor = baseArmor - damagePerShip;
+while (damage >= remainingArmor && cshDamaged > 0) {
+    damage -= remainingArmor;
+    cshDamaged--;
+    shipCount--;
+    killCount++;
+}
+
+// 2. Kill undamaged ships
+while (damage >= baseArmor && shipCount > 0) {
+    damage -= baseArmor;
+    shipCount--;
+    killCount++;
+}
+
+// 3. Distribute remaining damage to survivors
+if (damage > 0 && shipCount > 0) {
+    pctDp = min((damage * 500) / baseArmor, 499);
+    pctSh = 100;  // All survivors now damaged
+} else if (cshDamaged > 0) {
+    pctSh = (cshDamaged * 100) / shipCount;
+    // pctDp stays the same
+}
+
+// Pack new DV
+dv = (pctDp << 7) | (pctSh & 0x7F);
+```
+
+##### Shield Regeneration (RegenShield @ 10f0:3c16)
+
+Shields regenerate 10% per battle round:
+```c
+int maxShield = DpShieldOfShdef(shdef, player);
+int regen = maxShield / 10;  // 10% regeneration
+dpShield = min(dpShield + regen, maxShield);
+```
+
+##### Torpedo Hit Calculation (CTorpHit @ 10f0:6790)
+
+Torpedo accuracy is modified by jammer vs battle computer:
+```c
+int pctHit = baseAccuracy;  // From weapon stats
+
+if (targetJammer > attackerBattleComp) {
+    // Jammer reduces hit chance
+    pctHit = pctHit * (100 - (targetJammer - attackerBattleComp)) / 100;
+} else {
+    // Battle computer increases hit chance
+    int bonus = attackerBattleComp - targetJammer;
+    pctHit = 100 - (100 - pctHit) * (100 - bonus) / 100;
+}
+
+if (pctHit < 1) pctHit = 1;
+
+// For small salvos (<200), roll each torpedo
+// For large salvos, use average: hits = torpedoes * pctHit / 100
+```
+
+##### Beam Damage with Range (DpFromPtokBrcToBrc @ 10f0:4d2e)
+
+Beam weapons lose effectiveness at range:
+```c
+int baseDamage = weaponDamage * slotCount;
+
+if (range > 0 && weaponRange > 0) {
+    // Damage falloff with distance
+    int pctFalloff = (range * 100) / weaponRange;
+    baseDamage = baseDamage * (100 - pctFalloff) / 100;
+}
+
+// Beam deflector reduces damage
+if (targetBeamDeflect > 0) {
+    baseDamage = baseDamage * (100 - targetBeamDeflect) / 100;
+}
+```
 
 #### Block Continuation (Type 39)
 
