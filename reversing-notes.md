@@ -4,24 +4,24 @@
 
 ### Production Events (planet-specific)
 
-| Type | Name | Format |
-|------|------|--------|
-| 0x26 | Population Change | `26 00 PP PP ...` |
-| 0x35 | Defenses Built | `35 00 PP PP PP PP` (5 bytes) |
-| 0x36 | Factories Built | `36 00 PP PP CC PP PP` (6 bytes, CC=count) |
-| 0x37 | Mineral Alchemy | `37 00 PP PP PP PP` (5 bytes) |
-| 0x38 | Mines Built | `38 00 PP PP CC PP PP` (6 bytes, CC=count) |
-| 0x3E | Queue Empty | `3E 00 PP PP PP PP` (5 bytes) |
+| Type | Name              | Format                                     |
+|------|-------------------|--------------------------------------------|
+| 0x26 | Population Change | `26 00 PP PP ...`                          |
+| 0x35 | Defenses Built    | `35 00 PP PP PP PP` (5 bytes)              |
+| 0x36 | Factories Built   | `36 00 PP PP CC PP PP` (6 bytes, CC=count) |
+| 0x37 | Mineral Alchemy   | `37 00 PP PP PP PP` (5 bytes)              |
+| 0x38 | Mines Built       | `38 00 PP PP CC PP PP` (6 bytes, CC=count) |
+| 0x3E | Queue Empty       | `3E 00 PP PP PP PP` (5 bytes)              |
 
 Where `PP PP` = Planet ID (16-bit little-endian)
 
 ### Global Events (not planet-specific)
 
-| Type | Name | Format |
-|------|------|--------|
-| 0x50 | Research Complete | `50 00 FE FF LL CF NF` (7 bytes) |
+| Type | Name                       | Format                              |
+|------|----------------------------|-------------------------------------|
+| 0x50 | Research Complete          | `50 00 FE FF LL CF NF` (7 bytes)    |
 | 0x57 | Terraformable Planet Found | `57 FF ?? ?? ?? ?? GG GG` (8 bytes) |
-| 0x5F | Tech Benefit | `5F FF CC II II XX XX` (7 bytes) |
+| 0x5F | Tech Benefit               | `5F FF CC II II XX XX` (7 bytes)    |
 
 #### Research Complete Event (0x50)
 
@@ -67,14 +67,14 @@ Where `PP PP` = Planet ID (16-bit little-endian)
 
 ### Research Field IDs
 
-| ID | Field |
-|----|-------|
-| 0 | Energy |
-| 1 | Weapons |
-| 2 | Propulsion |
-| 3 | Construction |
-| 4 | Electronics |
-| 5 | Biotechnology |
+| ID | Field         |
+|----|---------------|
+| 0  | Energy        |
+| 1  | Weapons       |
+| 2  | Propulsion    |
+| 3  | Construction  |
+| 4  | Electronics   |
+| 5  | Biotechnology |
 
 ---
 
@@ -110,19 +110,19 @@ Item types:
 - `4` = Custom ship/starbase designs
 
 Standard item IDs:
-| ID | Item |
-|----|------|
-| 0 | Auto Mines |
-| 1 | Auto Factories |
-| 2 | Auto Defenses |
-| 3 | Auto Alchemy |
-| 4 | Auto Min Terraform |
-| 5 | Auto Max Terraform |
-| 6 | Auto Packets |
-| 7 | Factory |
-| 8 | Mine |
-| 9 | Defense |
-| 11 | Mineral Alchemy |
+| ID | Item               |
+|----|--------------------|
+| 0  | Auto Mines         |
+| 1  | Auto Factories     |
+| 2  | Auto Defenses      |
+| 3  | Auto Alchemy       |
+| 4  | Auto Min Terraform |
+| 5  | Auto Max Terraform |
+| 6  | Auto Packets       |
+| 7  | Factory            |
+| 8  | Mine               |
+| 9  | Defense            |
+| 11 | Mineral Alchemy    |
 
 ### ChangePasswordBlock (Type 36) - 4 bytes
 
@@ -152,10 +152,10 @@ PP PP FF XX XX XX
 ```
 
 Flags byte (byte 2):
-| Bit | Meaning |
-|-----|---------|
+| Bit      | Meaning                                        |
+|----------|------------------------------------------------|
 | 7 (0x80) | Contribute only leftover resources to research |
-| 0-6 | TBD |
+| 0-6      | TBD                                            |
 
 ### PlayersRelationChangeBlock (Type 38) - 2 bytes
 
@@ -168,9 +168,9 @@ RR PP
 **Relation types:**
 | Value | Relation |
 |-------|----------|
-| 0 | Friend |
-| 1 | Neutral |
-| 2 | Enemy |
+| 0     | Friend   |
+| 1     | Neutral  |
+| 2     | Enemy    |
 
 This order sets the diplomatic relation with another player. Diplomatic relations are one-way: Player A can consider Player B a friend while Player B considers Player A an enemy.
 
@@ -194,10 +194,10 @@ LL [R0] [R1] [R2] ... [R(LL-1)]
 **IMPORTANT: Different encoding from order files!**
 
 | Value | Order File (Type 38) | M File Storage |
-|-------|---------------------|----------------|
-| 0 | Friend | Neutral |
-| 1 | Neutral | Friend |
-| 2 | Enemy | Enemy |
+|-------|----------------------|----------------|
+| 0     | Friend               | Neutral        |
+| 1     | Neutral              | Friend         |
+| 2     | Enemy                | Enemy          |
 
 Friend and Neutral are **swapped** between order files and M file storage.
 
@@ -305,26 +305,26 @@ FF FF WW XX XX XX YY YY TT TT WK TY
 ```
 
 **Target types:**
-| Value | Type |
-|-------|------|
-| 1 | Planet |
-| 2 | Fleet |
-| 4 | Deep Space |
-| 8 | Wormhole/Salvage/Mystery Trader |
+| Value | Type                            |
+|-------|---------------------------------|
+| 1     | Planet                          |
+| 2     | Fleet                           |
+| 4     | Deep Space                      |
+| 8     | Wormhole/Salvage/Mystery Trader |
 
 **Waypoint tasks:**
-| Value | Task |
-|-------|------|
-| 0 | None |
-| 1 | Transport |
-| 2 | Colonize |
-| 3 | Remote Mining |
-| 4 | Merge with Fleet |
-| 5 | Scrap Fleet |
-| 6 | Lay Mines |
-| 7 | Patrol |
-| 8 | Route |
-| 9 | Transfer |
+| Value | Task             |
+|-------|------------------|
+| 0     | None             |
+| 1     | Transport        |
+| 2     | Colonize         |
+| 3     | Remote Mining    |
+| 4     | Merge with Fleet |
+| 5     | Scrap Fleet      |
+| 6     | Lay Mines        |
+| 7     | Patrol           |
+| 8     | Route            |
+| 9     | Transfer         |
 
 **Special warp value:**
 - 11 = Use Stargate
@@ -341,17 +341,17 @@ For each cargo type (Ironium, Boranium, Germanium, Colonists):
 ```
 
 **Transport actions:**
-| Value | Action |
-|-------|--------|
-| 0 | No Action |
-| 1 | Load All Available |
-| 2 | Unload All |
-| 3 | Load Exactly N kT |
-| 4 | Unload Exactly N kT |
-| 5 | Fill Up to N% |
-| 6 | Wait for N% |
-| 7 | Drop and Load |
-| 8 | Set Amount To N kT |
+| Value | Action              |
+|-------|---------------------|
+| 0     | No Action           |
+| 1     | Load All Available  |
+| 2     | Unload All          |
+| 3     | Load Exactly N kT   |
+| 4     | Unload Exactly N kT |
+| 5     | Fill Up to N%       |
+| 6     | Wait for N%         |
+| 7     | Drop and Load       |
+| 8     | Set Amount To N kT  |
 
 Example from test data:
 - `03 00 01 00 0B 05 4F 05 01 20 51 18 12 30 00 10 32 50`
@@ -371,14 +371,14 @@ When task = 7 (Patrol), byte 14 encodes the intercept range:
 ```
 
 **Patrol range values:**
-| Value | Range |
-|-------|-------|
-| 0 | 50 ly (default) |
-| 1 | 100 ly |
-| 2 | 150 ly |
-| ... | (value + 1) × 50 ly |
-| 10 | 550 ly |
-| 11 | Any enemy (infinite) |
+| Value | Range                |
+|-------|----------------------|
+| 0     | 50 ly (default)      |
+| 1     | 100 ly               |
+| 2     | 150 ly               |
+| ...   | (value + 1) × 50 ly  |
+| 10    | 550 ly               |
+| 11    | Any enemy (infinite) |
 
 Example from test data:
 - `09 00 01 00 5D 05 34 05 01 00 67 14 00 00 01` → Patrol range 1 = 100 ly
@@ -392,11 +392,11 @@ Example from test data:
 
 When `FullDataFlag` is set, `FullDataBytes` (104 bytes starting at offset 8) contains race settings:
 
-| Offset | Size | Field |
-|--------|------|-------|
-| 8-16 | 9 | Habitability ranges |
-| 17 | 1 | Growth rate (max population growth %, typically 1-20) |
-| 18-23 | 6 | Tech levels (Energy, Weapons, Propulsion, Construction, Electronics, Biotech) |
+| Offset | Size | Field                                                                         |
+|--------|------|-------------------------------------------------------------------------------|
+| 8-16   | 9    | Habitability ranges                                                           |
+| 17     | 1    | Growth rate (max population growth %, typically 1-20)                         |
+| 18-23  | 6    | Tech levels (Energy, Weapons, Propulsion, Construction, Electronics, Biotech) |
 
 ---
 
@@ -416,12 +416,12 @@ When `FullDataFlag` is set, `FullDataBytes` (104 bytes starting at offset 8) con
 
 The Object Block is a multipurpose block for map objects with several subtypes:
 
-| ObjectType | Name | Description |
-|------------|------|-------------|
-| 0 | Minefield | Player-owned minefields |
-| 1 | Packet/Salvage | Mineral packets and salvage |
-| 2 | Wormhole | Wormholes |
-| 3 | Mystery Trader | The Mystery Trader ship |
+| ObjectType | Name           | Description                 |
+|------------|----------------|-----------------------------|
+| 0          | Minefield      | Player-owned minefields     |
+| 1          | Packet/Salvage | Mineral packets and salvage |
+| 2          | Wormhole       | Wormholes                   |
+| 3          | Mystery Trader | The Mystery Trader ship     |
 
 ### Common Header (6 bytes)
 
@@ -463,17 +463,17 @@ rawByte = (warp - 5) * 4 + 196
 warp = (rawByte >> 2) - 44
 ```
 
-| Warp | Raw Byte | Hex |
-|------|----------|-----|
-| 5 | 196 | 0xC4 |
-| 6 | 200 | 0xC8 |
-| 7 | 204 | 0xCC |
-| 8 | 208 | 0xD0 |
-| 9 | 212 | 0xD4 |
-| 10 | 216 | 0xD8 |
-| 11 | 220 | 0xDC |
-| 12 | 224 | 0xE0 |
-| 13 | 228 | 0xE4 |
+| Warp | Raw Byte | Hex  |
+|------|----------|------|
+| 5    | 196      | 0xC4 |
+| 6    | 200      | 0xC8 |
+| 7    | 204      | 0xCC |
+| 8    | 208      | 0xD0 |
+| 9    | 212      | 0xD4 |
+| 10   | 216      | 0xD8 |
+| 11   | 220      | 0xDC |
+| 12   | 224      | 0xE0 |
+| 13   | 228      | 0xE4 |
 
 **Note**: The lower 2 bits of the speed byte appear to always be 0. Upper bits may contain additional flags (TBD).
 
@@ -788,16 +788,16 @@ typedef struct _btldata {
 } BTLDATA;  // Total header: 14 bytes
 ```
 
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
-| 0x00 | 2 | id | Battle identifier (uint16 LE) |
-| 0x02 | 1 | cplr | Number of players involved in battle |
-| 0x03 | 1 | ctok | Total number of stacks |
-| 0x04 | 2 | grfPlr | Player bitmask - bit N set = player N is in battle |
-| 0x06 | 2 | cbData | Total block data size |
-| 0x08 | 2 | idPlanet | Planet ID (int16 LE, -1 = deep space) |
-| 0x0a | 2 | x | X coordinate |
-| 0x0c | 2 | y | Y coordinate |
+| Offset | Size | Field    | Description                                        |
+|--------|------|----------|----------------------------------------------------|
+| 0x00   | 2    | id       | Battle identifier (uint16 LE)                      |
+| 0x02   | 1    | cplr     | Number of players involved in battle               |
+| 0x03   | 1    | ctok     | Total number of stacks                             |
+| 0x04   | 2    | grfPlr   | Player bitmask - bit N set = player N is in battle |
+| 0x06   | 2    | cbData   | Total block data size                              |
+| 0x08   | 2    | idPlanet | Planet ID (int16 LE, -1 = deep space)              |
+| 0x0a   | 2    | x        | X coordinate                                       |
+| 0x0c   | 2    | y        | Y coordinate                                       |
 
 **Note**: The old interpretation of bytes 14-17 as attacker/defender counts was incorrect. Those bytes are part of the first TOK structure.
 
@@ -830,28 +830,28 @@ typedef struct _tok {
 } TOK;  // Total: 29 bytes (0x1d)
 ```
 
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
-| 0x00 | 2 | id | Fleet or planet ID |
-| 0x02 | 1 | iplr | Owner player (0-15) |
-| 0x03 | 1 | grobj | 1 = starbase, other = fleet |
-| 0x04 | 1 | ishdef | Ship design index |
-| 0x05 | 1 | brc | Grid position (encoded) |
-| 0x06 | 1 | initBase | Base initiative value |
-| 0x07 | 1 | initMin | Minimum initiative |
-| 0x08 | 1 | initMac | Maximum initiative |
-| 0x09 | 1 | itokTarget | Target stack index |
-| 0x0a | 1 | pctCloak | Cloak % (0-100) |
-| 0x0b | 1 | pctJam | Jammer % |
-| 0x0c | 1 | pctBC | Battle computer % |
-| 0x0d | 1 | pctCap | Capacitor % |
-| 0x0e | 1 | pctBeamDef | Beam deflector % |
-| 0x0f | 2 | wt | Ship mass |
-| 0x11 | 2 | dpShield | Shield HP |
-| 0x13 | 2 | csh | Ship count in stack |
-| 0x15 | 2 | dv | Armor damage (DV struct) |
-| 0x17 | 2 | mdTarget | Target mode bits |
-| 0x19 | 5 | - | Additional fields |
+| Offset | Size | Field      | Description                 |
+|--------|------|------------|-----------------------------|
+| 0x00   | 2    | id         | Fleet or planet ID          |
+| 0x02   | 1    | iplr       | Owner player (0-15)         |
+| 0x03   | 1    | grobj      | 1 = starbase, other = fleet |
+| 0x04   | 1    | ishdef     | Ship design index           |
+| 0x05   | 1    | brc        | Grid position (encoded)     |
+| 0x06   | 1    | initBase   | Base initiative value       |
+| 0x07   | 1    | initMin    | Minimum initiative          |
+| 0x08   | 1    | initMac    | Maximum initiative          |
+| 0x09   | 1    | itokTarget | Target stack index          |
+| 0x0a   | 1    | pctCloak   | Cloak % (0-100)             |
+| 0x0b   | 1    | pctJam     | Jammer %                    |
+| 0x0c   | 1    | pctBC      | Battle computer %           |
+| 0x0d   | 1    | pctCap     | Capacitor %                 |
+| 0x0e   | 1    | pctBeamDef | Beam deflector %            |
+| 0x0f   | 2    | wt         | Ship mass                   |
+| 0x11   | 2    | dpShield   | Shield HP                   |
+| 0x13   | 2    | csh        | Ship count in stack         |
+| 0x15   | 2    | dv         | Armor damage (DV struct)    |
+| 0x17   | 2    | mdTarget   | Target mode bits            |
+| 0x19   | 5    | -          | Additional fields           |
 
 #### BTLREC Action Records (VARIABLE SIZE!)
 
@@ -876,13 +876,13 @@ typedef struct _btlrec {
 } BTLREC;  // Base: 6 bytes + ctok×8 bytes
 ```
 
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
-| 0x00 | 1 | itok | Acting stack index (0 to ctok-1) |
-| 0x01 | 1 | brcDest | Destination grid position |
-| 0x02 | 2 | ctok | Number of KILL records following |
-| 0x04 | 2 | bitfield | Round (4 bits) + distance (4 bits) + target (8 bits) |
-| 0x06 | N×8 | rgkill | Array of KILL structures |
+| Offset | Size | Field    | Description                                          |
+|--------|------|----------|------------------------------------------------------|
+| 0x00   | 1    | itok     | Acting stack index (0 to ctok-1)                     |
+| 0x01   | 1    | brcDest  | Destination grid position                            |
+| 0x02   | 2    | ctok     | Number of KILL records following                     |
+| 0x04   | 2    | bitfield | Round (4 bits) + distance (4 bits) + target (8 bits) |
+| 0x06   | N×8  | rgkill   | Array of KILL structures                             |
 
 #### KILL Structure (8 bytes each)
 
@@ -891,24 +891,42 @@ Each kill event within a BTLREC:
 ```c
 typedef struct _kill {
     uint8_t  itok;      // +0x00: Target stack index
-    uint8_t  grfWeapon; // +0x01: Weapon type flags
+    uint8_t  grfWeapon; // +0x01: Weapon type flags (0x01, 0x04, 0xC4 observed)
     uint16_t cshKill;   // +0x02: Number of ships killed
     uint16_t dpShield;  // +0x04: Shield damage dealt
-    DV       dv;        // +0x06: Armor damage (2 bytes)
+    DV       dv;        // +0x06: Unknown purpose (NOT armor damage!)
 } KILL;  // Total: 8 bytes
 ```
 
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
-| 0x00 | 1 | itok | Target stack that was hit |
-| 0x01 | 1 | grfWeapon | Weapon type flags |
-| 0x02 | 2 | cshKill | Ships destroyed |
-| 0x04 | 2 | dpShield | Shield damage |
-| 0x06 | 2 | dv | Armor damage |
+| Offset | Size | Field     | Status       | Description                                          |
+|--------|------|-----------|--------------|------------------------------------------------------|
+| 0x00   | 1    | itok      | **VERIFIED** | Target stack that was hit                            |
+| 0x01   | 1    | grfWeapon | Partial      | Weapon type flags (values 0x01, 0x04, 0xC4 observed) |
+| 0x02   | 2    | cshKill   | **VERIFIED** | Ships destroyed (matches VCR display)                |
+| 0x04   | 2    | dpShield  | **VERIFIED** | Shield damage dealt (matches VCR display)            |
+| 0x06   | 2    | dv        | **UNKNOWN**  | Does NOT store armor damage directly!                |
 
-#### DV (Damage Value) Structure (2 bytes)
+**IMPORTANT: The `dv` field does NOT contain armor damage dealt!**
+
+Verified against Battle VCR screenshots (battle-02 test data):
+- Phase 9: VCR shows "2 shield + 2 armor damage", dpShield=2 ✓, dv=868 ✗
+- Phase 12: VCR shows "4 armor damage", dpShield=0 ✓, dv=15076 ✗
+- Phase 61: VCR shows "1 armor damage, 1 killed", cshKill=1 ✓, dpShield=0 ✓, dv=63972 ✗
+
+The dv values don't correlate with armor damage. Possible interpretations:
+- Cumulative damage state
+- Target's remaining armor
+- Packed damage/state data
+- Weapon damage capacity
+
+Armor damage displayed in the VCR is likely computed from weapon stats and game mechanics, not stored in the KILL record.
+
+#### DV (Damage Value) Structure (2 bytes) - **UNVERIFIED**
+
+The original interpretation of this structure as shield/armor damage percentages does NOT match observed data:
 
 ```c
+// ORIGINAL INTERPRETATION (likely incorrect):
 typedef struct _dv {
     union {
         uint16_t dp;      // Raw 16-bit value
@@ -919,6 +937,17 @@ typedef struct _dv {
     };
 } DV;
 ```
+
+**Observed values do NOT correlate with armor damage:**
+- Phase 9: 2 armor damage → dv=868 (0x0364) - bits 7-15 would be 6, not 2
+- Phase 12: 4 armor damage → dv=15076 (0x3AE4) - bits 7-15 would be 117, not 4
+- Phase 61: 1 armor damage → dv=63972 (0xF9E4) - bits 7-15 would be 499, not 1
+
+The actual meaning of this field remains unknown. Possible uses:
+- Target's total armor capacity or remaining armor
+- Cumulative damage state across the battle
+- Weapon-specific data or random seed
+- Encoded game state for replay consistency
 
 #### Block Continuation (Type 39)
 
@@ -958,12 +987,12 @@ row = position % 11
 ```
 
 Examples:
-| Encoded | Decimal | Grid (col, row) |
-|---------|---------|-----------------|
-| 0x00 | 0 | (0, 0) |
-| 0x25 | 37 | (3, 4) |
-| 0x52 | 82 | (7, 5) |
-| 0x6D | 109 | (9, 10) - invalid |
+| Encoded | Decimal | Grid (col, row)   |
+|---------|---------|-------------------|
+| 0x00    | 0       | (0, 0)            |
+| 0x25    | 37      | (3, 4)            |
+| 0x52    | 82      | (7, 5)            |
+| 0x6D    | 109     | (9, 10) - invalid |
 
 #### Round Calculation
 
@@ -1036,12 +1065,12 @@ Two damage formats have been identified:
 - Progression shows ~29 damage per laser salvo (2 X-Ray Lasers × ~14.5)
 
 **Observed patterns from battle-02:**
-| Offset | Pattern | Interpretation |
-|--------|---------|----------------|
-| 0x176 | `0E 00 64 04` | 14 shield + 4 armor (torpedo hit) |
-| 0x1C0 | `10 00 64 04` | 16 shield + 4 armor (laser hit) |
-| 0x1B4 | `64 78 01 46` | Cumulative 120 dmg, Stack 1 at (6,4) |
-| 0x23C | `64 B6 01 47` | Cumulative 182 dmg, Stack 1 at (6,5) |
+| Offset | Pattern       | Interpretation                       |
+|--------|---------------|--------------------------------------|
+| 0x176  | `0E 00 64 04` | 14 shield + 4 armor (torpedo hit)    |
+| 0x1C0  | `10 00 64 04` | 16 shield + 4 armor (laser hit)      |
+| 0x1B4  | `64 78 01 46` | Cumulative 120 dmg, Stack 1 at (6,4) |
+| 0x23C  | `64 B6 01 47` | Cumulative 182 dmg, Stack 1 at (6,5) |
 
 **Damage markers**:
 - `0x64` = armor damage marker (or cumulative state)
@@ -1055,14 +1084,14 @@ position = col × 11 + row
 Where col and row are 0-9 on a 10×10 grid. The base-11 encoding provides unique values for all grid cells.
 
 **Confirmed position mappings (from battle-02 analysis):**
-| Encoded | Decimal | Grid Position | Description |
-|---------|---------|---------------|-------------|
-| 0x52 | 82 | (7, 5) | Stalwart Defender initial |
-| 0x51 | 81 | (7, 4) | Stalwart Defender final |
-| 0x46 | 70 | (6, 4) | Stalwart Defender mid-battle |
-| 0x47 | 71 | (6, 5) | Stalwart Defender moving |
-| 0x25 | 37 | (3, 4) | Cruiser phase 4 |
-| 0x3A | 58 | (5, 3) | Cruiser phase 28 |
+| Encoded | Decimal | Grid Position | Description                  |
+|---------|---------|---------------|------------------------------|
+| 0x52    | 82      | (7, 5)        | Stalwart Defender initial    |
+| 0x51    | 81      | (7, 4)        | Stalwart Defender final      |
+| 0x46    | 70      | (6, 4)        | Stalwart Defender mid-battle |
+| 0x47    | 71      | (6, 5)        | Stalwart Defender moving     |
+| 0x25    | 37      | (3, 4)        | Cruiser phase 4              |
+| 0x3A    | 58      | (5, 3)        | Cruiser phase 28             |
 
 **Decoding formula**: `col = position / 11`, `row = position % 11`
 
@@ -1105,12 +1134,12 @@ When ships survive a battle and fight again on the next turn with carried damage
 
 Each Stars! file type has different footer data (this is NOT a checksum - just metadata):
 
-| File Type | Extension | Footer Data |
-|-----------|-----------|-------------|
-| M files | .m1-.m16 | Turn number (from FileHeader) |
-| XY files | .xy | PlayerCount (from PlanetsBlock) |
-| X files | .x1-.x16 | None (footer size 0) |
-| H files | .h1-.h16 | None (footer size 0) |
+| File Type | Extension | Footer Data                     |
+|-----------|-----------|---------------------------------|
+| M files   | .m1-.m16  | Turn number (from FileHeader)   |
+| XY files  | .xy       | PlayerCount (from PlanetsBlock) |
+| X files   | .x1-.x16  | None (footer size 0)            |
+| H files   | .h1-.h16  | None (footer size 0)            |
 
 The footer data is stored as a 16-bit little-endian value in the FileFooter block when present. Despite being called "checksum" in some documentation, these values are simply copies of existing metadata, not computed integrity checks.
 
@@ -1408,22 +1437,22 @@ Offset  Size  Field
 
 The Mystery Trader (ObjectType 3 in Block 43) can offer 13 different items, encoded as a bitmask:
 
-| Bit | Item |
-|-----|------|
+| Bit         | Item                     |
+|-------------|--------------------------|
 | 0 (value=0) | Research (initial state) |
-| 0 | Multi Cargo Pod |
-| 1 | Multi Function Pod |
-| 2 | Langston Shield |
-| 3 | Mega Poly Shell |
-| 4 | Alien Miner |
-| 5 | Hush-a-Boom |
-| 6 | Anti Matter Torpedo |
-| 7 | Multi Contained Munition |
-| 8 | Mini Morph |
-| 9 | Enigma Pulsar |
-| 10 | Genesis Device |
-| 11 | Jump Gate |
-| 12 | Ship/MT Lifeboat |
+| 0           | Multi Cargo Pod          |
+| 1           | Multi Function Pod       |
+| 2           | Langston Shield          |
+| 3           | Mega Poly Shell          |
+| 4           | Alien Miner              |
+| 5           | Hush-a-Boom              |
+| 6           | Anti Matter Torpedo      |
+| 7           | Multi Contained Munition |
+| 8           | Mini Morph               |
+| 9           | Enigma Pulsar            |
+| 10          | Genesis Device           |
+| 11          | Jump Gate                |
+| 12          | Ship/MT Lifeboat         |
 
 ---
 
@@ -1638,10 +1667,10 @@ Length: 2 + (2 × 4) = 10 chars → `acaeaabeaa`, then `ZO3` is the name
 
 #### Summary Table
 
-| INI Value | Decoded |
-|-----------|---------|
-| `abaajb` | 1 item: AutoMines(100) |
-| `abbajb` | 1 item: AutoFactories(100) |
+| INI Value    | Decoded                                 |
+|--------------|-----------------------------------------|
+| `abaajb`     | 1 item: AutoMines(100)                  |
+| `abbajb`     | 1 item: AutoFactories(100)              |
 | `acaeaabeaa` | 2 items: AutoMines(0), AutoFactories(0) |
 
 #### Notes
@@ -1666,13 +1695,13 @@ Bits 5-15:  Unused (always 0)
 
 ### Flag Definitions
 
-| Bit | Mask | Name | Description |
-|-----|------|------|-------------|
-| 0 | 0x01 | Dead | Player has been eliminated |
-| 1 | 0x02 | Crippled | Player is crippled (definition TBD) |
-| 2 | 0x04 | Cheater | Cheater flag detected |
-| 3 | 0x08 | Learned | Unknown purpose |
-| 4 | 0x10 | Hacker | Hacker flag detected |
+| Bit | Mask | Name     | Description                         |
+|-----|------|----------|-------------------------------------|
+| 0   | 0x01 | Dead     | Player has been eliminated          |
+| 1   | 0x02 | Crippled | Player is crippled (definition TBD) |
+| 2   | 0x04 | Cheater  | Cheater flag detected               |
+| 3   | 0x08 | Learned  | Unknown purpose                     |
+| 4   | 0x10 | Hacker   | Hacker flag detected                |
 
 ### Notes
 
@@ -1707,23 +1736,23 @@ Bits 5-7: Mode (flip when set to Human Inactive)
 
 14 traits encoded in 2 bytes at PlayerBlock offset 78-79:
 
-| Bit | Short | Full Name |
-|-----|-------|-----------|
-| 0 | IFE | Improved Fuel Efficiency |
-| 1 | TT | Total Terraforming |
-| 2 | ARM | Advanced Remote Mining |
-| 3 | ISB | Improved Starbases |
-| 4 | GR | Generalised Research |
-| 5 | UR | Ultimate Recycling |
-| 6 | MA | Mineral Alchemy |
-| 7 | NRSE | No Ram Scoop Engines |
-| 8 | CE | Cheap Engines |
-| 9 | OBRM | Only Basic Remote Mining |
-| 10 | NAS | No Advanced Scanners |
-| 11 | LSP | Low Starting Population |
-| 12 | BET | Bleeding Edge Technology |
-| 13 | RS | Regenerating Shields |
-| 14-15 | - | Unused |
+| Bit   | Short | Full Name                |
+|-------|-------|--------------------------|
+| 0     | IFE   | Improved Fuel Efficiency |
+| 1     | TT    | Total Terraforming       |
+| 2     | ARM   | Advanced Remote Mining   |
+| 3     | ISB   | Improved Starbases       |
+| 4     | GR    | Generalised Research     |
+| 5     | UR    | Ultimate Recycling       |
+| 6     | MA    | Mineral Alchemy          |
+| 7     | NRSE  | No Ram Scoop Engines     |
+| 8     | CE    | Cheap Engines            |
+| 9     | OBRM  | Only Basic Remote Mining |
+| 10    | NAS   | No Advanced Scanners     |
+| 11    | LSP   | Low Starting Population  |
+| 12    | BET   | Bleeding Edge Technology |
+| 13    | RS    | Regenerating Shields     |
+| 14-15 | -     | Unused                   |
 
 ---
 
@@ -1747,55 +1776,55 @@ Stars! serial numbers use base-36 encoding (A-Z = 0-25, 0-9 = 26-35).
 
 ## Complete Block Type List
 
-| ID | Type | Notes |
-|----|------|-------|
-| 0 | FileFooterBlock | Year (.M/.HST), Checksum XOR (.R), null (.X/.H) |
-| 1 | ManualSmallLoadUnloadTaskBlock | |
-| 2 | ManualMediumLoadUnloadTaskBlock | |
-| 3 | WaypointDeleteBlock | |
-| 4 | WaypointAddBlock | |
-| 5 | WaypointChangeTaskBlock | |
-| 6 | PlayerBlock | |
-| 7 | PlanetsBlock | |
-| 8 | FileHeaderBlock | Unencrypted |
-| 9 | FileHashBlock | Copy protection |
-| 10 | WaypointRepeatOrdersBlock | |
-| 11 | Unknown | Never observed |
-| 12 | EventsBlock | |
-| 13 | PlanetBlock | Full planet data |
-| 14 | PartialPlanetBlock | Scanned planet data |
-| 15 | Unknown | Never observed |
-| 16 | FleetBlock | Full fleet data |
-| 17 | PartialFleetBlock | Scanned fleet data |
-| 18 | Unknown | Never observed |
-| 19 | WaypointTaskBlock | In .M/.HST files |
-| 20 | WaypointBlock | In .M/.HST files |
-| 21 | FleetNameBlock | Custom fleet names |
-| 22 | Unknown | Never observed |
-| 23 | MoveShipsBlock | |
-| 24 | FleetSplitBlock | |
-| 25 | ManualLargeLoadUnloadTaskBlock | |
-| 26 | DesignBlock | Ship/starbase design |
-| 27 | DesignChangeBlock | Design modification in .X |
-| 28 | ProductionQueueBlock | |
-| 29 | ProductionQueueChangeBlock | |
-| 30 | BattlePlanBlock | |
-| 31 | BattleBlock | VCR data (partially decoded) |
-| 32 | CountersBlock | Game counters |
-| 33 | MessagesFilterBlock | Message filtering prefs |
-| 34 | ResearchChangeBlock | |
-| 35 | PlanetChangeBlock | |
-| 36 | ChangePasswordBlock | .X files / Password in .HST |
-| 37 | FleetsMergeBlock | |
-| 38 | PlayersRelationChangeBlock | |
-| 39 | BattleContinuationBlock | Extended battle data (not decoded) |
-| 40 | MessageBlock | Player messages |
-| 41 | AIRecordBlock | AI records in .H files (not decoded) |
-| 42 | SetFleetBattlePlanBlock | |
-| 43 | ObjectBlock | Minefields, packets, wormholes, MT |
-| 44 | RenameFleetBlock | |
-| 45 | PlayerScoresBlock | Victory condition tracking |
-| 46 | SaveAndSubmitBlock | Turn submission |
+| ID | Type                            | Notes                                           |
+|----|---------------------------------|-------------------------------------------------|
+| 0  | FileFooterBlock                 | Year (.M/.HST), Checksum XOR (.R), null (.X/.H) |
+| 1  | ManualSmallLoadUnloadTaskBlock  |                                                 |
+| 2  | ManualMediumLoadUnloadTaskBlock |                                                 |
+| 3  | WaypointDeleteBlock             |                                                 |
+| 4  | WaypointAddBlock                |                                                 |
+| 5  | WaypointChangeTaskBlock         |                                                 |
+| 6  | PlayerBlock                     |                                                 |
+| 7  | PlanetsBlock                    |                                                 |
+| 8  | FileHeaderBlock                 | Unencrypted                                     |
+| 9  | FileHashBlock                   | Copy protection                                 |
+| 10 | WaypointRepeatOrdersBlock       |                                                 |
+| 11 | Unknown                         | Never observed                                  |
+| 12 | EventsBlock                     |                                                 |
+| 13 | PlanetBlock                     | Full planet data                                |
+| 14 | PartialPlanetBlock              | Scanned planet data                             |
+| 15 | Unknown                         | Never observed                                  |
+| 16 | FleetBlock                      | Full fleet data                                 |
+| 17 | PartialFleetBlock               | Scanned fleet data                              |
+| 18 | Unknown                         | Never observed                                  |
+| 19 | WaypointTaskBlock               | In .M/.HST files                                |
+| 20 | WaypointBlock                   | In .M/.HST files                                |
+| 21 | FleetNameBlock                  | Custom fleet names                              |
+| 22 | Unknown                         | Never observed                                  |
+| 23 | MoveShipsBlock                  |                                                 |
+| 24 | FleetSplitBlock                 |                                                 |
+| 25 | ManualLargeLoadUnloadTaskBlock  |                                                 |
+| 26 | DesignBlock                     | Ship/starbase design                            |
+| 27 | DesignChangeBlock               | Design modification in .X                       |
+| 28 | ProductionQueueBlock            |                                                 |
+| 29 | ProductionQueueChangeBlock      |                                                 |
+| 30 | BattlePlanBlock                 |                                                 |
+| 31 | BattleBlock                     | VCR data (partially decoded)                    |
+| 32 | CountersBlock                   | Game counters                                   |
+| 33 | MessagesFilterBlock             | Message filtering prefs                         |
+| 34 | ResearchChangeBlock             |                                                 |
+| 35 | PlanetChangeBlock               |                                                 |
+| 36 | ChangePasswordBlock             | .X files / Password in .HST                     |
+| 37 | FleetsMergeBlock                |                                                 |
+| 38 | PlayersRelationChangeBlock      |                                                 |
+| 39 | BattleContinuationBlock         | Extended battle data (not decoded)              |
+| 40 | MessageBlock                    | Player messages                                 |
+| 41 | AIRecordBlock                   | AI records in .H files (not decoded)            |
+| 42 | SetFleetBattlePlanBlock         |                                                 |
+| 43 | ObjectBlock                     | Minefields, packets, wormholes, MT              |
+| 44 | RenameFleetBlock                |                                                 |
+| 45 | PlayerScoresBlock               | Victory condition tracking                      |
+| 46 | SaveAndSubmitBlock              | Turn submission                                 |
 
 ---
 
@@ -1812,22 +1841,22 @@ CC CC II NN
 
 The Category field indicates the **type of item equipped** in the slot, not the hull's slot definition:
 
-| Value | Category | Description |
-|-------|----------|-------------|
-| 0x0000 | Empty | No item equipped |
-| 0x0001 | Engine | Engines (Trans-Star 10, NHRS, Galaxy, etc.) |
-| 0x0002 | Scanner | Ship scanners (Bat, Rhino, Mole, Possum, etc.) |
-| 0x0004 | Shield | Shields (Mole-skin, Cow-hide, Bear, Gorilla, etc.) |
-| 0x0008 | Armor | Armor (Tritanium, Kelarium, Neutronium, etc.) |
-| 0x0010 | BeamWeapon | Beam weapons (Laser, X-Ray, Phaser, etc.) |
-| 0x0020 | Torpedo | Torpedoes (Alpha, Beta, Delta, Omega, etc.) |
-| 0x0040 | Bomb | Bombs (LadyFinger, M-70, Smart, etc.) |
-| 0x0080 | MiningRobot | Mining robots (Midget, Mini, Maxi, etc.) |
-| 0x0100 | MineLayer | Mine layers (Mine40, Heavy50, Speed20, etc.) |
-| 0x0200 | Orbital | Orbital devices (Stargates, Mass Drivers) |
-| 0x0400 | Planetary | Planetary scanners (Viewer, Scoper, Snooper) |
-| 0x0800 | Electrical | Electrical devices (Cloaks, Jammers, Capacitors) |
-| 0x1000 | Mechanical | Mechanical devices (Cargo Pod, Fuel Tank, Colonization Module) |
+| Value  | Category    | Description                                                    |
+|--------|-------------|----------------------------------------------------------------|
+| 0x0000 | Empty       | No item equipped                                               |
+| 0x0001 | Engine      | Engines (Trans-Star 10, NHRS, Galaxy, etc.)                    |
+| 0x0002 | Scanner     | Ship scanners (Bat, Rhino, Mole, Possum, etc.)                 |
+| 0x0004 | Shield      | Shields (Mole-skin, Cow-hide, Bear, Gorilla, etc.)             |
+| 0x0008 | Armor       | Armor (Tritanium, Kelarium, Neutronium, etc.)                  |
+| 0x0010 | BeamWeapon  | Beam weapons (Laser, X-Ray, Phaser, etc.)                      |
+| 0x0020 | Torpedo     | Torpedoes (Alpha, Beta, Delta, Omega, etc.)                    |
+| 0x0040 | Bomb        | Bombs (LadyFinger, M-70, Smart, etc.)                          |
+| 0x0080 | MiningRobot | Mining robots (Midget, Mini, Maxi, etc.)                       |
+| 0x0100 | MineLayer   | Mine layers (Mine40, Heavy50, Speed20, etc.)                   |
+| 0x0200 | Orbital     | Orbital devices (Stargates, Mass Drivers)                      |
+| 0x0400 | Planetary   | Planetary scanners (Viewer, Scoper, Snooper)                   |
+| 0x0800 | Electrical  | Electrical devices (Cloaks, Jammers, Capacitors)               |
+| 0x1000 | Mechanical  | Mechanical devices (Cargo Pod, Fuel Tank, Colonization Module) |
 
 ### ItemId Indexing
 
@@ -1870,22 +1899,22 @@ Block header format: `(size & 0x3FF) | (type << 10)` (10-bit size + 6-bit type)
 
 ### Confirmed Block Type to Function Mappings
 
-| Type | Block Name | Writing Function | Purpose |
-|------|------------|-----------------|---------|
-| 1 | ManualSmallLoadUnloadTask | LogMakeValidXfer (qty < 0x80) | Small cargo transfer (signed byte) |
-| 2 | ManualMediumLoadUnloadTask | LogMakeValidXfer (qty < 0x8000) | Medium cargo transfer (signed word) |
-| 3 | WaypointDelete | LogChangeFleet | Remove waypoint from fleet |
-| 4 | WaypointAdd | LogChangeFleet | Add new waypoint to fleet |
-| 5 | WaypointChangeTask | LogChangeFleet | Modify task at existing waypoint |
-| 23 (0x17) | MoveShips | LogMakeValidXferf | Transfer ships between fleets |
-| 24 (0x18) | FleetSplit | LogSplitFleet | Split a fleet into two |
-| 25 (0x19) | ManualLargeLoadUnloadTask | LogMakeValidXfer (large) | Large cargo transfer (32-bit) |
-| 27 (0x1b) | DesignChange | LogChangeShDef | Ship/starbase design changes |
-| 29 (0x1d) | ProductionQueueChange | LogChangePlanet | Production queue orders |
-| 35 (0x23) | PlanetChange | LogChangePlanet | Planet setting changes |
-| 37 (0x25) | FleetsMerge | LogMergeFleet | Merge multiple fleets |
-| 38 (0x26) | PlayersRelationChange | LogChangeRelations | Diplomatic relation changes |
-| 44 (0x2c) | RenameFleet | LogChangeName | Fleet renaming |
+| Type      | Block Name                 | Writing Function                | Purpose                             |
+|-----------|----------------------------|---------------------------------|-------------------------------------|
+| 1         | ManualSmallLoadUnloadTask  | LogMakeValidXfer (qty < 0x80)   | Small cargo transfer (signed byte)  |
+| 2         | ManualMediumLoadUnloadTask | LogMakeValidXfer (qty < 0x8000) | Medium cargo transfer (signed word) |
+| 3         | WaypointDelete             | LogChangeFleet                  | Remove waypoint from fleet          |
+| 4         | WaypointAdd                | LogChangeFleet                  | Add new waypoint to fleet           |
+| 5         | WaypointChangeTask         | LogChangeFleet                  | Modify task at existing waypoint    |
+| 23 (0x17) | MoveShips                  | LogMakeValidXferf               | Transfer ships between fleets       |
+| 24 (0x18) | FleetSplit                 | LogSplitFleet                   | Split a fleet into two              |
+| 25 (0x19) | ManualLargeLoadUnloadTask  | LogMakeValidXfer (large)        | Large cargo transfer (32-bit)       |
+| 27 (0x1b) | DesignChange               | LogChangeShDef                  | Ship/starbase design changes        |
+| 29 (0x1d) | ProductionQueueChange      | LogChangePlanet                 | Production queue orders             |
+| 35 (0x23) | PlanetChange               | LogChangePlanet                 | Planet setting changes              |
+| 37 (0x25) | FleetsMerge                | LogMergeFleet                   | Merge multiple fleets               |
+| 38 (0x26) | PlayersRelationChange      | LogChangeRelations              | Diplomatic relation changes         |
+| 44 (0x2c) | RenameFleet                | LogChangeName                   | Fleet renaming                      |
 
 ### Unknown Block Types
 
