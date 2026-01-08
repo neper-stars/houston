@@ -15,15 +15,16 @@ const (
 type PartialFleetBlock struct {
 	GenericBlock
 
-	// Fleet identification
-	FleetNumber int // 0-511 (9 bits)
-	Owner       int // 0-15
+	// Fleet identification (see reversing_notes/fleet-block.md)
+	FleetNumber int // 0-511 (9 bits from bytes 0-1)
+	Owner       int // 0-15 (4 bits from bytes 0-1)
 
-	// Control bytes (preserved for encoding)
+	// Header bytes (preserved for encoding)
+	// Bytes 2-3: iPlayer (int16) - Owner player index (redundant with Owner from bytes 0-1)
 	Byte2    byte
 	Byte3    byte
-	KindByte byte // 3=partial, 4=pick-pocket, 7=full
-	Byte5    byte
+	KindByte byte // Byte 4: det - detection level (3=partial, 4=pick-pocket, 7=full)
+	Byte5    byte // Byte 5: flags
 
 	// Position
 	PositionObjectId int // Referenced object
@@ -35,15 +36,16 @@ type PartialFleetBlock struct {
 	ShipCount         [16]int // Ship counts per design slot
 	ShipCountTwoBytes bool    // True if ship counts are 2 bytes each (bit 3 of Byte5 clear)
 
-	// Flag bits from Byte5
-	// Bit 0: Unknown purpose, possibly part of route ID
-	Byte5Bit0 bool
-	// Bit 1: Repeat waypoint orders
+	// Flag bits from Byte5 (see reversing_notes/fleet-block.md)
+	// Bit 0: fInclude - Include in reports/selection
+	Include bool
+	// Bit 1: fRepOrders - Repeat waypoint orders when complete
 	RepeatOrders bool
-	// Bit 2: Unknown purpose
-	Byte5Bit2 bool
-	// Bits 4-7: Unknown purpose (4 bits)
-	Byte5UpperNibble int
+	// Bit 2: fDead - Fleet has been destroyed
+	IsDead bool
+	// Bit 3: fByteCsh - handled by ShipCountTwoBytes field
+	// Bits 4-7: NOT PERSISTED - these are runtime-only flags (fDone, fBombed, fHereAllTurn, fNoHeal)
+	//           They are zeroed when writing to file and recalculated each turn.
 
 	// Resources/Cargo (if full or pick-pocket)
 	Ironium    int64
@@ -120,11 +122,11 @@ func (fb *PartialFleetBlock) decode() {
 	// Determine if ship counts are 2 bytes (bit 3 of byte5 clear)
 	fb.ShipCountTwoBytes = (fb.Byte5 & 0x08) == 0
 
-	// Extract all flag bits from Byte5
-	fb.Byte5Bit0 = (fb.Byte5 & 0x01) != 0             // Bit 0
-	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0          // Bit 1: Repeat waypoint orders
-	fb.Byte5Bit2 = (fb.Byte5 & 0x04) != 0             // Bit 2
-	fb.Byte5UpperNibble = int((fb.Byte5 >> 4) & 0x0F) // Bits 4-7
+	// Extract flag bits from Byte5 (see reversing_notes/fleet-block.md)
+	fb.Include = (fb.Byte5 & 0x01) != 0      // Bit 0: fInclude - Include in reports/selection
+	fb.RepeatOrders = (fb.Byte5 & 0x02) != 0 // Bit 1: fRepOrders - Repeat waypoint orders
+	fb.IsDead = (fb.Byte5 & 0x04) != 0       // Bit 2: fDead - Fleet has been destroyed
+	// Bits 4-7 are NOT persisted - runtime-only flags (fDone, fBombed, fHereAllTurn, fNoHeal)
 
 	// Bytes 6-13: Position and ship types
 	fb.PositionObjectId = int(encoding.Read16(data, 6))
@@ -549,21 +551,21 @@ func (fb *PartialFleetBlock) Encode() []byte {
 	index++
 	data[index] = fb.KindByte
 	index++
-	// Reconstruct Byte5 from individual flag fields
+	// Reconstruct Byte5 from individual flag fields (see reversing_notes/fleet-block.md)
 	byte5 := byte(0)
-	if fb.Byte5Bit0 {
-		byte5 |= 0x01
+	if fb.Include {
+		byte5 |= 0x01 // Bit 0: fInclude
 	}
 	if fb.RepeatOrders {
-		byte5 |= 0x02
+		byte5 |= 0x02 // Bit 1: fRepOrders
 	}
-	if fb.Byte5Bit2 {
-		byte5 |= 0x04
+	if fb.IsDead {
+		byte5 |= 0x04 // Bit 2: fDead
 	}
 	if !fb.ShipCountTwoBytes {
-		byte5 |= 0x08 // Bit 3 clear means 2-byte counts
+		byte5 |= 0x08 // Bit 3: fByteCsh - clear means 2-byte counts
 	}
-	byte5 |= byte(fb.Byte5UpperNibble&0x0F) << 4
+	// Bits 4-7 are NOT persisted - they are runtime-only flags
 	data[index] = byte5
 	index++
 

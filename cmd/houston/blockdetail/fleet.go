@@ -50,15 +50,11 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
 		fmt.Sprintf("fleetNum=(d[0]+(d[1]&0x01)<<8)=%d, owner=(d[1]>>1)=%d", fb.FleetNumber, fb.Owner)))
 
-	// Byte 2: Control byte 2
-	fields = append(fields, FormatFieldRaw(0x02, 0x02, "Byte2 (control)",
-		fmt.Sprintf("0x%02X", d[2]),
-		"TBD"))
-
-	// Byte 3: Control byte 3
-	fields = append(fields, FormatFieldRaw(0x03, 0x03, "Byte3 (control)",
-		fmt.Sprintf("0x%02X", d[3]),
-		"TBD"))
+	// Bytes 2-3: iPlayer (int16) - Owner player index (redundant with owner from bytes 0-1)
+	iPlayer := int(d[2]) | (int(d[3]) << 8)
+	fields = append(fields, FormatFieldRaw(0x02, 0x03, "iPlayer",
+		fmt.Sprintf("0x%02X%02X", d[3], d[2]),
+		fmt.Sprintf("int16 LE = %d (owner player, redundant)", iPlayer)))
 
 	// Byte 4: Kind byte
 	kindName := "Unknown"
@@ -78,11 +74,11 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 	fields = append(fields, FormatFieldRaw(0x05, 0x05, "Byte5 (flags)",
 		fmt.Sprintf("0x%02X", d[5]),
 		fmt.Sprintf("0b%08b", d[5])))
-	fields = append(fields, fmt.Sprintf("           %s bit0: ??? (unknown) = %v", TreeBranch, fb.Byte5Bit0))
-	fields = append(fields, fmt.Sprintf("           %s bit1: RepeatOrders = %v", TreeBranch, fb.RepeatOrders))
-	fields = append(fields, fmt.Sprintf("           %s bit2: ??? (unknown) = %v", TreeBranch, fb.Byte5Bit2))
-	fields = append(fields, fmt.Sprintf("           %s bit3: ShipCount1Byte = %v (0=2bytes, 1=1byte)", TreeBranch, !fb.ShipCountTwoBytes))
-	fields = append(fields, fmt.Sprintf("           %s bits4-7: ??? (unknown) = %d", TreeEnd, fb.Byte5UpperNibble))
+	fields = append(fields, fmt.Sprintf("           %s bit0: fInclude (in reports) = %v", TreeBranch, fb.Include))
+	fields = append(fields, fmt.Sprintf("           %s bit1: fRepOrders (repeat waypoints) = %v", TreeBranch, fb.RepeatOrders))
+	fields = append(fields, fmt.Sprintf("           %s bit2: fDead (fleet destroyed) = %v", TreeBranch, fb.IsDead))
+	fields = append(fields, fmt.Sprintf("           %s bit3: fByteCsh (1=1byte counts, 0=2bytes) = %v", TreeEnd, !fb.ShipCountTwoBytes))
+	// Bits 4-7 are NOT persisted - runtime-only flags (fDone, fBombed, fHereAllTurn, fNoHeal)
 
 	// Bytes 6-7: Position object ID
 	fields = append(fields, FormatFieldRaw(0x06, 0x07, "PositionObjectId",

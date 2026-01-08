@@ -41,7 +41,11 @@ type FleetEntity struct {
 	DamagedShipInfo  [16]uint16
 	BattlePlan       int
 	WaypointCount    int
-	RepeatOrders     bool
+
+	// Flags from Byte5 (see reversing_notes/fleet-block.md)
+	Include      bool // fInclude - Include in reports/selection
+	RepeatOrders bool // fRepOrders - Repeat waypoint orders when complete
+	IsDead       bool // fDead - Fleet has been destroyed
 
 	// Linked data
 	CustomName    string
@@ -257,7 +261,9 @@ func newFleetEntityFromBlock(fb *blocks.PartialFleetBlock, source *FileSource) *
 		DamagedShipInfo:  fb.DamagedShipInfo,
 		BattlePlan:       fb.BattlePlan,
 		WaypointCount:    fb.WaypointCount,
+		Include:          fb.Include,
 		RepeatOrders:     fb.RepeatOrders,
+		IsDead:           fb.IsDead,
 		fleetBlock:       fb,
 	}
 	entity.meta.AddSource(source)
