@@ -581,7 +581,7 @@ var Hulls = map[int]*Hull{
 	},
 	HullSpaceStation: {
 		ID: HullSpaceStation, Name: "Space Station",
-		Mass: 0, Armor: 500, FuelCapacity: 0, CargoCapacity: 0,
+		Mass: 0, Armor: 500, FuelCapacity: 0, CargoCapacity: 65535,
 		IsStarbase: true,
 		Slots: []HullSlot{
 			{SlotOrbital, 1},
@@ -600,7 +600,7 @@ var Hulls = map[int]*Hull{
 	},
 	HullUltraStation: {
 		ID: HullUltraStation, Name: "Ultra Station",
-		Mass: 0, Armor: 1000, FuelCapacity: 0, CargoCapacity: 0,
+		Mass: 0, Armor: 1000, FuelCapacity: 0, CargoCapacity: 65535,
 		IsStarbase: true,
 		Slots: []HullSlot{
 			{SlotOrbital, 1},
@@ -623,7 +623,7 @@ var Hulls = map[int]*Hull{
 	},
 	HullDeathStar: {
 		ID: HullDeathStar, Name: "Death Star",
-		Mass: 0, Armor: 1500, FuelCapacity: 0, CargoCapacity: 0,
+		Mass: 0, Armor: 1500, FuelCapacity: 0, CargoCapacity: 65535,
 		IsStarbase: true,
 		Slots: []HullSlot{
 			{SlotOrbital, 1},

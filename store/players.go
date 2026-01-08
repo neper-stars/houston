@@ -38,6 +38,12 @@ type PlayerEntity struct {
 	PRT         int        // Primary Race Trait (0-9, see blocks.PRT* constants)
 	LRT         uint16     // Lesser Race Traits bitmask (see blocks.LRT* constants)
 
+	// Production settings (economy parameters)
+	Production blocks.ProductionSettings
+
+	// Habitability settings (environment preferences)
+	Hab blocks.Habitability
+
 	// Diplomatic relations (from file owner's perspective)
 	PlayerRelations []byte
 
@@ -113,6 +119,8 @@ func newPlayerEntityFromBlock(pb *blocks.PlayerBlock, source *FileSource) *Playe
 		},
 		PRT:             pb.PRT,
 		LRT:             pb.LRT,
+		Production:      pb.Production,
+		Hab:             pb.Hab,
 		PlayerRelations: pb.PlayerRelations,
 		playerBlock:     pb,
 	}

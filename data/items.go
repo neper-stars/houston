@@ -407,6 +407,11 @@ const (
 )
 
 // Mechanical item IDs
+// NOTE: IDs updated to match decompiled SpdOfShip() which uses:
+//   - Maneuver Jet = 7 (grhst=0x1000)
+//   - Overthruster = 8 (grhst=0x1000)
+//
+// Previous values were MechManeuveringJet=8, MechOverthruster=9 - need test data to validate.
 const (
 	MechColonizationModule        = 1
 	MechOrbitalConstructionModule = 2
@@ -414,23 +419,28 @@ const (
 	MechSuperCargoPod             = 4
 	MechMultiCargoPod             = 5
 	MechFuelTank                  = 6
-	MechSuperFuelTank             = 7
-	MechManeuveringJet            = 8
-	MechOverthruster              = 9
+	MechManeuveringJet            = 7 // Was 8 - updated per decompiled SpdOfShip()
+	MechOverthruster              = 8 // Was 9 - updated per decompiled SpdOfShip()
+	MechSuperFuelTank             = 9 // Was 7 - shifted due to Maneuver Jet/Overthruster fix
 	MechJumpGate                  = 10
 	MechBeamDeflector             = 11
 )
 
 // Mining robot item IDs
+// Mining robot items (category 0x80).
+// NOTE: Decompiled SpdOfShip() hardcodes a +0.5 speed bonus for MiningRoboUltra (ID 6).
+// Earlier documentation incorrectly referred to this as "Sub-light Motor" - that was an error.
+// There is no separate "Sub-light Motor" item; the speed bonus is an undocumented feature
+// of the Robo-Ultra-Miner.
 const (
-	MiningRoboMidget = 1
-	MiningRoboMini   = 2
-	MiningRobo       = 3
-	MiningRoboMaxi   = 4
-	MiningRoboSuper  = 5
-	MiningRoboUltra  = 6
-	MiningAlien      = 7
-	MiningOrbitalAdj = 8
+	MiningRoboMidget = iota + 1
+	MiningRoboMini
+	MiningRobo
+	MiningRoboMaxi
+	MiningRoboSuper
+	MiningRoboUltra // Has hardcoded +0.5 speed bonus in SpdOfShip()
+	MiningAlien
+	MiningOrbitalAdj
 )
 
 // ItemNameToInfo maps item names to their category and ID.
@@ -1054,24 +1064,28 @@ var Torpedoes = map[int]*Torpedo{
 }
 
 // Electrical IDs (1-indexed)
+// NOTE: Decompiled SpdOfShip() references "Thruster" at item 4 in category 0x800 (Electrical).
+// This conflicts with ElecUltraStealthCloak. The slot may have dual-purpose items,
+// or the decompiled code uses different item numbering. Need test data to validate.
 const (
 	ElecTransportCloaking = iota + 1
 	ElecStealthCloak
 	ElecSuperStealthCloak
-	ElecUltraStealthCloak
-	ElecMultiFunctionPod
-	ElecBattleComputer
-	ElecBattleSuperComputer
-	ElecBattleNexus
-	ElecJammer10
-	ElecJammer20
-	ElecJammer30
-	ElecJammer50
-	ElecEnergyCapacitor
-	ElecFluxCapacitor
-	ElecEnergyDampener
-	ElecTachyonDetector
-	ElecAntiMatterGenerator
+	ElecUltraStealthCloak       // Also ElecThruster per SpdOfShip() - +1 speed bonus
+	ElecThruster            = 4 // Per decompiled SpdOfShip() - same slot as UltraStealthCloak
+	ElecMultiFunctionPod    = 5
+	ElecBattleComputer      = 6
+	ElecBattleSuperComputer = 7
+	ElecBattleNexus         = 8
+	ElecJammer10            = 9
+	ElecJammer20            = 10
+	ElecJammer30            = 11
+	ElecJammer50            = 12
+	ElecEnergyCapacitor     = 13
+	ElecFluxCapacitor       = 14
+	ElecEnergyDampener      = 15
+	ElecTachyonDetector     = 16
+	ElecAntiMatterGenerator = 17
 )
 
 // Electrical represents an electrical component
@@ -1129,6 +1143,7 @@ type Mechanical struct {
 }
 
 // Mechanicals contains all mechanical component definitions
+// NOTE: IDs reordered to match decompiled SpdOfShip() - Maneuver Jet=7, Overthruster=8
 var Mechanicals = map[int]*Mechanical{
 	MechColonizationModule:        {ID: MechColonizationModule, Name: "Colonization Module", Tech: TechRequirements{}, Mass: 32, Cost: Cost{10, 12, 10, 10}, Colonizer: true},
 	MechOrbitalConstructionModule: {ID: MechOrbitalConstructionModule, Name: "Orbital Construction Module", Tech: TechRequirements{}, Mass: 50, Cost: Cost{20, 20, 15, 15}, OrbitalBuild: true},
@@ -1136,9 +1151,9 @@ var Mechanicals = map[int]*Mechanical{
 	MechSuperCargoPod:             {ID: MechSuperCargoPod, Name: "Super Cargo Pod", Tech: TechRequirements{Energy: 3, Construction: 9}, Mass: 7, Cost: Cost{15, 8, 0, 2}, CargoCapacity: 100},
 	MechMultiCargoPod:             {ID: MechMultiCargoPod, Name: "Multi Cargo Pod", Tech: TechRequirements{Energy: 5, Construction: 11, Electronics: 5}, Mass: 9, Cost: Cost{25, 12, 0, 3}, CargoCapacity: 250, ArmorValue: 50},
 	MechFuelTank:                  {ID: MechFuelTank, Name: "Fuel Tank", Tech: TechRequirements{}, Mass: 3, Cost: Cost{4, 6, 0, 0}, FuelCapacity: 250},
-	MechSuperFuelTank:             {ID: MechSuperFuelTank, Name: "Super Fuel Tank", Tech: TechRequirements{Energy: 6, Propulsion: 4, Construction: 14}, Mass: 8, Cost: Cost{8, 8, 0, 0}, FuelCapacity: 500},
 	MechManeuveringJet:            {ID: MechManeuveringJet, Name: "Maneuvering Jet", Tech: TechRequirements{Energy: 2, Propulsion: 3}, Mass: 5, Cost: Cost{10, 5, 0, 5}, SpeedBonus: 1},
 	MechOverthruster:              {ID: MechOverthruster, Name: "Overthruster", Tech: TechRequirements{Energy: 5, Propulsion: 12}, Mass: 5, Cost: Cost{20, 10, 0, 8}, SpeedBonus: 2},
+	MechSuperFuelTank:             {ID: MechSuperFuelTank, Name: "Super Fuel Tank", Tech: TechRequirements{Energy: 6, Propulsion: 4, Construction: 14}, Mass: 8, Cost: Cost{8, 8, 0, 0}, FuelCapacity: 500},
 	MechJumpGate:                  {ID: MechJumpGate, Name: "Jump Gate", Tech: TechRequirements{Energy: 16, Propulsion: 20, Construction: 20, Electronics: 16}, Mass: 10, Cost: Cost{40, 0, 0, 50}},
 	MechBeamDeflector:             {ID: MechBeamDeflector, Name: "Beam Deflector", Tech: TechRequirements{Energy: 6, Weapons: 6, Construction: 6, Electronics: 6}, Mass: 1, Cost: Cost{8, 0, 0, 10}, BeamDeflect: 10},
 }
