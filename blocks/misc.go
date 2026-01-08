@@ -107,16 +107,28 @@ func (ssb *SaveAndSubmitBlock) Encode() []byte {
 }
 
 // FileHashBlock represents player identification data (Type 9)
-// Contains serial number and hardware fingerprint used to detect
+// Contains encoded serial number and hardware fingerprint used to detect
 // multi-accounting (same serial on different machines).
+//
+// The 28-character serial string (e.g., "CV6JVUAX...") is decoded as follows:
+//  1. Each char is base64-like decoded to 6 bits:
+//     A-Z=0-25, a-z=26-51, 0-9=52-61, '-'=62, '*'=63
+//  2. This produces 21 bytes (28 chars × 6 bits = 168 bits)
+//  3. The 21 bytes are shuffled using vrgbShuffleSerial table:
+//     {0x0b, 0x04, 0x05, 0x10, 0x11, 0x0c, 0x13, 0x0f,
+//     0x0a, 0x01, 0x0e, 0x0d, 0x03, 0x12, 0x02, 0x14,
+//     0x09, 0x07, 0x00, 0x08, 0x06}
+//     (output[i] = input[shuffle[i]])
+//  4. Bytes 0-3 become lSerial (SerialNumber field)
+//  5. Bytes 4-14 become pbEnv (hardware/environment fingerprint, 11 bytes)
 //
 // Format (17 bytes decrypted):
 //
 //	Bytes 0-1: Unknown (possibly flags or player ID)
-//	Bytes 2-5: Serial number (32-bit LE) - from Stars! registration
-//	Bytes 6-16: Hardware hash (11 bytes) - machine fingerprint
+//	Bytes 2-5: lSerial (32-bit LE) - bytes 0-3 of decoded/shuffled serial
+//	Bytes 6-16: pbEnv (11 bytes) - bytes 4-14 of decoded/shuffled serial
 //
-// Hardware hash breakdown:
+// The pbEnv contains hardware fingerprint data (after shuffle):
 //
 //	Bytes 0-3: Label C: (volume label)
 //	Bytes 4-5: C: date/time of volume
@@ -125,14 +137,15 @@ func (ssb *SaveAndSubmitBlock) Encode() []byte {
 //	Byte 10: C: and D: drive size in 100's of MB
 //
 // Used to detect when the same serial number is used
-// on different computers (different hardware hash = likely cheating).
+// on different computers (different pbEnv = likely cheating).
 type FileHashBlock struct {
 	GenericBlock
 
 	// Unknown bytes at start (possibly flags or player ID)
 	Unknown uint16
 
-	// Serial number from Stars! registration
+	// SerialNumber contains bytes 0-3 of the decoded and shuffled serial string.
+	// The original 28-char serial is base64-like decoded to 21 bytes, then shuffled.
 	SerialNumber uint32
 
 	// Hardware hash - machine fingerprint (11 bytes)

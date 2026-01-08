@@ -37,21 +37,21 @@ func FormatFileHash(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
 		fmt.Sprintf("uint16 LE = 0x%04X (flags/playerID?)", unknown)))
 
-	// Bytes 2-5: Serial number
-	fields = append(fields, FormatFieldRaw(0x02, 0x05, "SerialNumber",
+	// Bytes 2-5: lSerial (bytes 0-3 of decoded/shuffled 28-char serial string)
+	fields = append(fields, FormatFieldRaw(0x02, 0x05, "lSerial",
 		fmt.Sprintf("0x%02X%02X%02X%02X", d[5], d[4], d[3], d[2]),
-		fmt.Sprintf("uint32 LE = %d", fhb.SerialNumber)))
+		fmt.Sprintf("uint32 LE = %d (decoded serial bytes 0-3)", fhb.SerialNumber)))
 
-	// Bytes 6-16: Hardware hash (11 bytes)
+	// Bytes 6-16: pbEnv (11 bytes = decoded serial bytes 4-14 after shuffle)
 	fields = append(fields, "")
-	fields = append(fields, "── Hardware Hash (11 bytes) ──")
-	fields = append(fields, FormatFieldRaw(0x06, 0x10, "HardwareHash",
+	fields = append(fields, "── pbEnv (11 bytes, decoded serial bytes 4-14) ──")
+	fields = append(fields, FormatFieldRaw(0x06, 0x10, "pbEnv",
 		fmt.Sprintf("0x%s", HexDumpSingleLine(d[6:17])),
-		"machine fingerprint"))
+		"hardware fingerprint (shuffled)"))
 
-	// Hardware hash breakdown
+	// pbEnv components breakdown
 	fields = append(fields, "")
-	fields = append(fields, "── Hash Components ──")
+	fields = append(fields, "── pbEnv Components ──")
 
 	// Bytes 0-3 of hash (6-9): Label C:
 	fields = append(fields, FormatFieldRaw(0x06, 0x09, "LabelC",
@@ -81,11 +81,12 @@ func FormatFileHash(block blocks.Block, index int) string {
 	// Summary
 	fields = append(fields, "")
 	fields = append(fields, "── Summary ──")
-	fields = append(fields, fmt.Sprintf("  Serial Number: %d", fhb.SerialNumber))
-	fields = append(fields, fmt.Sprintf("  Hardware Hash: %s", fhb.HardwareHashString()))
+	fields = append(fields, fmt.Sprintf("  lSerial: %d (0x%08X)", fhb.SerialNumber, fhb.SerialNumber))
+	fields = append(fields, fmt.Sprintf("  pbEnv: %s", fhb.HardwareHashString()))
 	fields = append(fields, "")
-	fields = append(fields, "  Purpose: Detects multi-accounting (same serial")
-	fields = append(fields, "  number on different machines = different hash)")
+	fields = append(fields, "  Encoding: 28-char serial -> base64-like decode -> shuffle")
+	fields = append(fields, "  Purpose: Detects multi-accounting (same lSerial")
+	fields = append(fields, "  on different machines = different pbEnv)")
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
