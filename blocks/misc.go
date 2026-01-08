@@ -298,6 +298,7 @@ const (
 	ResearchFieldConstruction  = 3
 	ResearchFieldElectronics   = 4
 	ResearchFieldBiotechnology = 5
+	ResearchFieldSameField     = 6 // Special value meaning "continue in current field"
 )
 
 // ResearchFieldName returns the human-readable name for a research field
@@ -305,6 +306,9 @@ func ResearchFieldName(field int) string {
 	names := []string{"Energy", "Weapons", "Propulsion", "Construction", "Electronics", "Biotechnology"}
 	if field >= 0 && field < len(names) {
 		return names[field]
+	}
+	if field == ResearchFieldSameField {
+		return "<Same Field>"
 	}
 	return "Unknown"
 }

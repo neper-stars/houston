@@ -133,6 +133,18 @@ func FormatPlayer(block blocks.Block, index int) string {
 				pb.Tech.Energy, pb.Tech.Weapons, pb.Tech.Propulsion,
 				pb.Tech.Construction, pb.Tech.Electronics, pb.Tech.Biotech)))
 
+		// Research settings (bytes 56-57 = offset 0x38-0x39)
+		fields = append(fields, FormatFieldRaw(0x38, 0x38, "Research %",
+			fmt.Sprintf("0x%02X", data[56]),
+			fmt.Sprintf("%d%%", pb.ResearchPercentage)))
+		fields = append(fields, FormatFieldRaw(0x39, 0x39, "Research Fields",
+			fmt.Sprintf("0x%02X", data[57]),
+			fmt.Sprintf("0b%08b", data[57])))
+		fields = append(fields, fmt.Sprintf("           %s bits4-7: currentField = %d (%s)",
+			TreeBranch, pb.CurrentResearchField, blocks.ResearchFieldName(pb.CurrentResearchField)))
+		fields = append(fields, fmt.Sprintf("           %s bits0-3: nextField = %d (%s)",
+			TreeEnd, pb.NextResearchField, blocks.ResearchFieldName(pb.NextResearchField)))
+
 		// PRT (offset 0x4C = byte 76)
 		prtName := "Unknown"
 		if pb.PRT >= 0 && pb.PRT < len(prtNames) {
