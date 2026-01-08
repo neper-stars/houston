@@ -42,7 +42,7 @@ func TestDebugSingleplayer(t *testing.T) {
 
 	ownedPlanets := gs.PlanetsByOwner(0)
 	fmt.Printf("\n=== Owned Planets: %d ===\n", len(ownedPlanets))
-	
+
 	totalPop := int64(0)
 	for i, planet := range ownedPlanets {
 		totalPop += planet.Population
@@ -70,7 +70,7 @@ func TestDebugSingleplayer(t *testing.T) {
 	fmt.Println("\n=== Expected Values (from scores.png) ===")
 	fmt.Println("Planets: 11, Starbases: 1, Unarmed: 6, Escort: 2, Capital: 0")
 	fmt.Println("Tech: 76, Resources: 17k, Score: 838")
-	
+
 	// Calculate expected breakdown
 	fmt.Println("\n=== Expected Breakdown ===")
 	expResourceScore := 17000 / 30
