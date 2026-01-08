@@ -533,3 +533,71 @@ func TestAllPlanetNames_ScenarioSingleplayer(t *testing.T) {
 
 	assert.Empty(t, missingPlanets, "All planet names should be found")
 }
+
+// TestVictoryConditions_ScenarioSingleplayer verifies victory conditions are parsed correctly.
+// Expected values are from testdata/scenario-singleplayer/2483/victory-conditions.png
+func TestVictoryConditions_ScenarioSingleplayer(t *testing.T) {
+	// Load Game.xy which contains the PlanetsBlock with victory conditions
+	gs := store.New()
+
+	xyData, err := os.ReadFile("../testdata/scenario-singleplayer/2483/Game.xy")
+	require.NoError(t, err, "Failed to read Game.xy")
+	err = gs.AddFile("Game.xy", xyData)
+	require.NoError(t, err, "Failed to parse Game.xy")
+
+	// Verify universe settings
+	assert.Equal(t, uint16(2), gs.UniverseSize, "UniverseSize should be 2 (Medium)")
+	assert.Equal(t, "Medium", gs.UniverseSizeName(), "UniverseSizeName should be Medium")
+	assert.Equal(t, uint16(3), gs.Density, "Density should be 3 (Packed)")
+	assert.Equal(t, "Packed", gs.DensityName(), "DensityName should be Packed")
+	assert.Equal(t, uint16(1), gs.PlayerCount, "PlayerCount should be 1")
+	assert.Equal(t, uint16(540), gs.PlanetCount, "PlanetCount should be 540")
+
+	// Verify victory conditions from victory-conditions.png:
+	// ☑ Owns 60% of all planets
+	// ☑ Attains Tech 22 in 4 fields
+	// ☐ Exceeds a score of 11000
+	// ☑ Exceeds second place score by 100%
+	// ☐ Has a production capacity of 100 thousand
+	// ☐ Owns 100 capital ships
+	// ☐ Has the highest score after 100 years
+	// Winner must meet 1 of the above selected criteria
+	// At least 70 years must pass before a winner is declared
+
+	vc := gs.VictoryConditions
+
+	// [0] Owns % of planets: enabled=true, value=60%
+	assert.True(t, vc.OwnsPercentPlanetsEnabled, "Owns % planets should be enabled")
+	assert.Equal(t, 60, vc.OwnsPercentPlanetsValue, "Owns % planets value should be 60")
+
+	// [1] Attains Tech X in Y fields: enabled=true, level=22, fields=4
+	assert.True(t, vc.AttainTechLevelEnabled, "Attain tech level should be enabled")
+	assert.Equal(t, 22, vc.AttainTechLevelValue, "Tech level should be 22")
+	assert.Equal(t, 4, vc.AttainTechInYFields, "Tech fields should be 4")
+
+	// [3] Exceeds score: enabled=false, value=11000
+	assert.False(t, vc.ExceedScoreEnabled, "Exceeds score should be disabled")
+	assert.Equal(t, 11000, vc.ExceedScoreValue, "Exceeds score value should be 11000")
+
+	// [4] Exceeds 2nd place by %: enabled=true, value=100%
+	assert.True(t, vc.ExceedSecondPlaceEnabled, "Exceeds 2nd place should be enabled")
+	assert.Equal(t, 100, vc.ExceedSecondPlaceValue, "Exceeds 2nd place value should be 100")
+
+	// [5] Production capacity: enabled=false, value=100k
+	assert.False(t, vc.ProductionCapacityEnabled, "Production capacity should be disabled")
+	assert.Equal(t, 100, vc.ProductionCapacityValue, "Production capacity value should be 100")
+
+	// [6] Own capital ships: enabled=false, value=100
+	assert.False(t, vc.OwnCapitalShipsEnabled, "Own capital ships should be disabled")
+	assert.Equal(t, 100, vc.OwnCapitalShipsValue, "Own capital ships value should be 100")
+
+	// [7] Highest score after N years: enabled=false, value=100
+	assert.False(t, vc.HighestScoreYearsEnabled, "Highest score years should be disabled")
+	assert.Equal(t, 100, vc.HighestScoreYearsValue, "Highest score years value should be 100")
+
+	// [8] Must meet N criteria: value=1
+	assert.Equal(t, 1, vc.NumCriteriaMetValue, "Must meet N criteria value should be 1")
+
+	// [9] Min years before winner: value=70
+	assert.Equal(t, 70, vc.MinYearsBeforeWinValue, "Min years before winner value should be 70")
+}

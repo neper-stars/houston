@@ -17,7 +17,7 @@ The footer data is stored as a 16-bit little-endian value in the FileFooter bloc
 
 ---
 
-## PlanetsBlock Trailing Data
+## PlanetsBlock Structure (Type 7)
 
 The PlanetsBlock (Type 7) has a unique structure: after the encrypted 64-byte block data, there are additional bytes for planet coordinates that are **stored unencrypted**.
 
@@ -25,8 +25,51 @@ The PlanetsBlock (Type 7) has a unique structure: after the encrypted 64-byte bl
 [Block Header 2 bytes] [Block Data 64 bytes, encrypted] [Planet Data N×4 bytes, unencrypted]
 ```
 
-- Block data (64 bytes): Contains universe settings, player count, planet count, game name - **encrypted**
-- Trailing planet data (4 bytes per planet): Contains packed planet coordinates and name IDs - **unencrypted**
+### Block Data Layout (64 bytes, encrypted)
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0-3 | 4 | lid | Game ID / serial number |
+| 4-5 | 2 | UniverseSize | 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge |
+| 6-7 | 2 | Density | 0=Sparse, 1=Normal, 2=Dense, 3=Packed |
+| 8-9 | 2 | PlayerCount | Number of players (1-16) |
+| 10-11 | 2 | PlanetCount | Total number of planets |
+| 12-15 | 4 | StartingDistance | Player homeworld separation |
+| 16-17 | 2 | GameSettings | Game options bitmask (see GameSetting* constants) |
+| 18-19 | 2 | Turn | Current turn number (0 in XY files) |
+| 20-31 | 12 | VictoryConditions | Victory condition settings (see below) |
+| 32-63 | 32 | GameName | Game name, null-padded |
+
+### Victory Conditions Array (12 bytes)
+
+Each byte in the VictoryConditions array encodes:
+- Bit 7 (0x80): Enabled flag (condition is active)
+- Bits 0-6 (0x7F): Threshold index value
+
+The `GetVCVal()` function converts the index to actual values using formulas:
+
+| Index | Max Idx | Formula | Value Range | Victory Condition |
+|-------|---------|---------|-------------|-------------------|
+| 0 | 16 | `idx * 5 + 20` | 20-100% | Owns % of planets |
+| 1 | 18 | `idx + 8` | 8-26 | Attains tech level X |
+| 2 | 4 | `idx + 2` | 2-6 | **in Y tech fields** (2nd value for tech condition) |
+| 3 | 19 | `idx * 1000 + 1000` | 1k-20k | Exceeds score |
+| 4 | 28 | `idx * 10 + 20` | 20-300% | Exceeds 2nd place by % |
+| 5 | 49 | `idx * 10 + 10` | 10-500 | Production capacity (thousands) |
+| 6 | 29 | `idx * 10 + 10` | 10-300 | Owns capital ships |
+| 7 | 87 | `idx * 10 + 30` | 30-900 | Highest score after N years |
+| 8 | - | counts enabled | 1-7 | Meets N of above criteria |
+| 9 | 47 | `idx * 10 + 30` | 30-500 | Minimum years before winner declared |
+| 10-11 | - | - | - | Reserved |
+
+**Note:** Index 8 uses a special formula that counts how many conditions (indices 0-7, excluding 2) have their enabled bit set, then caps the value at that count.
+
+**Source:** Decompiled from stars26jrc3.exe:
+- `vrgvcMax[]` array at 1078:b5a8
+- `GetVCVal()` function at 1078:b710
+- `GetVCCheck()` function at 1078:b60c
+
+### Trailing Planet Data (unencrypted)
 
 Each planet entry (4 bytes, little-endian uint32):
 ```

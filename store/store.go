@@ -30,7 +30,16 @@ type GameStore struct {
 	resolver ConflictResolver
 
 	// Universe data (from PlanetsBlock)
-	planetNames map[int]string // Planet number -> name
+	planetNames      map[int]string // Planet number -> name
+	UniverseSize     uint16         // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
+	Density          uint16         // 0=Sparse, 1=Normal, 2=Dense, 3=Packed
+	PlayerCount      uint16         // Number of players in the game
+	PlanetCount      uint16         // Total number of planets
+	StartingDistance uint32         // Player homeworld separation
+	GameSettings     uint16         // Game options bitmask
+
+	// Victory conditions (from PlanetsBlock)
+	VictoryConditions blocks.DecodedVictoryConditions
 
 	// Entity collections
 	Fleets           *EntityCollection[*FleetEntity]
@@ -300,6 +309,17 @@ func (gs *GameStore) mergePlanetsBlock(pb *blocks.PlanetsBlock, source *FileSour
 	// Store game name if not set
 	if gs.GameName == "" {
 		gs.GameName = pb.GameName
+	}
+
+	// Store universe settings (only set once from first PlanetsBlock)
+	if gs.PlanetCount == 0 {
+		gs.UniverseSize = pb.UniverseSize
+		gs.Density = pb.Density
+		gs.PlayerCount = pb.PlayerCount
+		gs.PlanetCount = pb.PlanetCount
+		gs.StartingDistance = pb.StartingDistance
+		gs.GameSettings = pb.GameSettings
+		gs.VictoryConditions = pb.GetVictoryConditions()
 	}
 
 	// Extract planet names and create/update planet entities with coordinates
@@ -810,4 +830,28 @@ func (gs *GameStore) EventsForTurn(turn uint16) []*EventsEntity {
 		}
 	}
 	return result
+}
+
+// HasGameSetting checks if a specific game setting flag is enabled.
+// Use with data.GameSetting* constants.
+func (gs *GameStore) HasGameSetting(flag int) bool {
+	return (int(gs.GameSettings) & flag) != 0
+}
+
+// UniverseSizeName returns the human-readable name for the universe size.
+func (gs *GameStore) UniverseSizeName() string {
+	names := []string{"Tiny", "Small", "Medium", "Large", "Huge"}
+	if int(gs.UniverseSize) < len(names) {
+		return names[gs.UniverseSize]
+	}
+	return "Unknown"
+}
+
+// DensityName returns the human-readable name for the planet density.
+func (gs *GameStore) DensityName() string {
+	names := []string{"Sparse", "Normal", "Dense", "Packed"}
+	if int(gs.Density) < len(names) {
+		return names[gs.Density]
+	}
+	return "Unknown"
 }

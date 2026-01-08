@@ -188,3 +188,116 @@ var VictoryConditionNames = map[VictoryCondition]string{
 	VictoryHighestScoreYears:        "Highest Score After Years",
 	VictoryNumCriteriaMet:           "Meets N Criteria",
 }
+
+// VictoryConditionIndex represents the array indices for victory condition thresholds.
+// The VictoryConditions array in PlanetsBlock is 12 bytes (indices 0-11).
+//
+// Each byte encodes: bit 7 (0x80) = enabled flag, bits 0-6 (0x7F) = threshold index.
+//
+// Source: Decompiled from stars26jrc3.exe GetVCVal() at 1078:b710
+const (
+	VictoryIdxOwnsPercentPlanets = 0  // Formula: idx*5+20, range 20-100%
+	VictoryIdxAttainsTechLevel   = 1  // Formula: idx+8, range 8-26 (attain tech level X)
+	VictoryIdxTechInYFields      = 2  // Formula: idx+2, range 2-6 (in Y tech fields, 2nd part of tech condition)
+	VictoryIdxExceedScore        = 3  // Formula: idx*1000+1000, range 1k-20k
+	VictoryIdxExceedSecondPlace  = 4  // Formula: idx*10+20, range 20-300%
+	VictoryIdxProductionCapacity = 5  // Formula: idx*10+10, range 10-500 (thousands)
+	VictoryIdxOwnCapitalShips    = 6  // Formula: idx*10+10, range 10-300
+	VictoryIdxHighestScoreYears  = 7  // Formula: idx*10+30, range 30-900 (highest score after N years)
+	VictoryIdxNumCriteriaMet     = 8  // Special: counts enabled conditions from 0-7 (excl. 2), range 1-7
+	VictoryIdxMinYearsBeforeWin  = 9  // Formula: idx*10+30, range 30-500 (min years before winner declared)
+	VictoryIdxReserved10         = 10 // Reserved
+	VictoryIdxReserved11         = 11 // Reserved
+)
+
+// VictoryConditionThresholds defines the maximum threshold index for each
+// victory condition. These values determine the valid range of settings
+// for each victory condition in the game setup.
+//
+// Source: Decompiled from stars26jrc3.exe vrgvcMax[] array at 1078:b5a8
+type VictoryConditionThresholds struct {
+	OwnsPercentPlanets int // Max idx 16: formula idx*5+20, values 20-100%
+	AttainsTechLevel   int // Max idx 18: formula idx+8, values 8-26 (attain tech level X)
+	TechInYFields      int // Max idx 4: formula idx+2, values 2-6 (in Y tech fields)
+	ExceedScore        int // Max idx 19: formula idx*1000+1000, values 1k-20k
+	ExceedSecondPlace  int // Max idx 28: formula idx*10+20, values 20-300%
+	ProductionCapacity int // Max idx 49: formula idx*10+10, values 10-500 (thousands)
+	OwnCapitalShips    int // Max idx 29: formula idx*10+10, values 10-300
+	HighestScoreYears  int // Max idx 87: formula idx*10+30, values 30-900
+	NumCriteriaMet     int // Special: counts enabled conditions, values 1-7
+	MinYearsBeforeWin  int // Max idx 47: formula idx*10+30, values 30-500
+	Reserved10         int // Reserved
+	Reserved11         int // Reserved
+}
+
+// ToArray converts the thresholds to the file format array (12 bytes).
+func (v VictoryConditionThresholds) ToArray() [12]int {
+	return [12]int{
+		v.OwnsPercentPlanets,
+		v.AttainsTechLevel,
+		v.TechInYFields,
+		v.ExceedScore,
+		v.ExceedSecondPlace,
+		v.ProductionCapacity,
+		v.OwnCapitalShips,
+		v.HighestScoreYears,
+		v.NumCriteriaMet,
+		v.MinYearsBeforeWin,
+		v.Reserved10,
+		v.Reserved11,
+	}
+}
+
+// DefaultVictoryThresholds contains the standard max index values from Stars!
+var DefaultVictoryThresholds = VictoryConditionThresholds{
+	OwnsPercentPlanets: 16, // idx*5+20 → 20-100%
+	AttainsTechLevel:   18, // idx+8 → 8-26 (attain tech level X)
+	TechInYFields:      4,  // idx+2 → 2-6 (in Y tech fields)
+	ExceedScore:        19, // idx*1000+1000 → 1k-20k
+	ExceedSecondPlace:  28, // idx*10+20 → 20-300%
+	ProductionCapacity: 49, // idx*10+10 → 10-500 (thousands)
+	OwnCapitalShips:    29, // idx*10+10 → 10-300
+	HighestScoreYears:  87, // idx*10+30 → 30-900 (highest score after N years)
+	NumCriteriaMet:     7,  // counts enabled (max 7 conditions)
+	MinYearsBeforeWin:  47, // idx*10+30 → 30-500 (min years before winner declared)
+	Reserved10:         0,
+	Reserved11:         0,
+}
+
+// VictoryCondition byte format constants.
+const (
+	VictoryConditionEnabledBit = 0x80 // Bit 7: condition is enabled
+	VictoryConditionIndexMask  = 0x7F // Bits 0-6: threshold index value
+)
+
+// GetVictoryValue converts a threshold index to the actual game value.
+// Returns the computed value and true if valid, or 0 and false if invalid.
+//
+// Source: Decompiled from stars26jrc3.exe GetVCVal() at 1078:b710
+func GetVictoryValue(conditionIndex, thresholdIndex int) (int, bool) {
+	switch conditionIndex {
+	case VictoryIdxOwnsPercentPlanets:
+		return thresholdIndex*5 + 20, true // 20-100%
+	case VictoryIdxAttainsTechLevel:
+		return thresholdIndex + 8, true // 8-26 (attain tech level X)
+	case VictoryIdxTechInYFields:
+		return thresholdIndex + 2, true // 2-6 (in Y tech fields)
+	case VictoryIdxExceedScore:
+		return thresholdIndex*1000 + 1000, true // 1k-20k
+	case VictoryIdxExceedSecondPlace:
+		return thresholdIndex*10 + 20, true // 20-300%
+	case VictoryIdxProductionCapacity:
+		return thresholdIndex*10 + 10, true // 10-500 (thousands)
+	case VictoryIdxOwnCapitalShips:
+		return thresholdIndex*10 + 10, true // 10-300
+	case VictoryIdxHighestScoreYears:
+		return thresholdIndex*10 + 30, true // 30-900 (highest score after N years)
+	case VictoryIdxNumCriteriaMet:
+		// Special case: value is 1-7 (count of enabled conditions)
+		return thresholdIndex, true
+	case VictoryIdxMinYearsBeforeWin:
+		return thresholdIndex*10 + 30, true // 30-500 (min years before winner)
+	default:
+		return 0, false
+	}
+}

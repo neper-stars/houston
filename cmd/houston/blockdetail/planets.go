@@ -105,10 +105,36 @@ func FormatPlanets(block blocks.Block, index int) string {
 	fields = append(fields, fmt.Sprintf("           %s bit8: GalaxyClumping = %v",
 		TreeEnd, pb.HasGameSetting(data.GameSettingGalaxyClumping)))
 
-	// Bytes 18-31: Unknown/reserved
-	fields = append(fields, FormatFieldRaw(0x12, 0x1F, "Unknown",
-		fmt.Sprintf("0x%s", HexDumpSingleLine(d[18:32])),
-		"TBD (reserved/victory conditions?)"))
+	// Bytes 18-19: Turn number
+	fields = append(fields, FormatFieldRaw(0x12, 0x13, "Turn",
+		fmt.Sprintf("0x%02X%02X", d[19], d[18]),
+		fmt.Sprintf("uint16 LE = %d", pb.Turn)))
+
+	// Bytes 20-31: Victory conditions (12 bytes)
+	fields = append(fields, FormatFieldRaw(0x14, 0x1F, "VictoryConditions",
+		fmt.Sprintf("0x%s", HexDumpSingleLine(d[20:32])),
+		"12 bytes (see breakdown below)"))
+
+	// Victory conditions breakdown
+	vc := pb.GetVictoryConditions()
+	fields = append(fields, fmt.Sprintf("           %s [0] Owns %%planets: enabled=%v, value=%d%%",
+		TreeBranch, vc.OwnsPercentPlanetsEnabled, vc.OwnsPercentPlanetsValue))
+	fields = append(fields, fmt.Sprintf("           %s [1] Tech level X in Y fields: enabled=%v, level=%d, fields=%d",
+		TreeBranch, vc.AttainTechLevelEnabled, vc.AttainTechLevelValue, vc.AttainTechInYFields))
+	fields = append(fields, fmt.Sprintf("           %s [3] Exceeds score: enabled=%v, value=%d",
+		TreeBranch, vc.ExceedScoreEnabled, vc.ExceedScoreValue))
+	fields = append(fields, fmt.Sprintf("           %s [4] Exceeds 2nd place by: enabled=%v, value=%d%%",
+		TreeBranch, vc.ExceedSecondPlaceEnabled, vc.ExceedSecondPlaceValue))
+	fields = append(fields, fmt.Sprintf("           %s [5] Production capacity: enabled=%v, value=%dk",
+		TreeBranch, vc.ProductionCapacityEnabled, vc.ProductionCapacityValue))
+	fields = append(fields, fmt.Sprintf("           %s [6] Own capital ships: enabled=%v, value=%d",
+		TreeBranch, vc.OwnCapitalShipsEnabled, vc.OwnCapitalShipsValue))
+	fields = append(fields, fmt.Sprintf("           %s [7] Highest score after: enabled=%v, value=%d years",
+		TreeBranch, vc.HighestScoreYearsEnabled, vc.HighestScoreYearsValue))
+	fields = append(fields, fmt.Sprintf("           %s [8] Must meet N criteria: value=%d",
+		TreeBranch, vc.NumCriteriaMetValue))
+	fields = append(fields, fmt.Sprintf("           %s [9] Min years before winner: value=%d",
+		TreeEnd, vc.MinYearsBeforeWinValue))
 
 	// Bytes 32-63: Game name
 	gameName := strings.TrimRight(string(d[32:64]), "\x00")
