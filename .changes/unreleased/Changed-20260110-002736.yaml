@@ -1,3 +1,0 @@
-kind: Changed
-body: 'Wormholes: Fixed swapped fields: CanSeeBits is now bytes 8-9, BeenThroughBits is now bytes 10-11'
-time: 2026-01-10T00:27:36.785009023+01:00
