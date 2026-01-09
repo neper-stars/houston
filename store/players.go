@@ -8,6 +8,21 @@ import (
 // TechLevels is an alias for data.TechRequirements for backward compatibility.
 type TechLevels = data.TechRequirements
 
+// StoredScore contains score data read from PlayerScoresBlock (block type 45).
+// This is the authoritative score as calculated by the game itself.
+type StoredScore struct {
+	Score        int   // Player's total score
+	Resources    int64 // Resources available (displayed in score screen)
+	Planets      int   // Number of planets owned
+	Starbases    int   // Number of starbases
+	UnarmedShips int   // Number of unarmed ships
+	EscortShips  int   // Number of escort ships
+	CapitalShips int   // Number of capital ships
+	TechLevels   int   // Raw sum of tech levels (not the tiered score)
+	Rank         int   // Player's rank position
+	Turn         int   // Turn number this score was recorded
+}
+
 // PlayerEntity represents a player in the game.
 type PlayerEntity struct {
 	meta EntityMeta
@@ -46,6 +61,10 @@ type PlayerEntity struct {
 
 	// Diplomatic relations (from file owner's perspective)
 	PlayerRelations []byte
+
+	// Score data from PlayerScoresBlock (authoritative game-calculated values)
+	// This is nil if no PlayerScoresBlock was found for this player.
+	StoredScore *StoredScore
 
 	// Raw block (preserved for re-encoding)
 	playerBlock *blocks.PlayerBlock

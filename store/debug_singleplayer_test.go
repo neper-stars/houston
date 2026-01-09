@@ -52,7 +52,7 @@ func TestDebugSingleplayer(t *testing.T) {
 	fmt.Printf("Total Population: %d (file units: %d)\n", totalPop, totalPop/100)
 
 	// Score calculation
-	sc := gs.CalculateScore(0)
+	sc := gs.ComputeScoreFromActualData(0)
 	fmt.Println("\n=== Score Calculation ===")
 	fmt.Printf("PlanetCount: %d\n", sc.PlanetCount)
 	fmt.Printf("PlanetPopScore: %d\n", sc.PlanetPopScore)

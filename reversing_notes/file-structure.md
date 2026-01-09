@@ -122,13 +122,67 @@ X files contain a FileHashBlock (Type 9) with 17 bytes of copy protection data.
 ```
 Offset  Size  Field
 ------  ----  -----
-0-1     2     Unknown (always 0x001E observed)
-2-5     4     Serial number hash (uint32 LE)
-6-9     4     C: drive volume label hash (uint32 LE)
-10-11   2     C: drive date/time hash
-12-13   2     D: drive volume label hash
-14-15   2     D: drive date/time hash
-16      1     C: and D: drive size in 100's of MB
+0-1     2     Unknown (possibly flags or player ID)
+2-5     4     Serial number (uint32 LE) - decoded from registration string
+6-16    11    Hardware fingerprint (pbEnv) - machine identification data
 ```
 
 **Purpose**: Validates installation disk info to detect if a turn file was edited on a different machine. This triggers the "Copy Protection Activated When Editing an Ally's Turn File" bug.
+
+### Serial Number Encoding
+
+The serial number stored at bytes 2-5 is **not a hash** - it's a deterministic transformation of the user's registration string.
+
+**Registration String Format:**
+- 28 characters using: `A-Z`, `a-z`, `0-9`, `-`, `*`
+- The visible portion is typically just the first 8 characters
+- Each character encodes 6 bits (28 chars × 6 bits = 168 bits = 21 bytes)
+
+**Character Encoding (6 bits each):**
+
+| Characters | Value Range | Formula         |
+|------------|-------------|-----------------|
+| A-Z        | 0-25        | `ch - 'A'`      |
+| a-z        | 26-51       | `ch - 'a' + 26` |
+| 0-9        | 52-61       | `ch - '0' + 52` |
+| `-`        | 62          | 0x3E            |
+| `*`        | 63          | 0x3F            |
+
+**Decoding Process:**
+1. Base64-like decode 28 chars → 21 bytes
+2. Apply shuffle permutation using `vrgbShuffleSerial[21]`
+3. Extract: bytes 0-3 = `lSerial`, bytes 4-14 = `pbEnv`
+
+**Shuffle Table** (at address 1020:2870):
+```
+vrgbShuffleSerial[21] = {
+    0x0b, 0x04, 0x05, 0x10, 0x11, 0x0c, 0x13, 0x0f,
+    0x0a, 0x01, 0x0e, 0x0d, 0x03, 0x12, 0x02, 0x14,
+    0x09, 0x07, 0x00, 0x08, 0x06
+};
+```
+
+The shuffle maps: `output[vrgbShuffleSerial[i]] = decoded[i]`
+
+### Hardware Fingerprint (pbEnv)
+
+The 11-byte hardware fingerprint at bytes 6-16 contains:
+
+| Offset | Size | Field                             |
+|--------|------|-----------------------------------|
+| 0-3    | 4    | C: drive volume label             |
+| 4-5    | 2    | C: drive date/time                |
+| 6-8    | 3    | D: drive volume label             |
+| 9      | 1    | D: drive date/time                |
+| 10     | 1    | Combined drive sizes (100s of MB) |
+
+### Key Functions
+
+| Function              | Address   | Purpose                                   |
+|-----------------------|-----------|-------------------------------------------|
+| `FSerialAndEnvFromSz` | 1020:2aec | Decode serial string → (lSerial, pbEnv)   |
+| `FormatSerialAndEnv`  | 1020:2886 | Encode (lSerial, pbEnv) → serial string   |
+| `FValidSerialLong`    | 1070:48c4 | Validate decoded serial value             |
+| `LongFromSerialCh`    | 1038:6280 | Convert single char (older 8-char format) |
+
+**Valid Serial Types:** After dividing `lSerial` by 36^4, the type must be one of: `0x02, 0x04, 0x06, 0x12, 0x16`

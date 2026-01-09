@@ -30,13 +30,22 @@ type ScoreComponents struct {
 	CapitalShips int // Ships with power >= 2000
 }
 
-// CalculateScore computes a player's score using the Stars! formula.
-// This replicates the CalcPlayerScore() function from the original game.
+// ComputeScoreFromActualData computes a player's score from current game data.
+//
+// WARNING: This method attempts to replicate the game's scoring formula but has
+// known inaccuracies. The TechScore calculation in particular shows 1-point
+// discrepancies in some scenarios. For authoritative scores, use PlayerScore()
+// which returns the game's stored values from PlayerScoresBlock.
+//
+// Use this method when:
+//   - You need to compute scores from game data that doesn't have PlayerScoresBlock
+//   - You want to analyze score component breakdowns
+//   - You're debugging or comparing against stored scores
 //
 // Formula: Score = PlanetPopScore + Resources/30 + Starbases×3 + TechScore + ShipScore
 //
 // Source: Decompiled from UTIL::CalcPlayerScore at MEMORY_UTIL:0x58a6
-func (gs *GameStore) CalculateScore(playerNumber int) ScoreComponents {
+func (gs *GameStore) ComputeScoreFromActualData(playerNumber int) ScoreComponents {
 	var sc ScoreComponents
 
 	player, ok := gs.Player(playerNumber)

@@ -241,6 +241,8 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 			messageIndex++
 		case blocks.EventsBlock:
 			gs.Events = append(gs.Events, newEventsEntityFromBlock(&b, source))
+		case blocks.PlayerScoresBlock:
+			gs.mergePlayerScores(&b, source)
 		}
 	}
 
@@ -854,4 +856,41 @@ func (gs *GameStore) DensityName() string {
 		return names[gs.Density]
 	}
 	return "Unknown"
+}
+
+// mergePlayerScores associates PlayerScoresBlock data with the appropriate player.
+func (gs *GameStore) mergePlayerScores(psb *blocks.PlayerScoresBlock, source *FileSource) {
+	player, ok := gs.Player(psb.PlayerID)
+	if !ok {
+		// Player not yet loaded - this can happen if PlayerScoresBlock comes
+		// before PlayerBlock in the file. We'll ignore it for now as the score
+		// can still be accessed by iterating through blocks later.
+		return
+	}
+
+	// Only update if we don't have score data or this is from a newer turn
+	if player.StoredScore == nil || psb.Turn > player.StoredScore.Turn {
+		player.StoredScore = &StoredScore{
+			Score:        psb.Score,
+			Resources:    psb.Resources,
+			Planets:      psb.Planets,
+			Starbases:    psb.Starbases,
+			UnarmedShips: psb.UnarmedShips,
+			EscortShips:  psb.EscortShips,
+			CapitalShips: psb.CapitalShips,
+			TechLevels:   psb.TechLevels,
+			Rank:         psb.Rank,
+			Turn:         psb.Turn,
+		}
+	}
+}
+
+// PlayerScore returns the stored score for a player, or nil if not available.
+// This returns the authoritative score as calculated by the game itself.
+func (gs *GameStore) PlayerScore(playerNumber int) *StoredScore {
+	player, ok := gs.Player(playerNumber)
+	if !ok {
+		return nil
+	}
+	return player.StoredScore
 }
