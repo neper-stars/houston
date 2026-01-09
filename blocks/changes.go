@@ -46,19 +46,23 @@ func (rcb *ResearchChangeBlock) Encode() []byte {
 //
 // Format (6 bytes):
 //
-//	Bytes 0-1: Planet ID (11 bits)
-//	Byte 2: Flags
-//	        Bit 7 (0x80): Contribute only leftover resources to research
-//	        Other bits: TBD
-//	Byte 3: Additional settings (TBD)
-//	Bytes 4-5: Additional data (TBD)
+//	Bytes 0-1: Planet ID (uint16 LE)
+//	Bytes 2-3: Packed settings (uint16 LE)
+//	           Bit 0:      fNoResearch - Contribute leftover to research (1=yes)
+//	           Bits 1-10:  pctDp - Driver/packet percentage (10 bits, 0-1023)
+//	           Bits 11-14: iWarpFling - Packet fling warp speed (0-15)
+//	           Bit 15:     unused
+//	Bytes 4-5: Route destination (uint16 LE, left-shifted by 1)
+//	           Actual planet ID = value >> 1
+//	           0 = no route
 type PlanetChangeBlock struct {
 	GenericBlock
 
-	PlanetId                 int  // Planet ID (0-2047)
-	ContributeOnlyLeftover   bool // "Contribute only leftover resources to research"
-	RouteDestinationPlanetId int  // Route destination planet (if routing is set)
-	Flags                    int  // Raw flags byte for analysis
+	PlanetId            int  // Planet ID
+	ContributeLeftover  bool // "Contribute only leftover resources to research" (fNoResearch bit 0)
+	DriverPacketPercent int  // Mass driver/packet percentage (0-1023, typically 0-100)
+	PacketWarpSpeed     int  // Packet fling warp speed (0-15)
+	RouteDestinationId  int  // Route destination planet ID (0 = no route)
 }
 
 // NewPlanetChangeBlock creates a PlanetChangeBlock from a GenericBlock
@@ -70,33 +74,47 @@ func NewPlanetChangeBlock(b GenericBlock) *PlanetChangeBlock {
 
 func (pcb *PlanetChangeBlock) decode() {
 	data := pcb.Decrypted
-	if len(data) < 4 {
+	if len(data) < 6 {
 		return
 	}
 
-	pcb.PlanetId = int(data[0]) | ((int(data[1]) & 0x07) << 8)
-	pcb.Flags = int(data[2])
-	pcb.ContributeOnlyLeftover = (data[2] & 0x80) != 0
+	// Bytes 0-1: Planet ID (uint16 LE)
+	pcb.PlanetId = int(data[0]) | (int(data[1]) << 8)
 
-	// Bytes 3-5 contain additional settings, possibly route destination
-	if len(data) >= 6 {
-		// Route destination might be encoded in remaining bytes
-		pcb.RouteDestinationPlanetId = int(data[3]) | (int(data[4]) << 8)
-	}
+	// Bytes 2-3: Packed settings (uint16 LE)
+	settings := int(data[2]) | (int(data[3]) << 8)
+	pcb.ContributeLeftover = (settings & 0x01) != 0   // Bit 0
+	pcb.DriverPacketPercent = (settings >> 1) & 0x3FF // Bits 1-10 (10 bits)
+	pcb.PacketWarpSpeed = (settings >> 11) & 0x0F     // Bits 11-14 (4 bits)
+
+	// Bytes 4-5: Route destination (uint16 LE, left-shifted by 1)
+	routeRaw := int(data[4]) | (int(data[5]) << 8)
+	pcb.RouteDestinationId = routeRaw >> 1 // Actual planet ID
 }
 
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (pcb *PlanetChangeBlock) Encode() []byte {
 	data := make([]byte, 6)
+
+	// Bytes 0-1: Planet ID (uint16 LE)
 	data[0] = byte(pcb.PlanetId & 0xFF)
-	data[1] = byte((pcb.PlanetId >> 8) & 0x07)
-	data[2] = byte(pcb.Flags)
-	if pcb.ContributeOnlyLeftover {
-		data[2] |= 0x80
+	data[1] = byte((pcb.PlanetId >> 8) & 0xFF)
+
+	// Bytes 2-3: Packed settings (uint16 LE)
+	var settings int
+	if pcb.ContributeLeftover {
+		settings |= 0x01 // Bit 0
 	}
-	data[3] = byte(pcb.RouteDestinationPlanetId & 0xFF)
-	data[4] = byte((pcb.RouteDestinationPlanetId >> 8) & 0xFF)
-	data[5] = 0
+	settings |= (pcb.DriverPacketPercent & 0x3FF) << 1 // Bits 1-10
+	settings |= (pcb.PacketWarpSpeed & 0x0F) << 11     // Bits 11-14
+	data[2] = byte(settings & 0xFF)
+	data[3] = byte((settings >> 8) & 0xFF)
+
+	// Bytes 4-5: Route destination (uint16 LE, left-shifted by 1)
+	routeRaw := pcb.RouteDestinationId << 1
+	data[4] = byte(routeRaw & 0xFF)
+	data[5] = byte((routeRaw >> 8) & 0xFF)
+
 	return data
 }
 

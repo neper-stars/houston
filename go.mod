@@ -6,7 +6,7 @@ require (
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
-	github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67
+	github.com/tdewolff/canvas v0.0.0-20260109131636-69e1540379c6
 )
 
 require (
@@ -42,5 +42,3 @@ require (
 	modernc.org/token v1.1.0 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
-
-replace github.com/tdewolff/canvas => github.com/faide/canvas v0.0.0-20251231001319-936f02a3e0fe

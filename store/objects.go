@@ -27,16 +27,20 @@ type ObjectEntity struct {
 	X, Y int
 
 	// Minefield-specific fields
-	MineCount     int64
-	MinefieldType int // 0=standard, 1=heavy, 2=speed bump
-	Detonating    bool
+	MineCount          int64
+	MinefieldType      int // 0=standard, 1=heavy, 2=speed bump
+	Detonating         bool
+	MineCurrentSeeBits uint16 // Current turn visibility
 
 	// Wormhole-specific fields
-	WormholeId      int
-	TargetId        int
-	BeenThroughBits uint16
-	CanSeeBits      uint16
-	Stability       int
+	WormholeId       int
+	TargetId         int
+	CanSeeBits       uint16 // Who can see (bytes 8-9)
+	BeenThroughBits  uint16 // Who has been through (bytes 10-11)
+	StabilityIndex   int    // Stability index (0-3)
+	TurnsSinceMove   int    // Turns since last movement
+	DestKnown        bool   // Destination known to players
+	IncludeInDisplay bool   // Include in display flag
 
 	// Mystery Trader-specific fields
 	XDest    int
@@ -52,10 +56,13 @@ type ObjectEntity struct {
 	Boranium            int
 	Germanium           int
 	PacketSpeed         int
+	PacketMaxWeight     int // Maximum weight/capacity in kT
+	PacketDecayRate     int // Decay rate index (0-3)
 
 	// Salvage-specific fields
-	IsSalvage     bool
-	SourceFleetID int
+	IsSalvage          bool
+	SourceFleetID      int
+	SalvageSourceFlags int // High nibble of byte 7
 
 	// Raw block (preserved for re-encoding)
 	objectBlock *blocks.ObjectBlock
@@ -144,11 +151,15 @@ func newObjectEntityFromBlock(ob *blocks.ObjectBlock, source *FileSource) *Objec
 		MineCount:           ob.MineCount,
 		MinefieldType:       ob.MinefieldType,
 		Detonating:          ob.Detonating,
+		MineCurrentSeeBits:  ob.MineCurrentSeeBits,
 		WormholeId:          ob.WormholeId,
 		TargetId:            ob.TargetId,
-		BeenThroughBits:     ob.BeenThroughBits,
 		CanSeeBits:          ob.CanSeeBits,
-		Stability:           ob.Stability,
+		BeenThroughBits:     ob.BeenThroughBits,
+		StabilityIndex:      ob.StabilityIndex,
+		TurnsSinceMove:      ob.TurnsSinceMove,
+		DestKnown:           ob.DestKnown,
+		IncludeInDisplay:    ob.IncludeInDisplay,
 		XDest:               ob.XDest,
 		YDest:               ob.YDest,
 		Warp:                ob.Warp,
@@ -160,8 +171,11 @@ func newObjectEntityFromBlock(ob *blocks.ObjectBlock, source *FileSource) *Objec
 		Boranium:            ob.Boranium,
 		Germanium:           ob.Germanium,
 		PacketSpeed:         ob.PacketSpeed,
+		PacketMaxWeight:     ob.PacketMaxWeight,
+		PacketDecayRate:     ob.PacketDecayRate,
 		IsSalvage:           ob.IsSalvageObject,
 		SourceFleetID:       ob.SourceFleetID,
+		SalvageSourceFlags:  ob.SalvageSourceFlags,
 		objectBlock:         ob,
 	}
 	entity.meta.AddSource(source)

@@ -99,23 +99,12 @@ func (b *SVGBuilder) CircleOutline(cx, cy, r float64, stroke string, strokeWidth
 
 // Minefield adds a minefield with semi-transparent fill and hatching.
 func (b *SVGBuilder) Minefield(cx, cy, r float64, col color.RGBA) *SVGBuilder {
-	// Semi-transparent fill (use integer alpha for rasterization compatibility)
-	if b.forRasterization {
-		const alphaFill = 38    // 0.15 * 255
-		const alphaStroke = 102 // 0.4 * 255
-		const alphaHatch = 127  // 0.5 * 255
-		b.elements = append(b.elements, fmt.Sprintf(
-			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,%d)" stroke="rgba(%d,%d,%d,%d)" stroke-width="1"/>`,
-			cx, cy, r, col.R, col.G, col.B, alphaFill, col.R, col.G, col.B, alphaStroke))
-		// Hatching overlay with integer alpha
-		b.elements = append(b.elements, fmt.Sprintf(
-			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,%d)"/>`,
-			cx, cy, r, col.R, col.G, col.B, alphaHatch))
-	} else {
-		b.elements = append(b.elements, fmt.Sprintf(
-			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.15)" stroke="rgba(%d,%d,%d,0.4)" stroke-width="1"/>`,
-			cx, cy, r, col.R, col.G, col.B, col.R, col.G, col.B))
-		// Hatching overlay
+	// Semi-transparent fill with decimal alpha values (CSS rgba format)
+	b.elements = append(b.elements, fmt.Sprintf(
+		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.15)" stroke="rgba(%d,%d,%d,0.4)" stroke-width="1"/>`,
+		cx, cy, r, col.R, col.G, col.B, col.R, col.G, col.B))
+	// Hatching overlay (skip for rasterization as patterns may not be supported)
+	if !b.forRasterization {
 		b.elements = append(b.elements, fmt.Sprintf(
 			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#minefield-hatch)" style="color:rgba(%d,%d,%d,0.5)"/>`,
 			cx, cy, r, col.R, col.G, col.B))
@@ -172,13 +161,7 @@ func (b *SVGBuilder) Diamond(cx, cy, size float64, col color.RGBA) *SVGBuilder {
 		{cx, cy + size},
 		{cx - size, cy},
 	}
-	var stroke string
-	if b.forRasterization {
-		const alpha = 204 // 0.8 * 255
-		stroke = fmt.Sprintf("rgba(%d,%d,%d,%d)", col.R, col.G, col.B, alpha)
-	} else {
-		stroke = fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
-	}
+	stroke := fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
 	return b.Polygon(points, "none", stroke, 1)
 }
 
@@ -196,13 +179,7 @@ func (b *SVGBuilder) Triangle(cx, cy, size, angle float64, col color.RGBA) *SVGB
 		{base1X, base1Y},
 		{base2X, base2Y},
 	}
-	var stroke string
-	if b.forRasterization {
-		const alpha = 204 // 0.8 * 255
-		stroke = fmt.Sprintf("rgba(%d,%d,%d,%d)", col.R, col.G, col.B, alpha)
-	} else {
-		stroke = fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
-	}
+	stroke := fmt.Sprintf("rgba(%d,%d,%d,0.8)", col.R, col.G, col.B)
 	return b.Polygon(points, "none", stroke, 1)
 }
 
@@ -321,18 +298,10 @@ func (b *SVGBuilder) Wormhole(cx, cy float64) *SVGBuilder {
 
 // ScannerCoverage adds a semi-transparent scanner coverage circle.
 func (b *SVGBuilder) ScannerCoverage(cx, cy, radius float64, col color.RGBA) *SVGBuilder {
-	// Draw a very faint filled circle for scanner coverage
-	if b.forRasterization {
-		const alphaFill = 20   // 0.08 * 255
-		const alphaStroke = 51 // 0.2 * 255
-		b.elements = append(b.elements, fmt.Sprintf(
-			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,%d)" stroke="rgba(%d,%d,%d,%d)" stroke-width="0.5"/>`,
-			cx, cy, radius, col.R, col.G, col.B, alphaFill, col.R, col.G, col.B, alphaStroke))
-	} else {
-		b.elements = append(b.elements, fmt.Sprintf(
-			`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.08)" stroke="rgba(%d,%d,%d,0.2)" stroke-width="0.5"/>`,
-			cx, cy, radius, col.R, col.G, col.B, col.R, col.G, col.B))
-	}
+	// Draw a very faint filled circle for scanner coverage (decimal alpha for CSS rgba)
+	b.elements = append(b.elements, fmt.Sprintf(
+		`<circle cx="%.1f" cy="%.1f" r="%.1f" fill="rgba(%d,%d,%d,0.08)" stroke="rgba(%d,%d,%d,0.2)" stroke-width="0.5"/>`,
+		cx, cy, radius, col.R, col.G, col.B, col.R, col.G, col.B))
 	return b
 }
 

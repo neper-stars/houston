@@ -238,18 +238,20 @@ func (fhb *FileHashBlock) Encode() []byte {
 	return data
 }
 
-// WaypointRepeatOrdersBlock represents waypoint repeat orders (Type 10)
-// Found in X files when player enables "Repeat Orders" for a fleet
-// Format: 4 bytes
+// WaypointRepeatOrdersBlock enables or disables repeat orders on a fleet (Type 10)
+// See reversing_notes/BT-10-WaypointRepeatOrders.md for format details.
 //
-//	Bytes 0-1: Fleet number (9 bits, little-endian)
-//	Byte 2: Starting waypoint index for repeat loop
-//	Byte 3: Unknown/flags
+// Format (4 bytes):
+//
+//	Bytes 0-1: Fleet ID (9 bits, little-endian)
+//	Byte 2:    Packed byte - bit 0 = EnableRepeat, bits 1-7 = RepeatFromWaypoint
+//	Byte 3:    Padding (unused)
 type WaypointRepeatOrdersBlock struct {
 	GenericBlock
 
-	FleetNumber        int // Fleet number (0-indexed, display is +1)
-	RepeatFromWaypoint int // Waypoint index where repeat loop starts
+	FleetNumber        int  // Fleet number (0-indexed, display is +1)
+	EnableRepeat       bool // Enable repeat orders flag (bit 0 of byte 2)
+	RepeatFromWaypoint int  // Waypoint index where repeat loop starts (bits 1-7 of byte 2, 0-127)
 }
 
 // NewWaypointRepeatOrdersBlock creates a WaypointRepeatOrdersBlock from a GenericBlock
@@ -265,17 +267,32 @@ func (wrob *WaypointRepeatOrdersBlock) decode() {
 		return
 	}
 
+	// Bytes 0-1: Fleet number (9 bits)
 	wrob.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
-	wrob.RepeatFromWaypoint = int(data[2] & 0xFF)
+
+	// Byte 2: Packed byte - bit 0 = EnableRepeat, bits 1-7 = RepeatFromWaypoint
+	wrob.EnableRepeat = (data[2] & 0x01) != 0
+	wrob.RepeatFromWaypoint = int(data[2]>>1) & 0x7F
 }
 
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (wrob *WaypointRepeatOrdersBlock) Encode() []byte {
 	data := make([]byte, 4)
+
+	// Bytes 0-1: Fleet number (9 bits)
 	data[0] = byte(wrob.FleetNumber & 0xFF)
 	data[1] = byte((wrob.FleetNumber >> 8) & 0x01)
-	data[2] = byte(wrob.RepeatFromWaypoint)
-	data[3] = 0 // Unknown/flags
+
+	// Byte 2: Packed byte - bit 0 = EnableRepeat, bits 1-7 = RepeatFromWaypoint
+	byte2 := byte((wrob.RepeatFromWaypoint & 0x7F) << 1)
+	if wrob.EnableRepeat {
+		byte2 |= 0x01
+	}
+	data[2] = byte2
+
+	// Byte 3: Padding (unused)
+	data[3] = 0
+
 	return data
 }
 
@@ -294,7 +311,8 @@ const (
 	EventTypeMineralPacketProduced    = 0xD3 // Mineral packet produced (launched from mass driver)
 	EventTypePacketBombardment        = 0xD8 // Mineral packet bombardment (uncaught packet hit planet)
 	EventTypeStarbaseBuilt            = 0xCD // Starbase constructed at planet
-	EventTypeCometStrike              = 0x86 // Comet strike random event
+	EventTypeCometStrikeFirst         = 0x83 // Comet strike (first type - small, unowned)
+	EventTypeCometStrikeLast          = 0x8a // Comet strike (last type - huge, owned)
 	EventTypeNewColony                = 0x1C // New colony established on planet
 	EventTypeStrangeArtifact          = 0x5E // Strange artifact found (random event)
 	EventTypeFleetScrapped            = 0x59 // Fleet scrapped/dismantled at planet
@@ -312,6 +330,25 @@ const (
 	ResearchFieldElectronics   = 4
 	ResearchFieldBiotechnology = 5
 	ResearchFieldSameField     = 6 // Special value meaning "continue in current field"
+)
+
+// Comet strike hab change bitmask values
+const (
+	CometHabGravity     = 0x01 // Gravity was altered
+	CometHabTemperature = 0x02 // Temperature was altered
+	CometHabRadiation   = 0x04 // Radiation was altered
+)
+
+// Comet strike size and ownership based on event type (string index)
+const (
+	CometSmallUnowned  = 0x83 // Small comet, unowned planet
+	CometMediumUnowned = 0x84 // Medium comet, unowned planet
+	CometLargeUnowned  = 0x85 // Large comet, unowned planet
+	CometHugeUnowned   = 0x86 // Huge comet, unowned planet
+	CometSmallOwned    = 0x87 // Small comet, owned planet (25% deaths)
+	CometMediumOwned   = 0x88 // Medium comet, owned planet (45% deaths)
+	CometLargeOwned    = 0x89 // Large comet, owned planet (65% deaths)
+	CometHugeOwned     = 0x8a // Huge comet, owned planet (85% deaths)
 )
 
 // ResearchFieldName returns the human-readable name for a research field
@@ -388,10 +425,85 @@ type StarbaseBuiltEvent struct {
 }
 
 // CometStrikeEvent represents a comet striking a planet (random event)
-// This adds minerals to the planet and alters its environment
+// This adds minerals to the planet and alters its environment (hab values)
+//
+// Event types 0x83-0x8a are string indices that encode comet size and planet ownership:
+//   - 0x83-0x86: Unowned planets (small, medium, large, huge)
+//   - 0x87-0x8a: Owned planets (small=25%, medium=45%, large=65%, huge=85% population killed)
+//
+// The HabChangeMask indicates which environment values were altered:
+//   - Bit 0 (0x01): Gravity
+//   - Bit 1 (0x02): Temperature
+//   - Bit 2 (0x04): Radiation
 type CometStrikeEvent struct {
-	PlanetID int // Planet that was struck by the comet
-	Subtype  int // Comet subtype/flags (exact encoding TBD)
+	PlanetID      int // Planet that was struck by the comet
+	StringIndex   int // Event type byte (0x83-0x8a) - determines message shown
+	HabChangeMask int // Bitmask of which hab values changed (Grav=0x01, Temp=0x02, Rad=0x04)
+}
+
+// IsOwnedPlanet returns true if the comet struck an owned planet (causing deaths)
+func (e CometStrikeEvent) IsOwnedPlanet() bool {
+	return e.StringIndex >= CometSmallOwned
+}
+
+// CometSize returns the size of the comet (0=small, 1=medium, 2=large, 3=huge)
+func (e CometStrikeEvent) CometSize() int {
+	if e.StringIndex >= CometSmallOwned {
+		return e.StringIndex - CometSmallOwned
+	}
+	return e.StringIndex - CometSmallUnowned
+}
+
+// CometSizeName returns the human-readable size name
+func (e CometStrikeEvent) CometSizeName() string {
+	sizes := []string{"Small", "Medium", "Large", "Huge"}
+	size := e.CometSize()
+	if size >= 0 && size < len(sizes) {
+		return sizes[size]
+	}
+	return "Unknown"
+}
+
+// DeathPercent returns the percentage of colonists killed (0 for unowned planets)
+func (e CometStrikeEvent) DeathPercent() int {
+	deaths := []int{25, 45, 65, 85}
+	if e.StringIndex >= CometSmallOwned {
+		idx := e.StringIndex - CometSmallOwned
+		if idx >= 0 && idx < len(deaths) {
+			return deaths[idx]
+		}
+	}
+	return 0
+}
+
+// GravityChanged returns true if gravity was altered
+func (e CometStrikeEvent) GravityChanged() bool {
+	return (e.HabChangeMask & CometHabGravity) != 0
+}
+
+// TemperatureChanged returns true if temperature was altered
+func (e CometStrikeEvent) TemperatureChanged() bool {
+	return (e.HabChangeMask & CometHabTemperature) != 0
+}
+
+// RadiationChanged returns true if radiation was altered
+func (e CometStrikeEvent) RadiationChanged() bool {
+	return (e.HabChangeMask & CometHabRadiation) != 0
+}
+
+// ChangedHabNames returns a list of hab value names that were changed
+func (e CometStrikeEvent) ChangedHabNames() []string {
+	var names []string
+	if e.GravityChanged() {
+		names = append(names, "Gravity")
+	}
+	if e.TemperatureChanged() {
+		names = append(names, "Temperature")
+	}
+	if e.RadiationChanged() {
+		names = append(names, "Radiation")
+	}
+	return names
 }
 
 // NewColonyEvent represents establishing a new colony on a planet
@@ -703,18 +815,21 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 		}
 	}
 
-	// Search for comet strike events (0x86)
-	// Format: 86 SS PP PP PP PP (6 bytes)
-	//   Byte 1: Subtype/flags (0x02 observed)
+	// Search for comet strike events (0x83-0x8a)
+	// Format: TT SS PP PP PP PP (6 bytes)
+	//   Byte 0: Event type (0x83-0x8a) - string index determining message
+	//   Byte 1: Hab change bitmask (0x01=Grav, 0x02=Temp, 0x04=Rad)
 	//   Bytes 2-3: Planet ID (16-bit LE)
 	//   Bytes 4-5: Planet ID repeated
 	for i := 0; i < len(data)-5; i++ {
-		if data[i] == EventTypeCometStrike {
-			subtype := int(data[i+1])
+		eventType := data[i]
+		if eventType >= EventTypeCometStrikeFirst && eventType <= EventTypeCometStrikeLast {
+			habChangeMask := int(data[i+1])
 			planetID := int(data[i+2]) | (int(data[i+3]) << 8)
 			eb.CometStrikes = append(eb.CometStrikes, CometStrikeEvent{
-				PlanetID: planetID,
-				Subtype:  subtype,
+				PlanetID:      planetID,
+				StringIndex:   int(eventType),
+				HabChangeMask: habChangeMask,
 			})
 		}
 	}

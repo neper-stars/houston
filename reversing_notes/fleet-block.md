@@ -99,6 +99,39 @@ For each bit set in grMask:
 - If `fByteCsh=1`: 1 byte ship count (0-255)
 - If `fByteCsh=0`: 2 byte ship count (0-65535)
 
+#### Movement Data Section
+
+For fleets in transit (moving between locations):
+
+```
+Byte N:   DeltaX (int8, biased by 127)
+Byte N+1: DeltaY (int8, biased by 127)
+Byte N+2: Warp byte (see below)
+Byte N+3: Padding (always 0)
+Bytes N+4 to N+7: Mass (int32)
+```
+
+**DeltaX/DeltaY Encoding**: Stored as `value + 127`, so actual delta = `stored - 127`.
+This allows range -127 to +128 in a single unsigned byte.
+
+**Warp Byte Breakdown**:
+
+```
+Byte N+2 = 0bDCBA_WWWW
+```
+
+| Bits | Mask | Field       | Description                                  |
+|------|------|-------------|----------------------------------------------|
+| 0-3  | 0x0F | `iwarpFlt`  | Warp speed (0-15)                            |
+| 4    | 0x10 | `fdirValid` | Direction is valid (fleet has a destination) |
+| 5    | 0x20 | `fCompChg`  | Composition changed (fleet merged/split)     |
+| 6    | 0x40 | `fTargeted` | Fleet is targeted by another fleet           |
+| 7    | 0x80 | `fSkipped`  | Fleet was skipped this turn                  |
+
+These upper 4 bits are movement/status flags from the `dirLong` union in the FLEET structure (offset +0x74). They track the fleet's movement state during turn processing and should be preserved for round-trip encoding.
+
+**Source**: FLEET structure `dirLong` union at +0x0074 in types.h
+
 #### Cargo Section
 
 If fleet has cargo capacity:

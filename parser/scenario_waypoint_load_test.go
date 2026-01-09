@@ -24,7 +24,7 @@ type waypointLoadExpected struct {
 	WaypointChangeTask struct {
 		FleetNumber    int    `json:"fleetNumber"`
 		FleetName      string `json:"fleetName"`
-		WaypointNumber int    `json:"waypointNumber"`
+		WaypointIndex  int    `json:"waypointNumber"`
 		X              int    `json:"x"`
 		Y              int    `json:"y"`
 		TargetType     int    `json:"targetType"`
@@ -75,8 +75,8 @@ func TestScenarioWaypointLoad(t *testing.T) {
 	t.Run("WaypointChangeTask", func(t *testing.T) {
 		assert.Equal(t, expected.WaypointChangeTask.FleetNumber, wctb.FleetNumber,
 			"fleet number should be %d (%s)", expected.WaypointChangeTask.FleetNumber, expected.WaypointChangeTask.FleetName)
-		assert.Equal(t, expected.WaypointChangeTask.WaypointNumber, wctb.WaypointNumber,
-			"waypoint number should be %d", expected.WaypointChangeTask.WaypointNumber)
+		assert.Equal(t, expected.WaypointChangeTask.WaypointIndex, wctb.WaypointIndex,
+			"waypoint index should be %d", expected.WaypointChangeTask.WaypointIndex)
 		assert.Equal(t, expected.WaypointChangeTask.X, wctb.X,
 			"X should be %d", expected.WaypointChangeTask.X)
 		assert.Equal(t, expected.WaypointChangeTask.Y, wctb.Y,

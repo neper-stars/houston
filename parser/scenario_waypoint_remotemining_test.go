@@ -18,7 +18,7 @@ type waypointRemoteMiningExpected struct {
 	WaypointRemoteMining struct {
 		FleetNumber        int    `json:"fleetNumber"`
 		FleetName          string `json:"fleetName"`
-		WaypointNumber     int    `json:"waypointNumber"`
+		WaypointIndex      int    `json:"waypointNumber"`
 		X                  int    `json:"x"`
 		Y                  int    `json:"y"`
 		Warp               int    `json:"warp"`
@@ -64,8 +64,8 @@ func TestScenarioWaypointRemoteMining(t *testing.T) {
 
 	assert.Equal(t, expected.WaypointRemoteMining.FleetNumber, wctb.FleetNumber,
 		"fleet number should be %d (%s)", expected.WaypointRemoteMining.FleetNumber, expected.WaypointRemoteMining.FleetName)
-	assert.Equal(t, expected.WaypointRemoteMining.WaypointNumber, wctb.WaypointNumber,
-		"waypoint number should be %d", expected.WaypointRemoteMining.WaypointNumber)
+	assert.Equal(t, expected.WaypointRemoteMining.WaypointIndex, wctb.WaypointIndex,
+		"waypoint index should be %d", expected.WaypointRemoteMining.WaypointIndex)
 	assert.Equal(t, expected.WaypointRemoteMining.X, wctb.X,
 		"X should be %d", expected.WaypointRemoteMining.X)
 	assert.Equal(t, expected.WaypointRemoteMining.Y, wctb.Y,

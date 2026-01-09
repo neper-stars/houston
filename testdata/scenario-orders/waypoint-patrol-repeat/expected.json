@@ -4,7 +4,8 @@
   "repeatOrders": {
     "fleetNumber": 9,
     "fleetName": "Fleet 2",
-    "repeatFromWaypoint": 1
+    "enableRepeat": true,
+    "repeatFromWaypoint": 0
   },
   "patrolWaypoints": [
     {

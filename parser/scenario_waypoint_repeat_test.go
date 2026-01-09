@@ -77,8 +77,10 @@ func TestScenarioWaypointRepeat(t *testing.T) {
 		if !hurlWaypoint.IsLoadAllTransport() {
 			t.Error("Expected Load All Available transport action")
 		}
-		if hurlWaypoint.TransportAction != blocks.TransportActionLoadAll {
-			t.Errorf("Expected TransportAction=0x10, got 0x%02X", hurlWaypoint.TransportAction)
+		// Check Colonists transport order directly
+		colonistsAction := hurlWaypoint.TransportOrders[blocks.CargoColonists].Action
+		if colonistsAction != blocks.TransportTaskLoadAll {
+			t.Errorf("Expected Colonists action=LoadAll(1), got %d", colonistsAction)
 		}
 	})
 
@@ -92,8 +94,10 @@ func TestScenarioWaypointRepeat(t *testing.T) {
 		if !rubberWaypoint.IsUnloadAllTransport() {
 			t.Error("Expected Unload All transport action")
 		}
-		if rubberWaypoint.TransportAction != blocks.TransportActionUnloadAll {
-			t.Errorf("Expected TransportAction=0x20, got 0x%02X", rubberWaypoint.TransportAction)
+		// Check Colonists transport order directly
+		colonistsAction := rubberWaypoint.TransportOrders[blocks.CargoColonists].Action
+		if colonistsAction != blocks.TransportTaskUnloadAll {
+			t.Errorf("Expected Colonists action=UnloadAll(2), got %d", colonistsAction)
 		}
 	})
 }

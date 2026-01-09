@@ -257,6 +257,9 @@ func (fd FileData) BlockList() ([]blocks.Block, error) {
 			case blocks.WaypointRepeatOrdersBlockType:
 				item = *blocks.NewWaypointRepeatOrdersBlock(*block)
 
+			case blocks.WaypointTaskTypeChangeBlockType:
+				item = *blocks.NewWaypointTaskTypeChangeBlock(*block)
+
 			case blocks.EventsBlockType:
 				item = *blocks.NewEventsBlock(*block)
 

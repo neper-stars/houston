@@ -28,8 +28,11 @@ type WaypointEntity struct {
 	Warp int // Warp factor (0-15)
 
 	// Task
-	Task            int // Task type (0-9)
-	TransportAction int // Transport action flags
+	Task int // Task type (0-9)
+
+	// Transport orders (when Task == WaypointTaskTransport)
+	// [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists, [4]=Fuel
+	TransportOrders [blocks.TransportCargoTypeCount]blocks.TransportOrder
 
 	// Additional task data
 	AdditionalBytes []byte
@@ -107,7 +110,7 @@ func newWaypointEntityFromBlock(wb *blocks.WaypointBlock, fleetOwner, fleetNumbe
 		PositionObject:  wb.PositionObject,
 		Warp:            wb.Warp,
 		Task:            wb.WaypointTask,
-		TransportAction: wb.TransportAction,
+		TransportOrders: wb.TransportOrders,
 		AdditionalBytes: wb.AdditionalBytes,
 		waypointBlock:   wb,
 	}
@@ -133,7 +136,7 @@ func newWaypointEntityFromTaskBlock(wtb *blocks.WaypointTaskBlock, fleetOwner, f
 		PositionObject:  wtb.PositionObject,
 		Warp:            wtb.Warp,
 		Task:            wtb.WaypointTask,
-		TransportAction: wtb.TransportAction,
+		TransportOrders: wtb.TransportOrders,
 		AdditionalBytes: wtb.AdditionalBytes,
 		taskBlock:       wtb,
 	}

@@ -58,7 +58,11 @@ const (
 	CargoBoranium  = 1
 	CargoGermanium = 2
 	CargoColonists = 3
+	CargoFuel      = 4 // Fuel (mg) - only in transport orders, not in cargo hold
 )
+
+// Number of cargo types in transport orders (includes Fuel)
+const TransportCargoTypeCount = 5
 
 // TransportOrder represents a transport task for a single cargo type
 type TransportOrder struct {
@@ -95,11 +99,11 @@ type WaypointBlock struct {
 	Warp               int // Warp factor (0-15)
 	WaypointTask       int // Task type (0-9)
 	PositionObjectType int // Type of object at position
-	TransportAction    int // Transport action (0x10=Load All, 0x20=Unload All) from byte 15
 
 	// Transport task orders (when WaypointTask == WaypointTaskTransport)
 	// Each cargo type has an action and value
-	TransportOrders [4]TransportOrder // [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists
+	// [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists, [4]=Fuel
+	TransportOrders [TransportCargoTypeCount]TransportOrder
 
 	// Patrol range (when WaypointTask == WaypointTaskPatrol)
 	PatrolRange int
@@ -137,18 +141,18 @@ func (wb *WaypointBlock) decode() {
 
 	// Decode transport orders if this is a Transport task
 	// Format: 2 bytes per cargo type starting at byte 8
-	//   Byte 0: Value (amount in kT or percentage)
+	//   Byte 0: Value (amount in kT, percentage, or mg for fuel)
 	//   Byte 1: Action type in high nibble (action << 4)
-	if wb.WaypointTask == WaypointTaskTransport && len(data) >= 16 {
-		for i := 0; i < 4; i++ {
+	// Order: Ironium, Boranium, Germanium, Colonists, Fuel
+	// Note: Format is variable-length - not all cargo types may be present
+	if wb.WaypointTask == WaypointTaskTransport && len(data) > 8 {
+		for i := 0; i < TransportCargoTypeCount; i++ {
 			offset := 8 + (i * 2)
 			if offset+1 < len(data) {
 				wb.TransportOrders[i].Value = int(data[offset] & 0xFF)
 				wb.TransportOrders[i].Action = int(data[offset+1]&0xFF) >> 4
 			}
 		}
-		// TransportAction flag is in byte 15 (last byte of transport data)
-		wb.TransportAction = int(data[15] & 0xFF)
 	}
 
 	// Decode patrol range if this is a Patrol task
@@ -163,7 +167,7 @@ func (wb *WaypointBlock) Encode() []byte {
 	// Calculate size based on task type
 	size := 8
 	if wb.WaypointTask == WaypointTaskTransport {
-		size = 16 // 8 base + 8 transport orders
+		size = 18 // 8 base + 10 transport orders (5 types × 2 bytes)
 	} else if len(wb.AdditionalBytes) > 0 {
 		size = 8 + len(wb.AdditionalBytes)
 	}
@@ -177,14 +181,13 @@ func (wb *WaypointBlock) Encode() []byte {
 	data[7] = byte(wb.PositionObjectType)
 
 	// Encode transport orders if this is a Transport task
-	if wb.WaypointTask == WaypointTaskTransport && size >= 16 {
-		for i := 0; i < 4; i++ {
+	// 5 cargo types × 2 bytes = 10 bytes (Ironium, Boranium, Germanium, Colonists, Fuel)
+	if wb.WaypointTask == WaypointTaskTransport && size >= 18 {
+		for i := 0; i < TransportCargoTypeCount; i++ {
 			offset := 8 + (i * 2)
 			data[offset] = byte(wb.TransportOrders[i].Value)
 			data[offset+1] = byte((wb.TransportOrders[i].Action & 0x0F) << 4)
 		}
-		// Set transport action flag in byte 15
-		data[15] |= byte(wb.TransportAction & 0x0F)
 	} else if len(wb.AdditionalBytes) > 0 {
 		copy(data[8:], wb.AdditionalBytes)
 	}
@@ -197,20 +200,22 @@ func (wb *WaypointBlock) UsesStargate() bool {
 	return wb.Warp == WarpStargate
 }
 
-// IsLoadAllTransport returns true if this is a "Load All Available" transport task
+// IsLoadAllTransport returns true if this is a "Load All Available" transport task for Colonists
+// This is a legacy compatibility method - prefer checking individual transport orders directly
 func (wb *WaypointBlock) IsLoadAllTransport() bool {
-	return wb.WaypointTask == WaypointTaskTransport && (wb.TransportAction&TransportActionLoadAll) != 0
+	return wb.WaypointTask == WaypointTaskTransport && wb.TransportOrders[CargoColonists].Action == TransportTaskLoadAll
 }
 
-// IsUnloadAllTransport returns true if this is an "Unload All" transport task
+// IsUnloadAllTransport returns true if this is an "Unload All" transport task for Colonists
+// This is a legacy compatibility method - prefer checking individual transport orders directly
 func (wb *WaypointBlock) IsUnloadAllTransport() bool {
-	return wb.WaypointTask == WaypointTaskTransport && (wb.TransportAction&TransportActionUnloadAll) != 0
+	return wb.WaypointTask == WaypointTaskTransport && wb.TransportOrders[CargoColonists].Action == TransportTaskUnloadAll
 }
 
 // GetTransportOrder returns the transport order for a specific cargo type
-// cargoType should be CargoIronium, CargoBoranium, CargoGermanium, or CargoColonists
+// cargoType should be CargoIronium, CargoBoranium, CargoGermanium, CargoColonists, or CargoFuel
 func (wb *WaypointBlock) GetTransportOrder(cargoType int) TransportOrder {
-	if cargoType >= 0 && cargoType < 4 {
+	if cargoType >= 0 && cargoType < TransportCargoTypeCount {
 		return wb.TransportOrders[cargoType]
 	}
 	return TransportOrder{}
@@ -218,7 +223,7 @@ func (wb *WaypointBlock) GetTransportOrder(cargoType int) TransportOrder {
 
 // HasTransportOrders returns true if any cargo type has a non-zero transport action
 func (wb *WaypointBlock) HasTransportOrders() bool {
-	for i := 0; i < 4; i++ {
+	for i := 0; i < TransportCargoTypeCount; i++ {
 		if wb.TransportOrders[i].Action != TransportTaskNoAction {
 			return true
 		}
@@ -226,24 +231,42 @@ func (wb *WaypointBlock) HasTransportOrders() bool {
 	return false
 }
 
+// CargoTypeName returns the human-readable name for a cargo type index
+func CargoTypeName(cargoType int) string {
+	names := []string{"Ironium", "Boranium", "Germanium", "Colonists", "Fuel"}
+	if cargoType >= 0 && cargoType < len(names) {
+		return names[cargoType]
+	}
+	return fmt.Sprintf("Unknown(%d)", cargoType)
+}
+
+// CargoTypeUnit returns the unit for a cargo type (kT for minerals/colonists, mg for fuel)
+func CargoTypeUnit(cargoType int) string {
+	if cargoType == CargoFuel {
+		return "mg"
+	}
+	return "kT"
+}
+
 // TransportOrderDescription returns a human-readable description of the transport order for a cargo type
 func (wb *WaypointBlock) TransportOrderDescription(cargoType int) string {
-	if cargoType < 0 || cargoType >= 4 {
+	if cargoType < 0 || cargoType >= TransportCargoTypeCount {
 		return ""
 	}
 	order := wb.TransportOrders[cargoType]
 	if order.Action == TransportTaskNoAction {
 		return "No action"
 	}
-	cargoNames := []string{"Ironium", "Boranium", "Germanium", "Colonists"}
+	cargoName := CargoTypeName(cargoType)
+	unit := CargoTypeUnit(cargoType)
 	actionName := TransportTaskName(order.Action)
 	switch order.Action {
 	case TransportTaskLoadAll, TransportTaskUnloadAll, TransportTaskDropAndLoad:
-		return fmt.Sprintf("%s: %s", cargoNames[cargoType], actionName)
+		return fmt.Sprintf("%s: %s", cargoName, actionName)
 	case TransportTaskFillToPercent, TransportTaskWaitForPercent:
-		return fmt.Sprintf("%s: %s %d%%", cargoNames[cargoType], actionName, order.Value)
+		return fmt.Sprintf("%s: %s %d%%", cargoName, actionName, order.Value)
 	default:
-		return fmt.Sprintf("%s: %s %d kT", cargoNames[cargoType], actionName, order.Value)
+		return fmt.Sprintf("%s: %s %d %s", cargoName, actionName, order.Value, unit)
 	}
 }
 
@@ -294,21 +317,22 @@ func PatrolRangeName(value int) string {
 type WaypointChangeTaskBlock struct {
 	GenericBlock
 
-	FleetNumber               int // Fleet ID (9 bits)
-	WaypointNumber            int // Waypoint index (0 for immediate move)
-	UnknownByte3              int
-	X                         int // X coordinate
-	Y                         int // Y coordinate
-	Target                    int // Target ID (fleet/planet number)
-	Warp                      int // Warp factor
-	WaypointTask              int // Task type
-	UnknownBitsWithTargetType int // Upper nibble of target type byte
-	TargetType                int // 1=planet, 2=fleet, 4=deep space, 8=wormhole
-	SubTaskIndex              int // Optional sub-task index
+	FleetNumber   int  // Fleet ID (9 bits)
+	WaypointIndex int  // Waypoint index (uint16 LE from bytes 2-3, 0 for immediate move)
+	X             int  // X coordinate
+	Y             int  // Y coordinate
+	Target        int  // Target ID (fleet/planet number)
+	Warp          int  // Warp factor
+	WaypointTask  int  // Task type
+	ValidTask     bool // fValidTask flag (bit 12 of flags word) - indicates task is valid
+	NoAutoTrack   bool // fNoAutoTrack flag (bit 13 of flags word)
+	TargetType    int  // 1=planet, 2=fleet, 4=deep space, 8=wormhole
+	SubTaskIndex  int  // Optional sub-task index
 
 	// Transport task orders (when WaypointTask == WaypointTaskTransport)
 	// Each cargo type has an action and value
-	TransportOrders [4]TransportOrder // [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists
+	// [0]=Ironium, [1]=Boranium, [2]=Germanium, [3]=Colonists, [4]=Fuel
+	TransportOrders [TransportCargoTypeCount]TransportOrder
 
 	// Patrol range (when WaypointTask == WaypointTaskPatrol)
 	// 0=50ly, 1=100ly, 2=150ly, ..., 10=550ly, 11=any enemy
@@ -332,15 +356,17 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 	}
 
 	wctb.FleetNumber = int(data[0]&0xFF) + (int(data[1]&0x01) << 8)
-	wctb.WaypointNumber = int(data[2] & 0xFF)
-	wctb.UnknownByte3 = int(data[3] & 0xFF)
+	wctb.WaypointIndex = int(encoding.Read16(data, 2)) // uint16 LE
 	wctb.X = int(encoding.Read16(data, 4))
 	wctb.Y = int(encoding.Read16(data, 6))
 	wctb.Target = int(data[8]&0xFF) + (int(data[9]&0x01) << 8)
 	wctb.Warp = int(data[10]&0xFF) >> 4      // Upper nibble
 	wctb.WaypointTask = int(data[10] & 0x0F) // Lower nibble
-	wctb.UnknownBitsWithTargetType = int(data[11]&0xFF) >> 4
+
+	// Byte 11 contains: bits 0-3=TargetType, bit 4=fValidTask, bit 5=fNoAutoTrack, bits 6-7=unused
 	wctb.TargetType = int(data[11] & 0x0F)
+	wctb.ValidTask = (data[11] & 0x10) != 0   // bit 4
+	wctb.NoAutoTrack = (data[11] & 0x20) != 0 // bit 5
 
 	if len(data) > 12 {
 		wctb.SubTaskIndex = int(data[12] & 0xFF)
@@ -348,10 +374,12 @@ func (wctb *WaypointChangeTaskBlock) decode() {
 
 	// Decode transport orders if this is a Transport task
 	// Format: 2 bytes per cargo type starting at byte 12
-	//   Byte 0: Value (amount in kT or percentage)
+	//   Byte 0: Value (amount in kT, percentage, or mg for fuel)
 	//   Byte 1: Action type in high nibble (action << 4)
-	if wctb.WaypointTask == WaypointTaskTransport && len(data) >= 14 {
-		for i := 0; i < 4; i++ {
+	// Order: Ironium, Boranium, Germanium, Colonists, Fuel
+	// Note: Format is variable-length - not all cargo types may be present
+	if wctb.WaypointTask == WaypointTaskTransport && len(data) > 12 {
+		for i := 0; i < TransportCargoTypeCount; i++ {
 			offset := 12 + (i * 2)
 			if offset+1 < len(data) {
 				wctb.TransportOrders[i].Value = int(data[offset] & 0xFF)
@@ -374,7 +402,7 @@ func (wctb *WaypointChangeTaskBlock) Encode() []byte {
 	var size int
 	switch {
 	case wctb.WaypointTask == WaypointTaskTransport:
-		size = 20 // 12 base + 8 for transport orders
+		size = 22 // 12 base + 10 for transport orders (5 types × 2 bytes)
 	case wctb.WaypointTask == WaypointTaskPatrol:
 		size = 15 // 12 base + 1 sub-task + 2 for patrol range
 	case wctb.SubTaskIndex > 0:
@@ -389,11 +417,8 @@ func (wctb *WaypointChangeTaskBlock) Encode() []byte {
 	data[0] = byte(wctb.FleetNumber & 0xFF)
 	data[1] = byte((wctb.FleetNumber >> 8) & 0x01)
 
-	// Byte 2: Waypoint number
-	data[2] = byte(wctb.WaypointNumber)
-
-	// Byte 3: Unknown
-	data[3] = byte(wctb.UnknownByte3)
+	// Bytes 2-3: Waypoint index (uint16 LE)
+	encoding.Write16(data, 2, uint16(wctb.WaypointIndex))
 
 	// Bytes 4-5: X coordinate
 	encoding.Write16(data, 4, uint16(wctb.X))
@@ -408,14 +433,20 @@ func (wctb *WaypointChangeTaskBlock) Encode() []byte {
 	// Byte 10: Warp (upper nibble) | WaypointTask (lower nibble)
 	data[10] = byte((wctb.Warp&0x0F)<<4) | byte(wctb.WaypointTask&0x0F)
 
-	// Byte 11: Unknown bits (upper nibble) | TargetType (lower nibble)
-	data[11] = byte((wctb.UnknownBitsWithTargetType&0x0F)<<4) | byte(wctb.TargetType&0x0F)
+	// Byte 11: flags (bit4=fValidTask, bit5=fNoAutoTrack) | TargetType (lower nibble)
+	data[11] = byte(wctb.TargetType & 0x0F)
+	if wctb.ValidTask {
+		data[11] |= 0x10
+	}
+	if wctb.NoAutoTrack {
+		data[11] |= 0x20
+	}
 
 	// Encode task-specific data
 	switch {
-	case wctb.WaypointTask == WaypointTaskTransport && size >= 20:
-		// Transport orders: 2 bytes per cargo type
-		for i := 0; i < 4; i++ {
+	case wctb.WaypointTask == WaypointTaskTransport && size >= 22:
+		// Transport orders: 2 bytes per cargo type (5 types)
+		for i := 0; i < TransportCargoTypeCount; i++ {
 			offset := 12 + (i * 2)
 			data[offset] = byte(wctb.TransportOrders[i].Value)
 			data[offset+1] = byte((wctb.TransportOrders[i].Action & 0x0F) << 4)
@@ -491,4 +522,78 @@ func (wdb *WaypointDeleteBlock) Encode() []byte {
 	data[1] = byte((wdb.FleetNumber >> 8) & 0x01)
 	data[2] = byte(wdb.WaypointNumber)
 	return data
+}
+
+// WaypointTaskTypeChangeBlock represents a lightweight waypoint task type change (Type 11)
+// This block modifies only the task type at a specific waypoint without changing
+// task-specific parameters (unlike Type 5/19 which include full task data).
+//
+// Format: 6 bytes
+//
+//	Bytes 0-1: FleetID (uint16 LE)
+//	Bytes 2-3: WaypointIndex (uint16 LE, 0-based index into fleet's waypoint array)
+//	Bytes 4-5: TaskType (uint16 LE, 0-9)
+//
+// This is useful when:
+//   - Changing a waypoint from one simple task to another
+//   - Clearing a task (setting to 0 = None)
+//   - The task-specific parameters should remain unchanged
+type WaypointTaskTypeChangeBlock struct {
+	GenericBlock
+
+	FleetID       int // Fleet identifier
+	WaypointIndex int // Index into fleet's waypoint array (0-based)
+	TaskType      int // New task type (0-9, see WaypointTask* constants)
+}
+
+// NewWaypointTaskTypeChangeBlock creates a WaypointTaskTypeChangeBlock from a GenericBlock
+func NewWaypointTaskTypeChangeBlock(b GenericBlock) *WaypointTaskTypeChangeBlock {
+	wttcb := &WaypointTaskTypeChangeBlock{GenericBlock: b}
+	wttcb.decode()
+	return wttcb
+}
+
+func (wttcb *WaypointTaskTypeChangeBlock) decode() {
+	data := wttcb.Decrypted
+	if len(data) < 6 {
+		return
+	}
+
+	wttcb.FleetID = int(encoding.Read16(data, 0))
+	wttcb.WaypointIndex = int(encoding.Read16(data, 2))
+	wttcb.TaskType = int(encoding.Read16(data, 4))
+}
+
+// Encode returns the raw block data bytes (without the 2-byte block header).
+func (wttcb *WaypointTaskTypeChangeBlock) Encode() []byte {
+	data := make([]byte, 6)
+	encoding.Write16(data, 0, uint16(wttcb.FleetID))
+	encoding.Write16(data, 2, uint16(wttcb.WaypointIndex))
+	encoding.Write16(data, 4, uint16(wttcb.TaskType))
+	return data
+}
+
+// TaskTypeName returns a human-readable name for the task type
+func (wttcb *WaypointTaskTypeChangeBlock) TaskTypeName() string {
+	return WaypointTaskName(wttcb.TaskType)
+}
+
+// WaypointTaskName returns a human-readable name for a waypoint task type
+func WaypointTaskName(task int) string {
+	names := map[int]string{
+		WaypointTaskNone:         "None",
+		WaypointTaskTransport:    "Transport",
+		WaypointTaskColonize:     "Colonize",
+		WaypointTaskRemoteMining: "Remote Mining",
+		WaypointTaskMergeFleet:   "Merge Fleet",
+		WaypointTaskScrapFleet:   "Scrap Fleet",
+		WaypointTaskLayMines:     "Lay Mines",
+		WaypointTaskPatrol:       "Patrol",
+		WaypointTaskRoute:        "Route",
+		WaypointTaskTransfer:     "Transfer",
+	}
+	if name, ok := names[task]; ok {
+		return name
+	}
+	return fmt.Sprintf("Unknown(%d)", task)
 }

@@ -5,15 +5,24 @@ import (
 )
 
 // MessageBlock represents a player message (Type 40)
+//
+// The file format is the in-memory MSGPLR structure written directly to disk.
+//
+// Format:
+//
+//	Bytes 0-3:  Garbage (linked list pointer from memory - ignore)
+//	Bytes 4-5:  Sender ID (iPlrFrom) - sender player index (0-15)
+//	Bytes 6-7:  Recipient ID (iPlrTo) - 0=broadcast, 1-16=specific player
+//	Bytes 8-9:  InReplyTo (iInRe) - message ID being replied to (0=not a reply)
+//	Bytes 10-11: Length (cLen) - message byte count (negative=ASCII)
+//	Bytes 12+:  Message (rgbMsg) - Stars! encoded message string
 type MessageBlock struct {
 	GenericBlock
 
-	UnknownWord0 int    // Unknown purpose
-	UnknownWord2 int    // Unknown purpose
-	SenderId     int    // Sender player number (0-15)
-	ReceiverId   int    // Receiver: 0=everyone, 1-16=specific player
-	UnknownWord8 int    // Unknown (typically 3=reply, 4=normal)
-	Message      string // Message text
+	SenderId   int    // Sender player index (0-15)
+	ReceiverId int    // Receiver: 0=broadcast, 1-16=specific player
+	InReplyTo  int    // Message ID being replied to for threading (0=not a reply)
+	Message    string // Message text
 }
 
 // NewMessageBlock creates a MessageBlock from a GenericBlock
@@ -27,17 +36,17 @@ func NewMessageBlock(b GenericBlock) *MessageBlock {
 
 func (mb *MessageBlock) decode() {
 	data := mb.Decrypted
-	if len(data) < 10 {
+	if len(data) < 12 {
 		return
 	}
 
-	mb.UnknownWord0 = int(encoding.Read16(data, 0))
-	mb.UnknownWord2 = int(encoding.Read16(data, 2))
+	// Bytes 0-3 are garbage (linked list pointer) - ignore
 	mb.SenderId = int(encoding.Read16(data, 4))
 	mb.ReceiverId = int(encoding.Read16(data, 6))
-	mb.UnknownWord8 = int(encoding.Read16(data, 8))
+	mb.InReplyTo = int(encoding.Read16(data, 8))
 
-	// Decode the message
+	// Bytes 10-11 contain the length header, bytes 12+ contain the message
+	// decodeStarsMessage expects the length header at the start
 	if len(data) > 10 {
 		messageData := data[10:]
 		mb.Message = decodeStarsMessage(messageData)
@@ -94,11 +103,12 @@ func (mb *MessageBlock) Encode() []byte {
 
 	data := make([]byte, 10+len(messageEncoded))
 
-	encoding.Write16(data, 0, uint16(mb.UnknownWord0))
-	encoding.Write16(data, 2, uint16(mb.UnknownWord2))
+	// Bytes 0-3: Write zeros (garbage bytes, ignored on read)
+	encoding.Write16(data, 0, 0)
+	encoding.Write16(data, 2, 0)
 	encoding.Write16(data, 4, uint16(mb.SenderId))
 	encoding.Write16(data, 6, uint16(mb.ReceiverId))
-	encoding.Write16(data, 8, uint16(mb.UnknownWord8))
+	encoding.Write16(data, 8, uint16(mb.InReplyTo))
 
 	copy(data[10:], messageEncoded)
 
@@ -142,9 +152,9 @@ func (mb *MessageBlock) IsBroadcast() bool {
 	return mb.ReceiverId == 0
 }
 
-// IsReply returns true if this message is a reply
+// IsReply returns true if this message is a reply to another message
 func (mb *MessageBlock) IsReply() bool {
-	return mb.UnknownWord8 == 3
+	return mb.InReplyTo > 0
 }
 
 // SenderDisplayId returns the 1-based player number of the sender

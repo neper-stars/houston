@@ -5,6 +5,7 @@
   "cometStrike": {
     "planetId": 485,
     "planetName": "Burgoyne",
-    "subtype": 2
+    "stringIndex": 134,
+    "habChangeMask": 2
   }
 }

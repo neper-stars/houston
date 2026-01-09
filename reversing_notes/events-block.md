@@ -160,21 +160,53 @@ Example from test data:
 
 Random events occur when the game has "Random Events" enabled. These include comet strikes, artifact discoveries, and other special occurrences.
 
-### Comet Strike (0x86)
+### Comet Strike (0x83-0x8a)
 
 ```
-86 SS PP PP PP PP
+TT SS PP PP PP PP
 │  │  └───┘ └───┘
 │  │    │     └─── Planet ID repeated (16-bit LE)
 │  │    └───────── Planet ID (16-bit LE)
-│  └────────────── Subtype/flags (0x02 observed)
-└────────────────── Event type
+│  └────────────── Hab change bitmask (see below)
+└────────────────── Event type = String index (0x83-0x8a)
 ```
 
-This event is generated when a comet strikes a planet. The comet embeds minerals in the planet and radically alters its environment.
+This event is generated when a comet strikes a planet. The comet adds minerals and alters the planet's environment (hab values).
+
+**Event Type (String Index)**
+
+The event type byte is directly the string index for the message:
+
+| Type | Planet  | Size   | Deaths | Hab Changes | Message                                |
+|------|---------|--------|--------|-------------|----------------------------------------|
+| 0x83 | Unowned | Small  | N/A    | 1           | "bringing new minerals and altering"   |
+| 0x84 | Unowned | Medium | N/A    | 0           | "bringing a significant quantity"      |
+| 0x85 | Unowned | Large  | N/A    | 1           | "wide variety...drastically altering"  |
+| 0x86 | Unowned | Huge   | N/A    | 1           | "vast quantities...radically altering" |
+| 0x87 | Owned   | Small  | 25%    | 1           | "killing 25%...altered the planet's"   |
+| 0x88 | Owned   | Medium | 45%    | 2           | "killing 45%...altered...\\e and \\e"  |
+| 0x89 | Owned   | Large  | 65%    | 3           | "killing 65%...\\e, \\e, and \\e"      |
+| 0x8a | Owned   | Huge   | 85%    | 3           | "killing 85%...\\e, \\e, and \\e"      |
+
+**Hab Change Bitmask (byte 1)**
+
+The subtype byte is a bitmask indicating which environment values were altered:
+
+| Bit | Value | Environment |
+|-----|-------|-------------|
+| 0   | 0x01  | Gravity     |
+| 1   | 0x02  | Temperature |
+| 2   | 0x04  | Radiation   |
+
+Examples:
+- 0x02 = Only Temperature changed
+- 0x05 = Gravity + Radiation changed
+- 0x07 = All three changed
+
+The `\e` placeholder in the message strings gets filled with the corresponding environment name(s) based on this bitmask.
 
 Example from test data:
-- `86 02 E5 01 E5 01` → Planet 485 (Burgoyne) was struck by a comet, subtype = 2
+- `86 02 E5 01 E5 01` → Planet 485 (Burgoyne, unowned) was struck by a huge comet, Temperature changed
 
 ### Strange Artifact (0x5E)
 

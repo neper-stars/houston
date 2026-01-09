@@ -69,9 +69,10 @@ const (
 	// When enabled, the fleet will loop through its waypoints continuously.
 	WaypointRepeatOrdersBlockType // 10
 
-	// UnknownBlock11BlockType (11) has an unknown purpose.
-	// Preserved for completeness but not yet decoded.
-	UnknownBlock11BlockType // 11
+	// WaypointTaskTypeChangeBlockType (11) modifies the task type at a specific waypoint.
+	// A lightweight alternative to Block Type 5/19 that only changes the task type
+	// without full task parameters. Format: 6 bytes (FleetID, WaypointIndex, TaskType).
+	WaypointTaskTypeChangeBlockType // 11
 
 	// EventsBlockType (12) contains game event notifications.
 	// Events include battles, discoveries, production completions, etc.
@@ -248,7 +249,7 @@ func BlockTypeName(id BlockTypeID) string {
 		FileHeaderBlockType:                 "FileHeader",
 		FileHashBlockType:                   "FileHash",
 		WaypointRepeatOrdersBlockType:       "WaypointRepeatOrders",
-		UnknownBlock11BlockType:             "Unknown11",
+		WaypointTaskTypeChangeBlockType:     "WaypointTaskTypeChange",
 		EventsBlockType:                     "Events",
 		PlanetBlockType:                     "Planet",
 		PartialPlanetBlockType:              "PartialPlanet",

@@ -11,28 +11,15 @@ func init() {
 	RegisterFormatter(blocks.WaypointAddBlockType, FormatWaypointAdd)
 	RegisterFormatter(blocks.WaypointChangeTaskBlockType, FormatWaypointChangeTask)
 	RegisterFormatter(blocks.WaypointRepeatOrdersBlockType, FormatWaypointRepeatOrders)
+	RegisterFormatter(blocks.WaypointTaskTypeChangeBlockType, FormatWaypointTaskTypeChange)
 	RegisterFormatter(blocks.WaypointTaskBlockType, FormatWaypointTask)
 	RegisterFormatter(blocks.WaypointBlockType, FormatWaypoint)
 }
 
 // waypointTaskName returns human-readable name for waypoint task type
+// Uses the shared function from blocks package
 func waypointTaskName(task int) string {
-	names := map[int]string{
-		blocks.WaypointTaskNone:         "None",
-		blocks.WaypointTaskTransport:    "Transport",
-		blocks.WaypointTaskColonize:     "Colonize",
-		blocks.WaypointTaskRemoteMining: "Remote Mining",
-		blocks.WaypointTaskMergeFleet:   "Merge Fleet",
-		blocks.WaypointTaskScrapFleet:   "Scrap Fleet",
-		blocks.WaypointTaskLayMines:     "Lay Mines",
-		blocks.WaypointTaskPatrol:       "Patrol",
-		blocks.WaypointTaskRoute:        "Route",
-		blocks.WaypointTaskTransfer:     "Transfer",
-	}
-	if name, ok := names[task]; ok {
-		return name
-	}
-	return fmt.Sprintf("Unknown(%d)", task)
+	return blocks.WaypointTaskName(task)
 }
 
 // waypointTargetTypeName returns human-readable name for target type
@@ -132,15 +119,10 @@ func formatWaypointChangeTaskCommon(wctb *blocks.WaypointChangeTaskBlock, block 
 		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
 		fmt.Sprintf("(d[0] + (d[1]&0x01)<<8) = %d -> Fleet #%d", wctb.FleetNumber, wctb.FleetNumber+1)))
 
-	// Byte 2: Waypoint number
-	fields = append(fields, FormatFieldRaw(0x02, 0x02, "WaypointNumber",
-		fmt.Sprintf("0x%02X", d[2]),
-		fmt.Sprintf("%d", wctb.WaypointNumber)))
-
-	// Byte 3: Unknown
-	fields = append(fields, FormatFieldRaw(0x03, 0x03, "UnknownByte3",
-		fmt.Sprintf("0x%02X", d[3]),
-		fmt.Sprintf("%d (TBD)", wctb.UnknownByte3)))
+	// Bytes 2-3: Waypoint index (uint16 LE)
+	fields = append(fields, FormatFieldRaw(0x02, 0x03, "WaypointIndex",
+		fmt.Sprintf("0x%02X%02X", d[3], d[2]),
+		fmt.Sprintf("uint16 LE = %d", wctb.WaypointIndex)))
 
 	// Bytes 4-5: X coordinate
 	fields = append(fields, FormatFieldRaw(0x04, 0x05, "X",
@@ -163,15 +145,23 @@ func formatWaypointChangeTaskCommon(wctb *blocks.WaypointChangeTaskBlock, block 
 		fmt.Sprintf("warp=(d>>4)=%d (%s), task=(d&0x0F)=%d (%s)",
 			wctb.Warp, formatWarpSpeed(wctb.Warp), wctb.WaypointTask, waypointTaskName(wctb.WaypointTask))))
 
-	// Byte 11: Unknown bits (upper nibble) | TargetType (lower nibble)
-	fields = append(fields, FormatFieldRaw(0x0B, 0x0B, "TargetType",
+	// Byte 11: flags (bit4=fValidTask, bit5=fNoAutoTrack) | TargetType (lower nibble)
+	validTaskStr := "false"
+	if wctb.ValidTask {
+		validTaskStr = "true"
+	}
+	noAutoTrackStr := "false"
+	if wctb.NoAutoTrack {
+		noAutoTrackStr = "true"
+	}
+	fields = append(fields, FormatFieldRaw(0x0B, 0x0B, "Flags/TargetType",
 		fmt.Sprintf("0x%02X", d[11]),
-		fmt.Sprintf("unknown=(d>>4)=0x%X, targetType=(d&0x0F)=%d (%s)",
-			wctb.UnknownBitsWithTargetType, wctb.TargetType, waypointTargetTypeName(wctb.TargetType))))
+		fmt.Sprintf("targetType=(d&0x0F)=%d (%s), fValidTask=%s, fNoAutoTrack=%s",
+			wctb.TargetType, waypointTargetTypeName(wctb.TargetType), validTaskStr, noAutoTrackStr)))
 
 	// Task-specific data
 	switch {
-	case wctb.WaypointTask == blocks.WaypointTaskTransport && len(d) >= 20:
+	case wctb.WaypointTask == blocks.WaypointTaskTransport && len(d) >= 22:
 		fields = append(fields, "")
 		fields = append(fields, "── Transport Orders ──")
 		formatTransportOrders(&fields, d, 12, wctb.TransportOrders[:])
@@ -199,6 +189,7 @@ func formatWaypointChangeTaskCommon(wctb *blocks.WaypointChangeTaskBlock, block 
 }
 
 // FormatWaypointRepeatOrders provides detailed view for WaypointRepeatOrdersBlock (type 10)
+// See reversing_notes/BT-10-WaypointRepeatOrders.md for format details.
 func FormatWaypointRepeatOrders(block blocks.Block, index int) string {
 	width := DefaultWidth
 	wrob, ok := block.(blocks.WaypointRepeatOrdersBlock)
@@ -223,17 +214,75 @@ func FormatWaypointRepeatOrders(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
 		fmt.Sprintf("(d[0] + (d[1]&0x01)<<8) = %d -> Fleet #%d", wrob.FleetNumber, wrob.FleetNumber+1)))
 
-	// Byte 2: Repeat from waypoint
-	fields = append(fields, FormatFieldRaw(0x02, 0x02, "RepeatFromWaypoint",
+	// Byte 2: Packed byte - bit 0 = EnableRepeat, bits 1-7 = RepeatFromWaypoint
+	fields = append(fields, FormatFieldRaw(0x02, 0x02, "EnableRepeat+Waypoint",
 		fmt.Sprintf("0x%02X", d[2]),
-		fmt.Sprintf("%d (loop back to waypoint %d)", wrob.RepeatFromWaypoint, wrob.RepeatFromWaypoint)))
+		fmt.Sprintf("0b%08b", d[2])))
+	fields = append(fields, fmt.Sprintf("           %s bit0: EnableRepeat = %v", TreeBranch, wrob.EnableRepeat))
+	fields = append(fields, fmt.Sprintf("           %s bits1-7: RepeatFromWaypoint = %d", TreeEnd, wrob.RepeatFromWaypoint))
 
-	// Byte 3: Unknown/flags
+	// Byte 3: Padding
 	if len(d) >= 4 {
-		fields = append(fields, FormatFieldRaw(0x03, 0x03, "Unknown",
+		fields = append(fields, FormatFieldRaw(0x03, 0x03, "Padding",
 			fmt.Sprintf("0x%02X", d[3]),
-			"TBD (flags?)"))
+			"(unused)"))
 	}
+
+	// Summary
+	fields = append(fields, "")
+	fields = append(fields, "── Summary ──")
+	if wrob.EnableRepeat {
+		fields = append(fields, fmt.Sprintf("  Fleet #%d: ENABLE repeat orders from waypoint %d",
+			wrob.FleetNumber+1, wrob.RepeatFromWaypoint))
+	} else {
+		fields = append(fields, fmt.Sprintf("  Fleet #%d: DISABLE repeat orders",
+			wrob.FleetNumber+1))
+	}
+
+	fieldsSection := FormatFieldsSection(fields, width)
+	return BuildOutput(header, hexSection, fieldsSection)
+}
+
+// FormatWaypointTaskTypeChange provides detailed view for WaypointTaskTypeChangeBlock (type 11)
+func FormatWaypointTaskTypeChange(block blocks.Block, index int) string {
+	width := DefaultWidth
+	wttcb, ok := block.(blocks.WaypointTaskTypeChangeBlock)
+	if !ok {
+		return FormatGeneric(block, index)
+	}
+
+	d := wttcb.DecryptedData()
+	header := FormatBlockHeader(block, index, width)
+	hexSection := FormatHexSection(d, width)
+
+	var fields []string
+
+	if len(d) < 6 {
+		fields = append(fields, "(block too short)")
+		fieldsSection := FormatFieldsSection(fields, width)
+		return BuildOutput(header, hexSection, fieldsSection)
+	}
+
+	// Bytes 0-1: Fleet ID
+	fields = append(fields, FormatFieldRaw(0x00, 0x01, "FleetID",
+		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
+		fmt.Sprintf("uint16 LE = %d -> Fleet #%d", wttcb.FleetID, wttcb.FleetID+1)))
+
+	// Bytes 2-3: Waypoint index
+	fields = append(fields, FormatFieldRaw(0x02, 0x03, "WaypointIndex",
+		fmt.Sprintf("0x%02X%02X", d[3], d[2]),
+		fmt.Sprintf("uint16 LE = %d (0-based index)", wttcb.WaypointIndex)))
+
+	// Bytes 4-5: Task type
+	fields = append(fields, FormatFieldRaw(0x04, 0x05, "TaskType",
+		fmt.Sprintf("0x%02X%02X", d[5], d[4]),
+		fmt.Sprintf("uint16 LE = %d (%s)", wttcb.TaskType, wttcb.TaskTypeName())))
+
+	// Summary
+	fields = append(fields, "")
+	fields = append(fields, "── Summary ──")
+	fields = append(fields, fmt.Sprintf("  Fleet #%d, Waypoint %d -> Set task to %s",
+		wttcb.FleetID+1, wttcb.WaypointIndex, wttcb.TaskTypeName()))
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
@@ -303,22 +352,10 @@ func formatWaypointCommon(wb *blocks.WaypointBlock, block blocks.Block, index in
 
 	// Task-specific data
 	switch {
-	case wb.WaypointTask == blocks.WaypointTaskTransport && len(d) >= 16:
+	case wb.WaypointTask == blocks.WaypointTaskTransport && len(d) >= 18:
 		fields = append(fields, "")
-		fields = append(fields, "── Transport Orders ──")
+		fields = append(fields, "── Transport Orders (5 types: Ironium, Boranium, Germanium, Colonists, Fuel) ──")
 		formatTransportOrders(&fields, d, 8, wb.TransportOrders[:])
-
-		// Transport action flag
-		fields = append(fields, "")
-		fields = append(fields, FormatFieldRaw(0x0F, 0x0F, "TransportAction",
-			fmt.Sprintf("0x%02X", d[15]),
-			fmt.Sprintf("0b%08b", d[15])))
-		if wb.IsLoadAllTransport() {
-			fields = append(fields, fmt.Sprintf("           %s bit4: Load All Available = true", TreeBranch))
-		}
-		if wb.IsUnloadAllTransport() {
-			fields = append(fields, fmt.Sprintf("           %s bit5: Unload All = true", TreeEnd))
-		}
 	case wb.WaypointTask == blocks.WaypointTaskPatrol && len(d) > 8:
 		fields = append(fields, "")
 		fields = append(fields, "── Patrol Data ──")
@@ -344,24 +381,20 @@ func formatWaypointCommon(wb *blocks.WaypointBlock, block blocks.Block, index in
 	fields = append(fields, fmt.Sprintf("  Speed: %s", formatWarpSpeed(wb.Warp)))
 	fields = append(fields, fmt.Sprintf("  Task: %s", waypointTaskName(wb.WaypointTask)))
 	if wb.WaypointTask == blocks.WaypointTaskTransport && wb.HasTransportOrders() {
-		cargoNames := []string{"Ironium", "Boranium", "Germanium", "Colonists"}
-		for i := 0; i < 4; i++ {
+		for i := 0; i < blocks.TransportCargoTypeCount; i++ {
 			if wb.TransportOrders[i].Action != blocks.TransportTaskNoAction {
 				fields = append(fields, fmt.Sprintf("    %s", wb.TransportOrderDescription(i)))
 			}
 		}
-		_ = cargoNames // suppress unused warning
 	}
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
 }
 
-// formatTransportOrders formats transport order bytes
+// formatTransportOrders formats transport order bytes (5 types including Fuel)
 func formatTransportOrders(fields *[]string, d []byte, startOffset int, orders []blocks.TransportOrder) {
-	cargoNames := []string{"Ironium", "Boranium", "Germanium", "Colonists"}
-
-	for i := 0; i < 4; i++ {
+	for i := 0; i < blocks.TransportCargoTypeCount; i++ {
 		offset := startOffset + (i * 2)
 		if offset+1 >= len(d) {
 			break
@@ -372,9 +405,12 @@ func formatTransportOrders(fields *[]string, d []byte, startOffset int, orders [
 		action := int(actionByte >> 4)
 		value := int(valueByte)
 
-		*fields = append(*fields, FormatFieldRaw(offset, offset+1, cargoNames[i],
+		cargoName := blocks.CargoTypeName(i)
+		unit := blocks.CargoTypeUnit(i)
+
+		*fields = append(*fields, FormatFieldRaw(offset, offset+1, cargoName,
 			fmt.Sprintf("0x%02X%02X", actionByte, valueByte),
-			fmt.Sprintf("value=d[0]=%d, action=(d[1]>>4)=%d (%s)",
-				value, action, blocks.TransportTaskName(action))))
+			fmt.Sprintf("value=%d %s, action=%d (%s)",
+				value, unit, action, blocks.TransportTaskName(action))))
 	}
 }

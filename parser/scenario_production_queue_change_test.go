@@ -121,10 +121,10 @@ func TestScenarioProductionQueueChange(t *testing.T) {
 		t.Run("Settings", func(t *testing.T) {
 			for _, change := range expected.PlanetChanges {
 				switch change.Setting {
-				case "ContributeOnlyLeftover":
-					if planetChange.ContributeOnlyLeftover != change.Value {
-						t.Errorf("ContributeOnlyLeftover: expected %v, got %v",
-							change.Value, planetChange.ContributeOnlyLeftover)
+				case "ContributeOnlyLeftover", "ContributeLeftover":
+					if planetChange.ContributeLeftover != change.Value {
+						t.Errorf("ContributeLeftover: expected %v, got %v",
+							change.Value, planetChange.ContributeLeftover)
 					}
 				default:
 					t.Logf("Unknown setting: %s", change.Setting)

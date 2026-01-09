@@ -92,3 +92,26 @@ run = "mkdir -p tools/bin && go build -o tools/bin/release ./tools/release"
 description = "Create a new release (batch changelog, commit, tag, push)"
 depends = ["build-release-tool"]
 run = "tools/bin/release"
+
+[tasks.find-unknown-blocks]
+description = "Search testdata for unknown block types (15, 18, 22)"
+depends = ["build-dev"]
+run = """
+echo "Searching for unknown block types (15, 18, 22) in testdata..."
+results=$(find testdata -type f \\( -name "*.m*" -o -name "*.x*" -o -name "*.hst" -o -name "*.xy" -o -name "*.h*" -o -name "*.H*" -o -name "*.M*" -o -name "*.X*" \\) ! -name "*.md" ! -name "*.png" -exec sh -c '
+  for f; do
+    output=$(./build/houston blocks -f 15,18,22 "$f" 2>/dev/null)
+    if echo "$output" | grep -qE "^Unknown(15|18|22)"; then
+      echo "=== $f ==="
+      echo "$output"
+      echo ""
+    fi
+  done
+' sh {} +)
+if [ -z "$results" ]; then
+  echo "No files contain unknown block types 15, 18, or 22."
+else
+  echo "$results"
+fi
+echo "Search complete."
+"""

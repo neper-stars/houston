@@ -707,22 +707,19 @@ func TestObjectBlockStabilityName(t *testing.T) {
 	ob := &ObjectBlock{}
 
 	testCases := []struct {
-		stability int
-		expected  string
+		stabilityIndex int
+		expected       string
 	}{
-		{WormholeStabilityRockSolid, "Rock Solid"},
-		{WormholeStabilityStable, "Stable"},
-		{WormholeStabilityMostlyStable, "Mostly Stable"},
-		{WormholeStabilityAverage, "Average"},
-		{WormholeStabilitySlightlyVolatile, "Slightly Volatile"},
-		{WormholeStabilityVolatile, "Volatile"},
-		{WormholeStabilityExtremelyVolatile, "Extremely Volatile"},
-		{255, "Extremely Volatile"}, // Above max
+		{WormholeStabilityIndexRockSolid, "Rock Solid"},
+		{WormholeStabilityIndexStable, "Stable"},
+		{WormholeStabilityIndexVolatile, "Volatile"},
+		{WormholeStabilityIndexVeryVolatile, "Very Volatile"},
+		{5, "Unknown"}, // Invalid index
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.expected, func(t *testing.T) {
-			ob.Stability = tc.stability
+			ob.StabilityIndex = tc.stabilityIndex
 			assert.Equal(t, tc.expected, ob.StabilityName())
 		})
 	}
@@ -906,11 +903,11 @@ func TestMessageBlockHelpers(t *testing.T) {
 	})
 
 	t.Run("IsReply", func(t *testing.T) {
-		// Reply: UnknownWord8 == 3
-		mb := &MessageBlock{UnknownWord8: 3}
+		// Reply: InReplyTo > 0 (message ID of the message being replied to)
+		mb := &MessageBlock{InReplyTo: 3}
 		assert.True(t, mb.IsReply())
 
-		mb.UnknownWord8 = 4
+		mb.InReplyTo = 0 // Not a reply
 		assert.False(t, mb.IsReply())
 	})
 
@@ -953,17 +950,17 @@ func TestWaypointHelpers(t *testing.T) {
 	t.Run("LoadUnloadAll", func(t *testing.T) {
 		wp := &WaypointBlock{WaypointTask: WaypointTaskTransport}
 
-		// Set load all flag
-		wp.TransportAction = TransportActionLoadAll
+		// Set Colonists to Load All - should make IsLoadAllTransport return true
+		wp.TransportOrders[CargoColonists].Action = TransportTaskLoadAll
 		assert.True(t, wp.IsLoadAllTransport())
 		assert.False(t, wp.IsUnloadAllTransport())
 
-		// Set unload all flag
-		wp.TransportAction = TransportActionUnloadAll
+		// Set Colonists to Unload All - should make IsUnloadAllTransport return true
+		wp.TransportOrders[CargoColonists].Action = TransportTaskUnloadAll
 		assert.True(t, wp.IsUnloadAllTransport())
 		assert.False(t, wp.IsLoadAllTransport())
 
-		// Non-transport task
+		// Non-transport task - should return false regardless of TransportOrders
 		wp.WaypointTask = WaypointTaskColonize
 		assert.False(t, wp.IsLoadAllTransport())
 		assert.False(t, wp.IsUnloadAllTransport())

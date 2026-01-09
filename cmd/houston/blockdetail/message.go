@@ -25,32 +25,27 @@ func FormatMessage(block blocks.Block, index int) string {
 
 	var fields []string
 
-	if len(d) < 10 {
+	if len(d) < 12 {
 		fields = append(fields, "(block too short)")
 		fieldsSection := FormatFieldsSection(fields, width)
 		return BuildOutput(header, hexSection, fieldsSection)
 	}
 
-	// Bytes 0-1: Unknown word 0
+	// Bytes 0-3: Garbage (linked list pointer from memory - ignore)
 	word0 := encoding.Read16(d, 0)
-	fields = append(fields, FormatFieldRaw(0x00, 0x01, "UnknownWord0",
-		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
-		fmt.Sprintf("uint16 LE = %d (0x%04X)", word0, word0)))
-
-	// Bytes 2-3: Unknown word 2
 	word2 := encoding.Read16(d, 2)
-	fields = append(fields, FormatFieldRaw(0x02, 0x03, "UnknownWord2",
-		fmt.Sprintf("0x%02X%02X", d[3], d[2]),
-		fmt.Sprintf("uint16 LE = %d (0x%04X)", word2, word2)))
+	fields = append(fields, FormatFieldRaw(0x00, 0x03, "(garbage)",
+		fmt.Sprintf("0x%02X%02X%02X%02X", d[3], d[2], d[1], d[0]),
+		fmt.Sprintf("linked list ptr (0x%04X%04X) - ignore", word2, word0)))
 
-	// Bytes 4-5: Sender ID
+	// Bytes 4-5: Sender ID (iPlrFrom)
 	senderId := encoding.Read16(d, 4)
 	senderDisplay := int(senderId) + 1
 	fields = append(fields, FormatFieldRaw(0x04, 0x05, "SenderId",
 		fmt.Sprintf("0x%02X%02X", d[5], d[4]),
 		fmt.Sprintf("uint16 LE = %d -> Player %d", senderId, senderDisplay)))
 
-	// Bytes 6-7: Receiver ID
+	// Bytes 6-7: Receiver ID (iPlrTo)
 	receiverId := encoding.Read16(d, 6)
 	receiverStr := fmt.Sprintf("Player %d", receiverId)
 	if receiverId == 0 {
@@ -60,18 +55,15 @@ func FormatMessage(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X%02X", d[7], d[6]),
 		fmt.Sprintf("uint16 LE = %d -> %s", receiverId, receiverStr)))
 
-	// Bytes 8-9: Unknown word 8 (message type indicator)
-	word8 := encoding.Read16(d, 8)
-	word8Str := fmt.Sprintf("%d", word8)
-	switch word8 {
-	case 3:
-		word8Str = "3 (reply)"
-	case 4:
-		word8Str = "4 (normal)"
+	// Bytes 8-9: InReplyTo (iInRe) - message ID for threading
+	inReplyTo := encoding.Read16(d, 8)
+	replyStr := "not a reply"
+	if inReplyTo > 0 {
+		replyStr = fmt.Sprintf("reply to message #%d", inReplyTo)
 	}
-	fields = append(fields, FormatFieldRaw(0x08, 0x09, "UnknownWord8",
+	fields = append(fields, FormatFieldRaw(0x08, 0x09, "InReplyTo",
 		fmt.Sprintf("0x%02X%02X", d[9], d[8]),
-		fmt.Sprintf("uint16 LE = %s", word8Str)))
+		fmt.Sprintf("uint16 LE = %d (%s)", inReplyTo, replyStr)))
 
 	// Message data section
 	if len(d) > 10 {

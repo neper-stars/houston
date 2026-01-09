@@ -26,7 +26,6 @@ func eventTypeName(eventType int) string {
 		blocks.EventTypeMineralPacketProduced:    "PacketProduced",
 		blocks.EventTypePacketBombardment:        "PacketBombardment",
 		blocks.EventTypeStarbaseBuilt:            "StarbaseBuilt",
-		blocks.EventTypeCometStrike:              "CometStrike",
 		blocks.EventTypeNewColony:                "NewColony",
 		blocks.EventTypeStrangeArtifact:          "StrangeArtifact",
 		blocks.EventTypeFleetScrapped:            "FleetScrapped",
@@ -36,6 +35,10 @@ func eventTypeName(eventType int) string {
 	}
 	if name, ok := names[eventType]; ok {
 		return name
+	}
+	// Handle comet strike event types (0x83-0x8a)
+	if eventType >= blocks.EventTypeCometStrikeFirst && eventType <= blocks.EventTypeCometStrikeLast {
+		return "CometStrike"
 	}
 	return fmt.Sprintf("Unknown(0x%02X)", eventType)
 }
@@ -210,8 +213,19 @@ func FormatEvents(block blocks.Block, index int) string {
 			if i == len(eb.CometStrikes)-1 {
 				prefix = TreeEnd
 			}
-			fields = append(fields, fmt.Sprintf("  %s Planet #%d (subtype=0x%02X)",
-				prefix, ev.PlanetID+1, ev.Subtype))
+			ownerStr := "unowned"
+			if ev.IsOwnedPlanet() {
+				ownerStr = fmt.Sprintf("owned, %d%% deaths", ev.DeathPercent())
+			}
+			habChanges := ev.ChangedHabNames()
+			habStr := "none"
+			if len(habChanges) > 0 {
+				habStr = fmt.Sprintf("%v", habChanges)
+			}
+			fields = append(fields, fmt.Sprintf("  %s Planet #%d: %s comet (%s)",
+				prefix, ev.PlanetID+1, ev.CometSizeName(), ownerStr))
+			fields = append(fields, fmt.Sprintf("       Hab changes: %s (mask=0x%02X)",
+				habStr, ev.HabChangeMask))
 		}
 	}
 

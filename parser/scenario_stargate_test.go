@@ -14,12 +14,12 @@ import (
 
 // Expected data structures for stargate scenario
 type ExpectedStargateOrder struct {
-	FleetNumber    int  `json:"fleetNumber"`
-	WaypointNumber int  `json:"waypointNumber"`
-	DestinationX   int  `json:"destinationX"`
-	DestinationY   int  `json:"destinationY"`
-	TargetPlanet   int  `json:"targetPlanet"`
-	UsesStargate   bool `json:"usesStargate"`
+	FleetNumber   int  `json:"fleetNumber"`
+	WaypointIndex int  `json:"waypointNumber"`
+	DestinationX  int  `json:"destinationX"`
+	DestinationY  int  `json:"destinationY"`
+	TargetPlanet  int  `json:"targetPlanet"`
+	UsesStargate  bool `json:"usesStargate"`
 }
 
 type ExpectedStargateData struct {
@@ -74,7 +74,7 @@ func TestScenarioStargate_WaypointAddBlock(t *testing.T) {
 		t.Run("StargateOrder", func(t *testing.T) {
 			// Validate fleet
 			assert.Equal(t, exp.FleetNumber, order.FleetNumber, "Fleet number should match")
-			assert.Equal(t, exp.WaypointNumber, order.WaypointNumber, "Waypoint number should match")
+			assert.Equal(t, exp.WaypointIndex, order.WaypointIndex, "Waypoint index should match")
 
 			// Validate destination
 			assert.Equal(t, exp.DestinationX, order.X, "Destination X should match")

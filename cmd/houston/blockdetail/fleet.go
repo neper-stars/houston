@@ -197,9 +197,14 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 			fmt.Sprintf("0x%02X", d[idx+1]),
 			fmt.Sprintf("(%d - 127) = %d", d[idx+1], fb.DeltaY)))
 
-		fields = append(fields, FormatFieldRaw(idx+2, idx+2, "Warp + Unknown",
+		fields = append(fields, FormatFieldRaw(idx+2, idx+2, "Warp + Flags",
 			fmt.Sprintf("0x%02X", d[idx+2]),
-			fmt.Sprintf("warp=(d&0x0F)=%d, unknown=(d&0xF0)=0x%02X", fb.Warp, fb.UnknownBitsWithWarp)))
+			fmt.Sprintf("0b%08b", d[idx+2])))
+		fields = append(fields, fmt.Sprintf("           %s bits0-3: iwarpFlt (warp speed) = %d", TreeBranch, fb.Warp))
+		fields = append(fields, fmt.Sprintf("           %s bit4: fdirValid (direction valid) = %v", TreeBranch, fb.DirectionValid))
+		fields = append(fields, fmt.Sprintf("           %s bit5: fCompChg (composition changed) = %v", TreeBranch, fb.CompositionChanged))
+		fields = append(fields, fmt.Sprintf("           %s bit6: fTargeted (targeted by fleet) = %v", TreeBranch, fb.Targeted))
+		fields = append(fields, fmt.Sprintf("           %s bit7: fSkipped (skipped this turn) = %v", TreeEnd, fb.Skipped))
 
 		fields = append(fields, FormatFieldRaw(idx+3, idx+3, "Padding",
 			fmt.Sprintf("0x%02X", d[idx+3]),

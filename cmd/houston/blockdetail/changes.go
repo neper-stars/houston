@@ -83,47 +83,55 @@ func FormatPlanetChange(block blocks.Block, index int) string {
 
 	var fields []string
 
-	if len(d) < 4 {
+	if len(d) < 6 {
 		fields = append(fields, "(block too short)")
 		fieldsSection := FormatFieldsSection(fields, width)
 		return BuildOutput(header, hexSection, fieldsSection)
 	}
 
-	// Bytes 0-1: Planet ID (11 bits)
+	// Bytes 0-1: Planet ID (uint16 LE)
 	planetWord := encoding.Read16(d, 0)
 	fields = append(fields, FormatFieldRaw(0x00, 0x01, "PlanetId",
 		fmt.Sprintf("0x%02X%02X", d[1], d[0]),
-		fmt.Sprintf("uint16 LE = 0x%04X", planetWord)))
-	fields = append(fields, fmt.Sprintf("           %s bits 0-10: Planet = %d -> Planet #%d",
-		TreeEnd, pcb.PlanetId, pcb.PlanetId+1))
+		fmt.Sprintf("uint16 LE = %d -> Planet #%d", planetWord, pcb.PlanetId+1)))
 
-	// Byte 2: Flags
-	fields = append(fields, FormatFieldRaw(0x02, 0x02, "Flags",
-		fmt.Sprintf("0x%02X", d[2]),
-		fmt.Sprintf("0b%08b", d[2])))
-	fields = append(fields, fmt.Sprintf("           %s bit7 (0x80): ContributeOnlyLeftover = %v",
-		TreeEnd, pcb.ContributeOnlyLeftover))
-
-	// Byte 3: Additional settings
-	fields = append(fields, FormatFieldRaw(0x03, 0x03, "Settings",
-		fmt.Sprintf("0x%02X", d[3]),
-		"TBD"))
-
-	// Bytes 4-5: Route destination (if present)
-	if len(d) >= 6 {
-		fields = append(fields, FormatFieldRaw(0x04, 0x05, "RouteDest",
-			fmt.Sprintf("0x%02X%02X", d[5], d[4]),
-			fmt.Sprintf("uint16 LE = %d -> Planet #%d (if routing)", pcb.RouteDestinationPlanetId, pcb.RouteDestinationPlanetId+1)))
+	// Bytes 2-3: Packed settings (uint16 LE)
+	settingsWord := encoding.Read16(d, 2)
+	fields = append(fields, FormatFieldRaw(0x02, 0x03, "Settings",
+		fmt.Sprintf("0x%02X%02X", d[3], d[2]),
+		fmt.Sprintf("uint16 LE = 0x%04X (0b%016b)", settingsWord, settingsWord)))
+	contributeStr := "NO"
+	if pcb.ContributeLeftover {
+		contributeStr = "YES"
 	}
+	fields = append(fields, fmt.Sprintf("           %s bit 0:      fNoResearch = %s (contribute leftover to research)",
+		TreeBranch, contributeStr))
+	fields = append(fields, fmt.Sprintf("           %s bits 1-10:  pctDp = %d (driver/packet %%)",
+		TreeBranch, pcb.DriverPacketPercent))
+	fields = append(fields, fmt.Sprintf("           %s bits 11-14: iWarpFling = %d (packet warp speed)",
+		TreeEnd, pcb.PacketWarpSpeed))
+
+	// Bytes 4-5: Route destination (uint16 LE, left-shifted by 1)
+	routeWord := encoding.Read16(d, 4)
+	routeDesc := "no route"
+	if pcb.RouteDestinationId > 0 {
+		routeDesc = fmt.Sprintf("-> Planet #%d", pcb.RouteDestinationId+1)
+	}
+	fields = append(fields, FormatFieldRaw(0x04, 0x05, "RouteDest",
+		fmt.Sprintf("0x%02X%02X", d[5], d[4]),
+		fmt.Sprintf("uint16 LE = %d (raw), >> 1 = %d (%s)", routeWord, pcb.RouteDestinationId, routeDesc)))
 
 	// Summary
 	fields = append(fields, "")
 	fields = append(fields, "── Summary ──")
 	fields = append(fields, fmt.Sprintf("  Planet #%d settings change:", pcb.PlanetId+1))
-	if pcb.ContributeOnlyLeftover {
-		fields = append(fields, fmt.Sprintf("  %s Contribute only leftover to research: YES", TreeEnd))
+	fields = append(fields, fmt.Sprintf("    %s Contribute leftover to research: %s", TreeBranch, contributeStr))
+	fields = append(fields, fmt.Sprintf("    %s Driver/Packet %%: %d%%", TreeBranch, pcb.DriverPacketPercent))
+	fields = append(fields, fmt.Sprintf("    %s Packet Warp Speed: %d", TreeBranch, pcb.PacketWarpSpeed))
+	if pcb.RouteDestinationId > 0 {
+		fields = append(fields, fmt.Sprintf("    %s Route Destination: Planet #%d", TreeEnd, pcb.RouteDestinationId+1))
 	} else {
-		fields = append(fields, fmt.Sprintf("  %s Contribute only leftover to research: NO", TreeEnd))
+		fields = append(fields, fmt.Sprintf("    %s Route Destination: None", TreeEnd))
 	}
 
 	fieldsSection := FormatFieldsSection(fields, width)

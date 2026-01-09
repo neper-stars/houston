@@ -13,7 +13,7 @@ import (
 )
 
 type patrolWaypointExpected struct {
-	WaypointNumber  int    `json:"waypointNumber"`
+	WaypointIndex   int    `json:"waypointNumber"`
 	X               int    `json:"x"`
 	Y               int    `json:"y"`
 	PatrolRange     int    `json:"patrolRange"`
@@ -27,6 +27,7 @@ type waypointPatrolRepeatExpected struct {
 	RepeatOrders struct {
 		FleetNumber        int    `json:"fleetNumber"`
 		FleetName          string `json:"fleetName"`
+		EnableRepeat       bool   `json:"enableRepeat"`
 		RepeatFromWaypoint int    `json:"repeatFromWaypoint"`
 	} `json:"repeatOrders"`
 	PatrolWaypoints []patrolWaypointExpected `json:"patrolWaypoints"`
@@ -63,6 +64,8 @@ func TestScenarioWaypointPatrolRepeat(t *testing.T) {
 		wrob := repeatBlocks[0]
 		assert.Equal(t, expected.RepeatOrders.FleetNumber, wrob.FleetNumber,
 			"fleet number should be %d (%s)", expected.RepeatOrders.FleetNumber, expected.RepeatOrders.FleetName)
+		assert.Equal(t, expected.RepeatOrders.EnableRepeat, wrob.EnableRepeat,
+			"enable repeat should be %v", expected.RepeatOrders.EnableRepeat)
 		assert.Equal(t, expected.RepeatOrders.RepeatFromWaypoint, wrob.RepeatFromWaypoint,
 			"repeat from waypoint should be %d", expected.RepeatOrders.RepeatFromWaypoint)
 	})
@@ -85,8 +88,8 @@ func TestScenarioWaypointPatrolRepeat(t *testing.T) {
 		for i, exp := range expected.PatrolWaypoints {
 			wctb := patrolBlocks[i]
 			t.Run(exp.PatrolRangeName, func(t *testing.T) {
-				assert.Equal(t, exp.WaypointNumber, wctb.WaypointNumber,
-					"waypoint number should be %d", exp.WaypointNumber)
+				assert.Equal(t, exp.WaypointIndex, wctb.WaypointIndex,
+					"waypoint index should be %d", exp.WaypointIndex)
 				assert.Equal(t, exp.X, wctb.X, "X should be %d", exp.X)
 				assert.Equal(t, exp.Y, wctb.Y, "Y should be %d", exp.Y)
 				assert.Equal(t, exp.PatrolRange, wctb.PatrolRange,

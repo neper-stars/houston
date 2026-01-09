@@ -36,6 +36,12 @@ type FleetEntity struct {
 	Warp   int
 	Mass   int64
 
+	// Warp byte upper bits - movement/status flags from dirLong union
+	DirectionValid     bool // Fleet has a valid destination
+	CompositionChanged bool // Fleet merged/split this turn
+	Targeted           bool // Fleet is targeted by another fleet
+	Skipped            bool // Fleet was skipped this turn
+
 	// Full fleet data
 	DamagedShipTypes uint16
 	DamagedShipInfo  [16]uint16
@@ -251,20 +257,24 @@ func newFleetEntityFromBlock(fb *blocks.PartialFleetBlock, source *FileSource) *
 		boranium:         fb.Boranium,
 		germanium:        fb.Germanium,
 		// Population in Stars! files is stored in 100s of colonists
-		population:       fb.Population * 100,
-		fuel:             fb.Fuel,
-		DeltaX:           fb.DeltaX,
-		DeltaY:           fb.DeltaY,
-		Warp:             fb.Warp,
-		Mass:             fb.Mass,
-		DamagedShipTypes: fb.DamagedShipTypes,
-		DamagedShipInfo:  fb.DamagedShipInfo,
-		BattlePlan:       fb.BattlePlan,
-		WaypointCount:    fb.WaypointCount,
-		Include:          fb.Include,
-		RepeatOrders:     fb.RepeatOrders,
-		IsDead:           fb.IsDead,
-		fleetBlock:       fb,
+		population:         fb.Population * 100,
+		fuel:               fb.Fuel,
+		DeltaX:             fb.DeltaX,
+		DeltaY:             fb.DeltaY,
+		Warp:               fb.Warp,
+		Mass:               fb.Mass,
+		DirectionValid:     fb.DirectionValid,
+		CompositionChanged: fb.CompositionChanged,
+		Targeted:           fb.Targeted,
+		Skipped:            fb.Skipped,
+		DamagedShipTypes:   fb.DamagedShipTypes,
+		DamagedShipInfo:    fb.DamagedShipInfo,
+		BattlePlan:         fb.BattlePlan,
+		WaypointCount:      fb.WaypointCount,
+		Include:            fb.Include,
+		RepeatOrders:       fb.RepeatOrders,
+		IsDead:             fb.IsDead,
+		fleetBlock:         fb,
 	}
 	entity.meta.AddSource(source)
 	return entity

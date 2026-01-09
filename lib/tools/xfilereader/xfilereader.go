@@ -165,7 +165,7 @@ func extractOrder(block blocks.Block) *Order {
 	case blocks.WaypointChangeTaskBlock:
 		return &Order{
 			Type:        "WaypointChangeTask",
-			Description: fmt.Sprintf("Fleet %d: change task at waypoint %d", b.FleetNumber, b.WaypointNumber),
+			Description: fmt.Sprintf("Fleet %d: change task at waypoint %d", b.FleetNumber, b.WaypointIndex),
 			Block:       block,
 		}
 

@@ -55,11 +55,17 @@ type PartialFleetBlock struct {
 	Fuel       int64
 
 	// Partial fleet movement data (if kindByte != FleetKindFull)
-	DeltaX              int
-	DeltaY              int
-	Warp                int // 0-15
-	UnknownBitsWithWarp int // Upper 4 bits of warp byte
-	Mass                int64
+	// See reversing_notes/fleet-block.md for warp byte breakdown
+	DeltaX int
+	DeltaY int
+	Warp   int // 0-15 (bits 0-3 of warp byte)
+	Mass   int64
+
+	// Warp byte upper bits (bits 4-7) - movement/status flags from dirLong union
+	DirectionValid     bool // Bit 4 (0x10): fdirValid - Direction is valid (fleet has a destination)
+	CompositionChanged bool // Bit 5 (0x20): fCompChg - Composition changed (fleet merged/split)
+	Targeted           bool // Bit 6 (0x40): fTargeted - Fleet is targeted by another fleet
+	Skipped            bool // Bit 7 (0x80): fSkipped - Fleet was skipped this turn
 
 	// Full fleet data (if kindByte == FleetKindFull)
 	DamagedShipTypes uint16     // 16-bit bitmask
@@ -215,8 +221,13 @@ func (fb *PartialFleetBlock) decode() {
 		// We convert to actual delta by subtracting 127
 		fb.DeltaX = int(data[index]) - 127
 		fb.DeltaY = int(data[index+1]) - 127
-		fb.Warp = int(data[index+2] & 0x0F)
-		fb.UnknownBitsWithWarp = int(data[index+2] & 0xF0)
+		warpByte := data[index+2]
+		fb.Warp = int(warpByte & 0x0F)
+		// Extract upper bits as movement/status flags (see reversing_notes/fleet-block.md)
+		fb.DirectionValid = (warpByte & 0x10) != 0     // Bit 4: fdirValid
+		fb.CompositionChanged = (warpByte & 0x20) != 0 // Bit 5: fCompChg
+		fb.Targeted = (warpByte & 0x40) != 0           // Bit 6: fTargeted
+		fb.Skipped = (warpByte & 0x80) != 0            // Bit 7: fSkipped
 		// index+3 is padding (should be 0)
 		fb.Mass = int64(encoding.Read32(data, index+4))
 	}
@@ -628,7 +639,21 @@ func (fb *PartialFleetBlock) Encode() []byte {
 		index++
 		data[index] = byte(int8(fb.DeltaY))
 		index++
-		data[index] = byte(fb.Warp&0x0F) | byte(fb.UnknownBitsWithWarp&0xF0)
+		// Reconstruct warp byte from warp speed and movement/status flags
+		warpByte := byte(fb.Warp & 0x0F)
+		if fb.DirectionValid {
+			warpByte |= 0x10 // Bit 4: fdirValid
+		}
+		if fb.CompositionChanged {
+			warpByte |= 0x20 // Bit 5: fCompChg
+		}
+		if fb.Targeted {
+			warpByte |= 0x40 // Bit 6: fTargeted
+		}
+		if fb.Skipped {
+			warpByte |= 0x80 // Bit 7: fSkipped
+		}
+		data[index] = warpByte
 		index++
 		data[index] = 0 // Padding
 		index++

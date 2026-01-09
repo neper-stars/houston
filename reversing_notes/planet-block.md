@@ -139,3 +139,45 @@ If `fRouting` is set (Type 13 only):
 ## Turn Number
 
 Last 2 bytes (if present): Turn number when planet was last seen
+
+
+# Block Type 35: PlanetChangeBlock Analysis
+
+  File Layout (6 bytes):
+  ┌────────┬──────┬───────────┬─────────────────────────────┐
+  │ Offset │ Size │   Field   │         Description         │
+  ├────────┼──────┼───────────┼─────────────────────────────┤
+  │ 0x00   │ 2    │ uint16 LE │ Planet ID                   │
+  ├────────┼──────┼───────────┼─────────────────────────────┤
+  │ 0x02   │ 2    │ uint16 LE │ Packed settings (see below) │
+  ├────────┼──────┼───────────┼─────────────────────────────┤
+  │ 0x04   │ 2    │ uint16 LE │ Route destination (shifted) │
+  └────────┴──────┴───────────┴─────────────────────────────┘
+  Byte 2-3 Packed Settings Breakdown:
+  ┌────────────┬─────────────┬──────────────────┬────────────────────────────────────────────────────────┐
+  │    Bits    │    Field    │  Planet Offset   │                      Description                       │
+  ├────────────┼─────────────┼──────────────────┼────────────────────────────────────────────────────────┤
+  │ Bit 0      │ fNoResearch │ +0x1a bit 7      │ Contribute leftover resources to research (1=yes)      │
+  ├────────────┼─────────────┼──────────────────┼────────────────────────────────────────────────────────┤
+  │ Bits 1-10  │ pctDp       │ +0x2e bits 0-9   │ Driver/packet percentage (10 bits of the 12-bit field) │
+  ├────────────┼─────────────┼──────────────────┼────────────────────────────────────────────────────────┤
+  │ Bits 11-14 │ iWarpFling  │ +0x2e bits 10-13 │ Packet fling warp speed (0-15)                         │
+  ├────────────┼─────────────┼──────────────────┼────────────────────────────────────────────────────────┤
+  │ Bit 15     │ (unused)    │ -                │ -                                                      │
+  └────────────┴─────────────┴──────────────────┴────────────────────────────────────────────────────────┘
+  Bytes 4-5 (Route Destination):
+  - Contains idRoute value (10-bit planet ID) left-shifted by 1
+  - Stored at PLANET+0x30 bits 0-9 after the shift
+  - 0 = no route, otherwise target planet ID
+
+  Related PLANET Structure Fields:
+
+  // At offset +0x14-0x1B (rgbImp union):
+  uint32_t fNoResearch : 1;   // bit 55 - "Contribute only leftover resources to research"
+
+  // At offset +0x2C (lStarbase union):
+  uint16_t pctDp : 12;        // Driver/packet percentage
+  uint16_t iWarpFling : 4;    // Packet warp speed
+
+  // At offset +0x30 (wRouting union):
+  uint16_t idRoute : 10;      // Route destination planet ID

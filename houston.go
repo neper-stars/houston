@@ -82,6 +82,7 @@ type (
 	SaveAndSubmitBlock              = blocks.SaveAndSubmitBlock
 	FileHashBlock                   = blocks.FileHashBlock
 	WaypointRepeatOrdersBlock       = blocks.WaypointRepeatOrdersBlock
+	WaypointTaskTypeChangeBlock     = blocks.WaypointTaskTypeChangeBlock
 	EventsBlock                     = blocks.EventsBlock
 	MessagesFilterBlock             = blocks.MessagesFilterBlock
 	AiHFileRecordBlock              = blocks.AiHFileRecordBlock
@@ -106,7 +107,7 @@ const (
 	FileHeaderBlockType                 = blocks.FileHeaderBlockType
 	FileHashBlockType                   = blocks.FileHashBlockType
 	WaypointRepeatOrdersBlockType       = blocks.WaypointRepeatOrdersBlockType
-	UnknownBlock11BlockType             = blocks.UnknownBlock11BlockType
+	WaypointTaskTypeChangeBlockType     = blocks.WaypointTaskTypeChangeBlockType
 	EventsBlockType                     = blocks.EventsBlockType
 	PlanetBlockType                     = blocks.PlanetBlockType
 	PartialPlanetBlockType              = blocks.PartialPlanetBlockType

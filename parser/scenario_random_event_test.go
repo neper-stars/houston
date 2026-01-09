@@ -17,9 +17,10 @@ type cometStrikeExpected struct {
 	Description string `json:"description"`
 	Year        int    `json:"year"`
 	CometStrike struct {
-		PlanetID   int    `json:"planetId"`
-		PlanetName string `json:"planetName"`
-		Subtype    int    `json:"subtype"`
+		PlanetID      int    `json:"planetId"`
+		PlanetName    string `json:"planetName"`
+		StringIndex   int    `json:"stringIndex"`
+		HabChangeMask int    `json:"habChangeMask"`
 	} `json:"cometStrike"`
 }
 
@@ -53,8 +54,10 @@ func TestScenarioCometStrike(t *testing.T) {
 	event := cometEvents[0]
 	assert.Equal(t, expected.CometStrike.PlanetID, event.PlanetID,
 		"planet ID should be %d (%s)", expected.CometStrike.PlanetID, expected.CometStrike.PlanetName)
-	assert.Equal(t, expected.CometStrike.Subtype, event.Subtype,
-		"subtype should match")
+	assert.Equal(t, expected.CometStrike.StringIndex, event.StringIndex,
+		"string index should be 0x%02X", expected.CometStrike.StringIndex)
+	assert.Equal(t, expected.CometStrike.HabChangeMask, event.HabChangeMask,
+		"hab change mask should be 0x%02X", expected.CometStrike.HabChangeMask)
 }
 
 type newColonyExpected struct {

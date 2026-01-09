@@ -175,11 +175,22 @@ func formatMinefield(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 		fmt.Sprintf("0x%02X", d[13]),
 		detonating))
 
-	// Bytes 14-15: Unknown
+	// Bytes 14-15: Current visibility bits
 	if len(d) >= 16 {
-		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "Unknown",
+		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "CurrentSeeBits",
 			fmt.Sprintf("0x%02X%02X", d[15], d[14]),
-			fmt.Sprintf("uint16 LE = 0x%04X (TBD)", ob.MineUnknown)))
+			fmt.Sprintf("bitmask = 0x%04X (grbitPlrNow)", ob.MineCurrentSeeBits)))
+
+		// Show which players can currently see
+		var currentViewers []string
+		for i := 0; i < 16; i++ {
+			if (ob.MineCurrentSeeBits & (1 << i)) != 0 {
+				currentViewers = append(currentViewers, fmt.Sprintf("P%d", i+1))
+			}
+		}
+		if len(currentViewers) > 0 {
+			*fields = append(*fields, fmt.Sprintf("           %s Currently visible to: %v", TreeEnd, currentViewers))
+		}
 	}
 
 	// Bytes 16-17: Turn number
@@ -219,7 +230,11 @@ func formatPacket(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 		// Byte 7: Source fleet info
 		*fields = append(*fields, FormatFieldRaw(0x07, 0x07, "SourceFleet",
 			fmt.Sprintf("0x%02X", d[7]),
-			fmt.Sprintf("low nibble = Fleet #%d", ob.SourceFleetID+1)))
+			fmt.Sprintf("byte value = 0x%02X", d[7])))
+		*fields = append(*fields, fmt.Sprintf("           %s low nibble = Fleet #%d (0-indexed: %d)",
+			TreeBranch, ob.SourceFleetID+1, ob.SourceFleetID))
+		*fields = append(*fields, fmt.Sprintf("           %s high nibble = flags: 0x%X",
+			TreeEnd, ob.SalvageSourceFlags))
 	} else {
 		*fields = append(*fields, "── Mineral Packet Data ──")
 
@@ -250,11 +265,16 @@ func formatPacket(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 		fmt.Sprintf("0x%02X%02X", d[13], d[12]),
 		fmt.Sprintf("uint16 LE = %d kT", ob.Germanium)))
 
-	// Bytes 14-15: Unknown
+	// Bytes 14-15: wtMax|iDecayRate
 	if len(d) >= 16 {
-		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "Unknown",
+		wtMaxDecay := encoding.Read16(d, 14)
+		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "wtMax|iDecay",
 			fmt.Sprintf("0x%02X%02X", d[15], d[14]),
-			fmt.Sprintf("uint16 LE = 0x%04X (TBD)", ob.PacketUnknown)))
+			fmt.Sprintf("uint16 LE = 0x%04X", wtMaxDecay)))
+		*fields = append(*fields, fmt.Sprintf("           %s bits 0-13: MaxWeight = %d kT",
+			TreeBranch, ob.PacketMaxWeight))
+		*fields = append(*fields, fmt.Sprintf("           %s bits 14-15: DecayRate = %d",
+			TreeEnd, ob.PacketDecayRate))
 	}
 
 	// Bytes 16-17: Turn number
@@ -287,36 +307,24 @@ func formatWormhole(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 	*fields = append(*fields, "")
 	*fields = append(*fields, "── Wormhole Data ──")
 
-	// Byte 6: Stability
-	*fields = append(*fields, FormatFieldRaw(0x06, 0x06, "Stability",
-		fmt.Sprintf("0x%02X", d[6]),
-		fmt.Sprintf("%d = %s", ob.Stability, ob.StabilityName())))
+	// Bytes 6-7: Stability/movement word
+	stabilityWord := encoding.Read16(d, 6)
+	*fields = append(*fields, FormatFieldRaw(0x06, 0x07, "StabilityWord",
+		fmt.Sprintf("0x%02X%02X", d[7], d[6]),
+		fmt.Sprintf("uint16 LE = 0x%04X", stabilityWord)))
+	*fields = append(*fields, fmt.Sprintf("           %s bits 0-1: StabilityIndex = %d (%s)",
+		TreeBranch, ob.StabilityIndex, ob.StabilityName()))
+	*fields = append(*fields, fmt.Sprintf("           %s bits 2-11: TurnsSinceMove = %d",
+		TreeBranch, ob.TurnsSinceMove))
+	*fields = append(*fields, fmt.Sprintf("           %s bit 12: DestKnown = %t",
+		TreeBranch, ob.DestKnown))
+	*fields = append(*fields, fmt.Sprintf("           %s bit 13: IncludeInDisplay = %t",
+		TreeEnd, ob.IncludeInDisplay))
 
-	// Byte 7: Unknown
-	*fields = append(*fields, FormatFieldRaw(0x07, 0x07, "Unknown",
-		fmt.Sprintf("0x%02X", d[7]),
-		"TBD"))
-
-	// Bytes 8-9: Been through bits
-	*fields = append(*fields, FormatFieldRaw(0x08, 0x09, "BeenThroughBits",
+	// Bytes 8-9: Can see bits (grbitPlr)
+	*fields = append(*fields, FormatFieldRaw(0x08, 0x09, "CanSeeBits",
 		fmt.Sprintf("0x%02X%02X", d[9], d[8]),
-		fmt.Sprintf("bitmask = 0x%04X", ob.BeenThroughBits)))
-
-	// Show who has been through
-	var beenThrough []string
-	for i := 0; i < 16; i++ {
-		if ob.PlayerBeenThrough(i) {
-			beenThrough = append(beenThrough, fmt.Sprintf("P%d", i+1))
-		}
-	}
-	if len(beenThrough) > 0 {
-		*fields = append(*fields, fmt.Sprintf("           %s Been through: %v", TreeEnd, beenThrough))
-	}
-
-	// Bytes 10-11: Can see bits
-	*fields = append(*fields, FormatFieldRaw(0x0A, 0x0B, "CanSeeBits",
-		fmt.Sprintf("0x%02X%02X", d[11], d[10]),
-		fmt.Sprintf("bitmask = 0x%04X", ob.CanSeeBits)))
+		fmt.Sprintf("bitmask = 0x%04X (grbitPlr)", ob.CanSeeBits)))
 
 	// Show who can see
 	var canSee []string
@@ -329,16 +337,32 @@ func formatWormhole(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 		*fields = append(*fields, fmt.Sprintf("           %s Visible to: %v", TreeEnd, canSee))
 	}
 
-	// Bytes 12-13: Target wormhole ID
+	// Bytes 10-11: Been through bits (grbitPlrTrav)
+	*fields = append(*fields, FormatFieldRaw(0x0A, 0x0B, "BeenThroughBits",
+		fmt.Sprintf("0x%02X%02X", d[11], d[10]),
+		fmt.Sprintf("bitmask = 0x%04X (grbitPlrTrav)", ob.BeenThroughBits)))
+
+	// Show who has been through
+	var beenThrough []string
+	for i := 0; i < 16; i++ {
+		if ob.PlayerBeenThrough(i) {
+			beenThrough = append(beenThrough, fmt.Sprintf("P%d", i+1))
+		}
+	}
+	if len(beenThrough) > 0 {
+		*fields = append(*fields, fmt.Sprintf("           %s Been through: %v", TreeEnd, beenThrough))
+	}
+
+	// Bytes 12-13: Target wormhole ID (idPartner)
 	*fields = append(*fields, FormatFieldRaw(0x0C, 0x0D, "TargetId",
 		fmt.Sprintf("0x%02X%02X", d[13], d[12]),
-		fmt.Sprintf("(word & 0x0FFF) = Wormhole #%d", ob.TargetId)))
+		fmt.Sprintf("uint16 LE = Wormhole #%d (idPartner)", ob.TargetId)))
 
-	// Bytes 14-15: Unknown
+	// Bytes 14-15: Padding
 	if len(d) >= 16 {
-		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "Unknown",
+		*fields = append(*fields, FormatFieldRaw(0x0E, 0x0F, "Padding",
 			fmt.Sprintf("0x%02X%02X", d[15], d[14]),
-			fmt.Sprintf("uint16 LE = 0x%04X (TBD)", ob.WormholeUnknown)))
+			fmt.Sprintf("uint16 LE = 0x%04X (unused)", ob.WormholePadding)))
 	}
 
 	// Bytes 16-17: Turn number
@@ -352,7 +376,8 @@ func formatWormhole(fields *[]string, ob blocks.ObjectBlock, d []byte) {
 	*fields = append(*fields, "")
 	*fields = append(*fields, "── Summary ──")
 	*fields = append(*fields, fmt.Sprintf("  Wormhole #%d @ (%d, %d)", ob.Number, ob.X, ob.Y))
-	*fields = append(*fields, fmt.Sprintf("  Stability: %s (%d)", ob.StabilityName(), ob.Stability))
+	*fields = append(*fields, fmt.Sprintf("  Stability: %s (index %d)", ob.StabilityName(), ob.StabilityIndex))
+	*fields = append(*fields, fmt.Sprintf("  Last moved: %d turns ago", ob.TurnsSinceMove))
 	*fields = append(*fields, fmt.Sprintf("  Target: Wormhole #%d", ob.TargetId))
 }
 

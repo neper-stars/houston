@@ -18,7 +18,7 @@ type waypointMergeExpected struct {
 	WaypointMerge struct {
 		FleetNumber       int    `json:"fleetNumber"`
 		FleetName         string `json:"fleetName"`
-		WaypointNumber    int    `json:"waypointNumber"`
+		WaypointIndex     int    `json:"waypointNumber"`
 		X                 int    `json:"x"`
 		Y                 int    `json:"y"`
 		DestinationName   string `json:"destinationName"`
@@ -66,8 +66,8 @@ func TestScenarioWaypointMerge(t *testing.T) {
 
 	assert.Equal(t, expected.WaypointMerge.FleetNumber, wctb.FleetNumber,
 		"fleet number should be %d (%s)", expected.WaypointMerge.FleetNumber, expected.WaypointMerge.FleetName)
-	assert.Equal(t, expected.WaypointMerge.WaypointNumber, wctb.WaypointNumber,
-		"waypoint number should be %d", expected.WaypointMerge.WaypointNumber)
+	assert.Equal(t, expected.WaypointMerge.WaypointIndex, wctb.WaypointIndex,
+		"waypoint index should be %d", expected.WaypointMerge.WaypointIndex)
 	assert.Equal(t, expected.WaypointMerge.X, wctb.X,
 		"X should be %d", expected.WaypointMerge.X)
 	assert.Equal(t, expected.WaypointMerge.Y, wctb.Y,

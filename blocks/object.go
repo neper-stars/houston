@@ -19,16 +19,13 @@ const (
 	MinefieldTypeSpeedBump = 2
 )
 
-// Wormhole stability thresholds (raw byte values)
-// Stability decreases as the value increases
+// Wormhole stability index values (iStable field, 2 bits)
+// Lower values = more stable
 const (
-	WormholeStabilityRockSolid         = 32 // Most stable
-	WormholeStabilityStable            = 40
-	WormholeStabilityMostlyStable      = 60
-	WormholeStabilityAverage           = 80
-	WormholeStabilitySlightlyVolatile  = 100
-	WormholeStabilityVolatile          = 120
-	WormholeStabilityExtremelyVolatile = 196 // Least stable
+	WormholeStabilityIndexRockSolid    = 0 // Most stable
+	WormholeStabilityIndexStable       = 1
+	WormholeStabilityIndexVolatile     = 2
+	WormholeStabilityIndexVeryVolatile = 3 // Least stable
 )
 
 // Mystery trader item bits
@@ -65,20 +62,23 @@ type ObjectBlock struct {
 	Y          int // Y coordinate
 
 	// Minefield-specific fields (ObjectType == 0)
-	MineCount      int64  // Number of mines
-	MineCanSeeBits uint16 // Player visibility mask (who can see this minefield)
-	MinefieldType  int    // 0=standard, 1=heavy, 2=speed bump
-	Detonating     bool   // True if detonating
-	MineUnknown    uint16 // Unknown field (bytes 14-15)
-	MineTurnNumber int    // Turn number when minefield was last updated
+	MineCount          int64  // Number of mines
+	MineCanSeeBits     uint16 // Player visibility mask (historical, who has ever detected)
+	MinefieldType      int    // 0=standard, 1=heavy, 2=speed bump
+	Detonating         bool   // True if detonating
+	MineCurrentSeeBits uint16 // Current turn visibility bitmask (grbitPlrNow)
+	MineTurnNumber     int    // Turn number when minefield was last updated
 
 	// Wormhole-specific fields (ObjectType == 2)
 	WormholeId         int    // Wormhole ID
 	TargetId           int    // Target wormhole ID
-	BeenThroughBits    uint16 // Player mask: who has been through
-	CanSeeBits         uint16 // Player mask: who can see it
-	Stability          int    // Wormhole stability (raw byte value)
-	WormholeUnknown    uint16 // Unknown field (bytes 14-15)
+	CanSeeBits         uint16 // Player mask: who can see it (bytes 8-9)
+	BeenThroughBits    uint16 // Player mask: who has been through (bytes 10-11)
+	StabilityIndex     int    // Wormhole stability index (0-3, bits 0-1 of stability word)
+	TurnsSinceMove     int    // Turns since last movement (0-1023, bits 2-11)
+	DestKnown          bool   // Destination known to players (bit 12)
+	IncludeInDisplay   bool   // Include in display flag (bit 13)
+	WormholePadding    uint16 // Padding bytes 14-15 (unused, preserved for round-trip)
 	WormholeTurnNumber int    // Turn number when wormhole was last updated
 
 	// Mystery trader-specific fields (ObjectType == 3)
@@ -90,18 +90,20 @@ type ObjectBlock struct {
 	TurnNo   int    // Turn number
 
 	// Mineral packet-specific fields (ObjectType == 1, not salvage)
-	DestinationPlanetID int    // Target planet for the packet
-	Ironium             int    // Ironium amount in kT
-	Boranium            int    // Boranium amount in kT
-	Germanium           int    // Germanium amount in kT
-	PacketSpeed         int    // Raw speed byte value
-	PacketUnknown       uint16 // Unknown field (bytes 14-15)
-	PacketTurnNumber    int    // Turn number when packet was created/updated
+	DestinationPlanetID int // Target planet for the packet
+	Ironium             int // Ironium amount in kT
+	Boranium            int // Boranium amount in kT
+	Germanium           int // Germanium amount in kT
+	PacketSpeed         int // Raw speed byte value
+	PacketMaxWeight     int // Maximum weight/capacity in kT (bits 0-13 of bytes 14-15)
+	PacketDecayRate     int // Decay rate index 0-3 (bits 14-15 of bytes 14-15)
+	PacketTurnNumber    int // Turn number when packet was created/updated
 
 	// Salvage-specific fields (ObjectType == 1, salvage variant)
 	// Salvage is distinguished from packets by byte 6 == 0xFF
-	IsSalvageObject bool // True if this is salvage (not a packet)
-	SourceFleetID   int  // Source fleet ID (0-indexed, display is +1)
+	IsSalvageObject    bool // True if this is salvage (not a packet)
+	SourceFleetID      int  // Source fleet ID (low nibble of byte 7, 0-indexed)
+	SalvageSourceFlags int  // Source flags (high nibble of byte 7)
 }
 
 // NewObjectBlock creates an ObjectBlock from a GenericBlock
@@ -165,7 +167,8 @@ func (ob *ObjectBlock) decodeMinefield(data []byte) {
 	ob.Detonating = data[13] == 1
 
 	if len(data) >= 16 {
-		ob.MineUnknown = encoding.Read16(data, 14)
+		// Bytes 14-15: Current turn visibility bitmask (grbitPlrNow)
+		ob.MineCurrentSeeBits = encoding.Read16(data, 14)
 	}
 	if len(data) >= 18 {
 		ob.MineTurnNumber = int(encoding.Read16(data, 16))
@@ -191,7 +194,7 @@ func (ob *ObjectBlock) decodePacket(data []byte) {
 	// Bytes 8-9: Ironium in kT
 	// Bytes 10-11: Boranium in kT
 	// Bytes 12-13: Germanium in kT
-	// Bytes 14-15: Unknown
+	// Bytes 14-15: wtMax|iDecayRate (bits 0-13 = max weight, bits 14-15 = decay rate)
 	// Bytes 16-17: Turn number
 
 	// Common minerals
@@ -204,15 +207,18 @@ func (ob *ObjectBlock) decodePacket(data []byte) {
 		ob.IsSalvageObject = true
 		// Byte 7: Low nibble = source fleet ID, high nibble = flags
 		ob.SourceFleetID = int(data[7] & 0x0F)
+		ob.SalvageSourceFlags = int((data[7] >> 4) & 0x0F)
 	} else {
 		// Mineral packet
 		ob.DestinationPlanetID = int(data[6])
 		ob.PacketSpeed = int(data[7])
 	}
 
-	// Additional fields
+	// Bytes 14-15: wtMax|iDecayRate
 	if len(data) >= 16 {
-		ob.PacketUnknown = encoding.Read16(data, 14)
+		wtMaxDecay := encoding.Read16(data, 14)
+		ob.PacketMaxWeight = int(wtMaxDecay & 0x3FFF)       // Bits 0-13: max weight (14 bits)
+		ob.PacketDecayRate = int((wtMaxDecay >> 14) & 0x03) // Bits 14-15: decay rate (2 bits)
 	}
 	if len(data) >= 18 {
 		ob.PacketTurnNumber = int(encoding.Read16(data, 16))
@@ -225,14 +231,29 @@ func (ob *ObjectBlock) decodeWormhole(data []byte) {
 	}
 
 	ob.WormholeId = int(encoding.Read16(data, 0) & 0x0FFF) // Lower 12 bits
-	ob.Stability = int(data[6])                            // Stability byte
-	// Byte 7: unknown
-	ob.BeenThroughBits = encoding.Read16(data, 8)
-	ob.CanSeeBits = encoding.Read16(data, 10)
-	ob.TargetId = int(encoding.Read16(data, 12) & 0x0FFF) // Lower 12 bits
+
+	// Bytes 6-7: Stability/movement word (THWORM structure)
+	// Bits 0-1: iStable (stability index, 0-3)
+	// Bits 2-11: cLastMove (turns since last movement, 0-1023)
+	// Bit 12: fDestKnown (destination known to players)
+	// Bit 13: fInclude (include in display flag)
+	// Bits 14-15: unused
+	stabilityWord := encoding.Read16(data, 6)
+	ob.StabilityIndex = int(stabilityWord & 0x03)          // Bits 0-1
+	ob.TurnsSinceMove = int((stabilityWord >> 2) & 0x03FF) // Bits 2-11 (10 bits)
+	ob.DestKnown = (stabilityWord & (1 << 12)) != 0        // Bit 12
+	ob.IncludeInDisplay = (stabilityWord & (1 << 13)) != 0 // Bit 13
+
+	// Bytes 8-9: grbitPlr (visibility mask)
+	ob.CanSeeBits = encoding.Read16(data, 8)
+	// Bytes 10-11: grbitPlrTrav (traversal mask)
+	ob.BeenThroughBits = encoding.Read16(data, 10)
+	// Bytes 12-13: idPartner (target wormhole ID, lower 12 bits)
+	ob.TargetId = int(encoding.Read16(data, 12) & 0x0FFF)
 
 	if len(data) >= 16 {
-		ob.WormholeUnknown = encoding.Read16(data, 14)
+		// Bytes 14-15: Padding (THWORM is 8 bytes, but THING union is 10 bytes)
+		ob.WormholePadding = encoding.Read16(data, 14)
 	}
 	if len(data) >= 18 {
 		ob.WormholeTurnNumber = int(encoding.Read16(data, 16))
@@ -297,7 +318,7 @@ func (ob *ObjectBlock) encodeMinefield() []byte {
 	} else {
 		data[13] = 0
 	}
-	encoding.Write16(data, 14, ob.MineUnknown)
+	encoding.Write16(data, 14, ob.MineCurrentSeeBits)
 	encoding.Write16(data, 16, uint16(ob.MineTurnNumber))
 	return data
 }
@@ -311,7 +332,7 @@ func (ob *ObjectBlock) encodePacket() []byte {
 
 	if ob.IsSalvageObject {
 		data[6] = 0xFF
-		data[7] = byte(ob.SourceFleetID & 0x0F)
+		data[7] = byte(ob.SourceFleetID&0x0F) | byte((ob.SalvageSourceFlags&0x0F)<<4)
 	} else {
 		data[6] = byte(ob.DestinationPlanetID)
 		data[7] = byte(ob.PacketSpeed)
@@ -320,7 +341,9 @@ func (ob *ObjectBlock) encodePacket() []byte {
 	encoding.Write16(data, 8, uint16(ob.Ironium))
 	encoding.Write16(data, 10, uint16(ob.Boranium))
 	encoding.Write16(data, 12, uint16(ob.Germanium))
-	encoding.Write16(data, 14, ob.PacketUnknown)
+	// Bytes 14-15: wtMax|iDecayRate
+	wtMaxDecay := uint16(ob.PacketMaxWeight&0x3FFF) | uint16((ob.PacketDecayRate&0x03)<<14)
+	encoding.Write16(data, 14, wtMaxDecay)
 	encoding.Write16(data, 16, uint16(ob.PacketTurnNumber))
 	return data
 }
@@ -331,12 +354,20 @@ func (ob *ObjectBlock) encodeWormhole() []byte {
 	encoding.Write16(data, 0, objectId)
 	encoding.Write16(data, 2, uint16(ob.X))
 	encoding.Write16(data, 4, uint16(ob.Y))
-	data[6] = byte(ob.Stability)
-	// Byte 7: unknown (set to 0)
-	encoding.Write16(data, 8, ob.BeenThroughBits)
-	encoding.Write16(data, 10, ob.CanSeeBits)
-	encoding.Write16(data, 12, uint16(ob.TargetId&0x0FFF))
-	encoding.Write16(data, 14, ob.WormholeUnknown)
+	// Bytes 6-7: Stability/movement word
+	stabilityWord := uint16(ob.StabilityIndex&0x03) |
+		uint16((ob.TurnsSinceMove&0x03FF)<<2)
+	if ob.DestKnown {
+		stabilityWord |= (1 << 12)
+	}
+	if ob.IncludeInDisplay {
+		stabilityWord |= (1 << 13)
+	}
+	encoding.Write16(data, 6, stabilityWord)
+	encoding.Write16(data, 8, ob.CanSeeBits)
+	encoding.Write16(data, 10, ob.BeenThroughBits)
+	encoding.Write16(data, 12, uint16(ob.TargetId))
+	encoding.Write16(data, 14, ob.WormholePadding)
 	encoding.Write16(data, 16, uint16(ob.WormholeTurnNumber))
 	return data
 }
@@ -432,21 +463,18 @@ func (ob *ObjectBlock) TraderHasItem(itemBit uint16) bool {
 }
 
 // StabilityName returns the human-readable stability name for a wormhole
+// Based on the iStable index (0-3)
 func (ob *ObjectBlock) StabilityName() string {
-	switch {
-	case ob.Stability <= WormholeStabilityRockSolid:
+	switch ob.StabilityIndex {
+	case WormholeStabilityIndexRockSolid:
 		return "Rock Solid"
-	case ob.Stability <= WormholeStabilityStable:
+	case WormholeStabilityIndexStable:
 		return "Stable"
-	case ob.Stability <= WormholeStabilityMostlyStable:
-		return "Mostly Stable"
-	case ob.Stability <= WormholeStabilityAverage:
-		return "Average"
-	case ob.Stability <= WormholeStabilitySlightlyVolatile:
-		return "Slightly Volatile"
-	case ob.Stability <= WormholeStabilityVolatile:
+	case WormholeStabilityIndexVolatile:
 		return "Volatile"
+	case WormholeStabilityIndexVeryVolatile:
+		return "Very Volatile"
 	default:
-		return "Extremely Volatile"
+		return "Unknown"
 	}
 }
