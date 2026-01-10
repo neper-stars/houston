@@ -32,12 +32,6 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 |-----------|-----------|-----------------------------|
 | `Unknown` | Bytes 0-1 | Possibly flags or player ID |
 
-### SaveAndSubmitBlock (Type 46)
-
-| Field  | Location | Notes                     |
-|--------|----------|---------------------------|
-| Byte 0 | Flags    | Purpose TBD, usually 0x00 |
-
 ---
 
 ## Summary Statistics

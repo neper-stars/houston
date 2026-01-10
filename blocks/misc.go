@@ -87,19 +87,97 @@ func (psb *PlayerScoresBlock) Encode() []byte {
 }
 
 // SaveAndSubmitBlock represents save and submit action (Type 46)
-// Structure not fully documented - preserves raw data for analysis
+// This block marks a turn as submitted and carries the default zip production
+// template (ZIPPRODQ1) that gets copied to the player's data.
+//
+// Structure (variable size, up to 26 bytes):
+//
+//	Byte 0:    fNoResearch (0 or 1)
+//	           - 0: "Contribute to Research" (uses global research percentage)
+//	           - 1: "Don't contribute to Research" (only leftover resources)
+//	Byte 1:    cpq (item count, 0-12)
+//	Bytes 2+:  rgpq[12] (production items, 2 bytes each, up to 12 items)
+//
+// The ZipProd template is copied to offset 0x56 in the PLAYER structure.
+// See ZipProdQueue in player.go for item format details.
 type SaveAndSubmitBlock struct {
 	GenericBlock
+
+	// ZipProd is the default production queue template
+	ZipProd ZipProdQueue
 }
 
 // NewSaveAndSubmitBlock creates a SaveAndSubmitBlock from a GenericBlock
 func NewSaveAndSubmitBlock(b GenericBlock) *SaveAndSubmitBlock {
-	return &SaveAndSubmitBlock{GenericBlock: b}
+	ssb := &SaveAndSubmitBlock{GenericBlock: b}
+	ssb.decode()
+	return ssb
+}
+
+func (ssb *SaveAndSubmitBlock) decode() {
+	data := ssb.Decrypted
+	if len(data) < 2 {
+		return
+	}
+
+	// Preserve raw bytes for round-trip encoding
+	ssb.ZipProd.RawBytes = make([]byte, len(data))
+	copy(ssb.ZipProd.RawBytes, data)
+
+	// Byte 0: fNoResearch flag
+	ssb.ZipProd.NoResearch = data[0] != 0
+
+	// Byte 1: item count (0-12)
+	itemCount := int(data[1])
+	if itemCount > 12 {
+		itemCount = 12 // Cap at max
+	}
+
+	// Bytes 2+: production items (2 bytes each)
+	ssb.ZipProd.Items = make([]ZipProdQueueItem, 0, itemCount)
+	for i := 0; i < itemCount && 2+i*2+1 < len(data); i++ {
+		val := encoding.Read16(data, 2+i*2)
+		// Format: (Count << 6) | ItemId
+		// Low 6 bits: Item ID, High 10 bits: Count
+		ssb.ZipProd.Items = append(ssb.ZipProd.Items, ZipProdQueueItem{
+			ItemType: val & 0x3F,
+			Quantity: val >> 6,
+		})
+	}
 }
 
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (ssb *SaveAndSubmitBlock) Encode() []byte {
-	// Preserve raw data since structure is not fully documented
+	// If we have parsed items, encode from them
+	if len(ssb.ZipProd.Items) > 0 || ssb.ZipProd.NoResearch {
+		// Calculate size: 2 header bytes + 2 bytes per item
+		size := 2 + len(ssb.ZipProd.Items)*2
+		data := make([]byte, size)
+
+		// Byte 0: fNoResearch
+		if ssb.ZipProd.NoResearch {
+			data[0] = 1
+		}
+
+		// Byte 1: item count
+		data[1] = byte(len(ssb.ZipProd.Items))
+
+		// Bytes 2+: items
+		for i, item := range ssb.ZipProd.Items {
+			// Format: (Count << 6) | ItemId
+			val := (item.Quantity << 6) | (item.ItemType & 0x3F)
+			encoding.Write16(data, 2+i*2, val)
+		}
+
+		return data
+	}
+
+	// Fallback to raw bytes
+	if len(ssb.ZipProd.RawBytes) > 0 {
+		return ssb.ZipProd.RawBytes
+	}
+
+	// Preserve original raw data
 	if ssb.Decrypted != nil {
 		return ssb.Decrypted
 	}
