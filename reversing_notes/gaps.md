@@ -38,13 +38,6 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 |--------|----------|---------------------------|
 | Byte 0 | Flags    | Purpose TBD, usually 0x00 |
 
-### PlanetsBlock (Type 7)
-
-| Field                 | Location                | Notes               |
-|-----------------------|-------------------------|---------------------|
-| Bytes 0-3             | Header                  | Unknown/reserved    |
-| Victory indices 10-11 | VictoryConditions array | Reserved (always 0) |
-
 ---
 
 ## Summary Statistics
@@ -52,8 +45,8 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 | Category                   | Count |
 |----------------------------|-------|
 | Completely unknown blocks  | 3     |
-| Blocks with unknown fields | 4     |
-| Total unknown fields/bytes | ~6    |
+| Blocks with unknown fields | 3     |
+| Total unknown fields/bytes | ~4    |
 
 ---
 

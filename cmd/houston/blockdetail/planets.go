@@ -50,10 +50,10 @@ func FormatPlanets(block blocks.Block, index int) string {
 		return BuildOutput(header, hexSection, fieldsSection)
 	}
 
-	// Bytes 0-3: Unknown/reserved
-	fields = append(fields, FormatFieldRaw(0x00, 0x03, "Unknown",
+	// Bytes 0-3: Game ID (lid)
+	fields = append(fields, FormatFieldRaw(0x00, 0x03, "GameID (lid)",
 		fmt.Sprintf("0x%02X%02X%02X%02X", d[3], d[2], d[1], d[0]),
-		"TBD (reserved)"))
+		"unique game identifier"))
 
 	// Bytes 4-5: Universe size
 	fields = append(fields, FormatFieldRaw(0x04, 0x05, "UniverseSize",
@@ -75,10 +75,15 @@ func FormatPlanets(block blocks.Block, index int) string {
 		fmt.Sprintf("0x%02X%02X", d[11], d[10]),
 		fmt.Sprintf("uint16 LE = %d", pb.PlanetCount)))
 
-	// Bytes 12-15: Starting distance
-	fields = append(fields, FormatFieldRaw(0x0C, 0x0F, "StartingDistance",
-		fmt.Sprintf("0x%02X%02X%02X%02X", d[15], d[14], d[13], d[12]),
-		fmt.Sprintf("uint32 LE = %d", pb.StartingDistance)))
+	// Bytes 12-13: Starting distance mode (mdStartDist)
+	fields = append(fields, FormatFieldRaw(0x0C, 0x0D, "StartingDistance",
+		fmt.Sprintf("0x%02X%02X", d[13], d[12]),
+		fmt.Sprintf("uint16 LE = %d (mdStartDist)", pb.StartingDistance)))
+
+	// Bytes 14-15: fDirty (runtime flag, not meaningful in files)
+	fields = append(fields, FormatFieldRaw(0x0E, 0x0F, "fDirty",
+		fmt.Sprintf("0x%02X%02X", d[15], d[14]),
+		"runtime flag (ignored)"))
 
 	// Bytes 16-17: Game settings
 	fields = append(fields, FormatFieldRaw(0x10, 0x11, "GameSettings",

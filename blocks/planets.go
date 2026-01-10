@@ -87,9 +87,11 @@ type PlanetsBlock struct {
 	// This determines how many 4-byte planet entries follow the block.
 	PlanetCount uint16
 
-	// StartingDistance affects how far apart players' homeworlds are placed.
-	// Higher values mean players start further from each other.
-	StartingDistance uint32
+	// StartingDistance is the starting distance mode (mdStartDist).
+	// An index indicating how far apart players' homeworlds are placed.
+	// Higher values mean greater initial separation between players.
+	// See reversing_notes/planets-block.md for details.
+	StartingDistance uint16
 
 	// GameSettings is a bitmask of game configuration options.
 	// See data.GameSetting* constants for individual bit meanings:
@@ -162,7 +164,7 @@ func NewPlanetsBlock(b GenericBlock) *PlanetsBlock {
 
 	block.Valid = true
 
-	// Bytes 0-3: Unknown/reserved (TODO: document if purpose discovered)
+	// Bytes 0-3: Game ID (lid) - unique identifier for this game instance
 	// Bytes 4-5: Universe size
 	block.UniverseSize = binary.LittleEndian.Uint16(data[4:6])
 
@@ -175,8 +177,9 @@ func NewPlanetsBlock(b GenericBlock) *PlanetsBlock {
 	// Bytes 10-11: Number of planets
 	block.PlanetCount = binary.LittleEndian.Uint16(data[10:12])
 
-	// Bytes 12-15: Starting distance between players
-	block.StartingDistance = binary.LittleEndian.Uint32(data[12:16])
+	// Bytes 12-13: Starting distance mode (mdStartDist)
+	block.StartingDistance = binary.LittleEndian.Uint16(data[12:14])
+	// Bytes 14-15: fDirty - runtime flag, ignored on read (not meaningful in files)
 
 	// Bytes 16-17: Game settings bitmask
 	block.GameSettings = binary.LittleEndian.Uint16(data[16:18])
@@ -482,7 +485,7 @@ func valueToIndex(conditionIdx, value int) int {
 func (p *PlanetsBlock) Encode() []byte {
 	buf := make([]byte, 64)
 
-	// Bytes 0-3: Game ID (lid) - preserved from original
+	// Bytes 0-3: Game ID (lid) - unique identifier, preserved from original
 	if len(p.DecryptedData()) >= 4 {
 		copy(buf[0:4], p.DecryptedData()[0:4])
 	}
@@ -499,8 +502,10 @@ func (p *PlanetsBlock) Encode() []byte {
 	// Bytes 10-11: Planet count
 	encoding.Write16(buf, 10, p.PlanetCount)
 
-	// Bytes 12-15: Starting distance
-	encoding.Write32(buf, 12, p.StartingDistance)
+	// Bytes 12-13: Starting distance mode (mdStartDist)
+	encoding.Write16(buf, 12, p.StartingDistance)
+	// Bytes 14-15: fDirty - runtime flag, write as 0 (not meaningful in files)
+	encoding.Write16(buf, 14, 0)
 
 	// Bytes 16-17: Game settings
 	encoding.Write16(buf, 16, p.GameSettings)

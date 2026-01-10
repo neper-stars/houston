@@ -35,7 +35,7 @@ type GameStore struct {
 	Density          uint16         // 0=Sparse, 1=Normal, 2=Dense, 3=Packed
 	PlayerCount      uint16         // Number of players in the game
 	PlanetCount      uint16         // Total number of planets
-	StartingDistance uint32         // Player homeworld separation
+	StartingDistance uint16         // Starting distance mode (mdStartDist)
 	GameSettings     uint16         // Game options bitmask
 
 	// Victory conditions (from PlanetsBlock)
