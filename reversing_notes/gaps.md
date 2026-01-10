@@ -38,6 +38,30 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 
 ---
 
+## Resolved Mechanisms
+
+### PlayerBlock (Type 6) - fCrippled Flag - RESOLVED
+
+**Status: DEPRECATED (confirmed)**
+
+The `fCrippled` flag (bit 1, 0x02) at player offset 0x54 is a **legacy flag** that
+is checked for backward compatibility but **never set** in Stars! 2.60j RC3.
+
+**Evidence:**
+1. Exhaustive search found no `| 2` or `| 0x02` operations on player flags
+2. fHacker (which IS set for cheating) does NOT trigger the tech cap
+3. Only fCrippled and fCheater trigger the tech cap (lines 81620-81622)
+4. fCheater IS set for file sharing (matching homeworld coordinates)
+
+**Conclusion:** The punishment system evolved:
+- **Old:** fCrippled → tech cap at 9 (no longer set, checked for old saves)
+- **New:** fHacker → race value degradation (growth rate decreased)
+- **Added:** fCheater → tech cap at 9 (for file sharing detection)
+
+See `player-block.md` for full documentation.
+
+---
+
 ## Notes
 
 - All unknown fields are preserved during round-trip encoding to maintain file integrity

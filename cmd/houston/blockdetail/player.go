@@ -169,9 +169,10 @@ func FormatPlayer(block blocks.Block, index int) string {
 		// Player Flags (offset 0x54 = byte 84)
 		fields = append(fields, "")
 		flagsRaw := encoding.Read16(data, 84)
-		fields = append(fields, FormatFieldRaw(0x54, 0x55, "Player Flags",
+		fields = append(fields, FormatFieldRaw(0x54, 0x55, "Player Flags (wFlags)",
 			fmt.Sprintf("0x%02X%02X", data[85], data[84]),
-			fmt.Sprintf("uint16 LE = 0x%04X -> %s", flagsRaw, formatPlayerFlags(pb.Flags))))
+			fmt.Sprintf("uint16 LE = 0x%04X", flagsRaw)))
+		fields = append(fields, formatPlayerFlagsDetailed(pb.Flags)...)
 
 		// ZipProd Queue (offset 0x56 = byte 86)
 		fields = append(fields, "")
@@ -254,35 +255,88 @@ func decodeAIByte(pb blocks.PlayerBlock) string {
 	return "Human player"
 }
 
-// formatPlayerFlags formats player flags as a string
-func formatPlayerFlags(flags blocks.PlayerFlags) string {
-	var parts []string
+// formatPlayerFlagsDetailed formats player flags with detailed consequences
+func formatPlayerFlagsDetailed(flags blocks.PlayerFlags) []string {
+	var lines []string
+
+	// Check if any flags are set
+	hasFlags := flags.Dead || flags.Crippled || flags.Cheater || flags.Learned || flags.Hacker
+	if !hasFlags {
+		lines = append(lines, fmt.Sprintf("           %s (no flags set)", TreeEnd))
+		return lines
+	}
+
+	// Collect active flags for proper tree formatting
+	type flagInfo struct {
+		name    string
+		details []string
+	}
+	var activeFlags []flagInfo
+
 	if flags.Dead {
-		parts = append(parts, "Dead(bit0)")
+		activeFlags = append(activeFlags, flagInfo{
+			name:    "bit0: fDead - Player eliminated",
+			details: []string{"Player has been removed from the game"},
+		})
 	}
 	if flags.Crippled {
-		parts = append(parts, "Crippled(bit1)")
+		activeFlags = append(activeFlags, flagInfo{
+			name:    "bit1: fCrippled - Unregistered shareware",
+			details: []string{"Tech levels capped at 9 (vs 25 normal)"},
+		})
 	}
 	if flags.Cheater {
-		parts = append(parts, "Cheater(bit2)")
+		activeFlags = append(activeFlags, flagInfo{
+			name: "bit2: fCheater - File sharing detected",
+			details: []string{
+				"Tech levels capped at 9",
+				"Production reduced to 80%",
+				"~75% chance of random negative events",
+			},
+		})
 	}
 	if flags.Learned {
-		parts = append(parts, "Learned(bit3,deprecated)")
+		activeFlags = append(activeFlags, flagInfo{
+			name:    "bit3: fLearned - Deprecated (cleared on load)",
+			details: nil,
+		})
 	}
 	if flags.Hacker {
-		parts = append(parts, "Hacker(bit4)")
+		activeFlags = append(activeFlags, flagInfo{
+			name: "bit4: fHacker - Race values corrected",
+			details: []string{
+				"Growth rate degraded until race value >= 500",
+				"Tech levels may be zeroed if still invalid",
+				"Does NOT cap tech levels",
+			},
+		})
 	}
-	if len(parts) == 0 {
-		return "(none)"
-	}
-	result := ""
-	for i, p := range parts {
-		if i > 0 {
-			result += ", "
+
+	// Format with tree structure
+	for i, f := range activeFlags {
+		prefix := TreeBranch
+		if i == len(activeFlags)-1 && len(f.details) == 0 {
+			prefix = TreeEnd
 		}
-		result += p
+		lines = append(lines, fmt.Sprintf("           %s %s", prefix, f.name))
+
+		for j, detail := range f.details {
+			detailPrefix := "│  " + TreeBranch
+			if i == len(activeFlags)-1 {
+				detailPrefix = "   " + TreeBranch
+			}
+			if j == len(f.details)-1 {
+				if i == len(activeFlags)-1 {
+					detailPrefix = "   " + TreeEnd
+				} else {
+					detailPrefix = "│  " + TreeEnd
+				}
+			}
+			lines = append(lines, fmt.Sprintf("           %s %s", detailPrefix, detail))
+		}
 	}
-	return result
+
+	return lines
 }
 
 // decodeLRT decodes LRT bitmask to a list of trait names

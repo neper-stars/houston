@@ -937,20 +937,97 @@ Bits 5-15:  Unused (always 0)
 
 ### Flag Definitions
 
-| Bit | Mask | Name     | Description                              |
-|-----|------|----------|------------------------------------------|
-| 0   | 0x01 | Dead     | Player has been eliminated               |
-| 1   | 0x02 | Crippled | Player is crippled (definition TBD)      |
-| 2   | 0x04 | Cheater  | Cheater flag detected                    |
-| 3   | 0x08 | Learned  | **Deprecated** - cleared on load, unused |
-| 4   | 0x10 | Hacker   | Hacker flag detected                     |
+| Bit | Mask | Name     | Description                                                        |
+|-----|------|----------|--------------------------------------------------------------------|
+| 0   | 0x01 | fDead    | Player has been eliminated                                         |
+| 1   | 0x02 | fCrippled| Unregistered shareware player - tech levels capped at 9           |
+| 2   | 0x04 | fCheater | Cheater flag - players with matching homeworld coordinates        |
+| 3   | 0x08 | fLearned | **Deprecated** - cleared on load, never set or read               |
+| 4   | 0x10 | fHacker  | Hacker flag - race values were corrected/degraded                 |
 
-### Notes
+### Flag Details
 
-- The Cheater and Hacker flags may be set by the game
-  when certain exploit conditions are detected
-- The Crippled flag purpose needs further investigation
-  (possibly related to victory conditions)
+#### fCheater (bit 2, 0x04)
+
+**How it's set:** During turn generation, the host compares all players' homeworld
+coordinates. If two players have identical homeworld coordinates (suggesting file
+tampering or sharing), both are flagged as cheaters.
+
+**Source:** all_funcs.c:71952-71958
+```c
+if ((*(int *)(fErrSav * 0x10 + iVar19) == *(int *)(local_4 * 0x10 + iVar19)) &&
+   ((*(int *)(fErrSav * 0x10 + iVar19 + 2) == *(int *)(local_4 * 0x10 + iVar19 + 2)
+    && (iVar19 = FUN_1118_0ede(), iVar19 != 0)))) {
+  pbVar1 = (byte *)((int)&DAT_1120_59d6 + fErrSav * 0xc0);
+  *pbVar1 = *pbVar1 | 4;  // Set fCheater on player fErrSav
+  pbVar1 = (byte *)((int)&DAT_1120_59d6 + local_4 * 0xc0);
+  *pbVar1 = *pbVar1 | 4;  // Set fCheater on player local_4
+}
+```
+
+#### fHacker (bit 4, 0x10)
+
+**How it's set:** Set when race values are corrected by FUN_10e0_322a (validation)
+or when the race point calculation (FUN_10e0_3356) detects an invalid race and
+triggers the degradation loop.
+
+**Validation triggers (FUN_10e0_322a):**
+- Growth rate > 20% → capped to 20%, fHacker set
+- Habitability values outside legal range → corrected, fHacker set
+- Other race parameter violations → corrected, fHacker set
+
+**Degradation triggers (lines 72144-72177):**
+When FUN_10e0_3356 returns a value < 500 (invalid race point value), the game:
+1. Sets fHacker (line 72154)
+2. Tries to balance by increasing cost values at offset 0x3E (lines 72156-72161)
+3. **DECREASES the growth rate** by 1 repeatedly until race value ≥ 500 or growth = 1:
+   ```c
+   // all_funcs.c:72163-72168
+   while ((iVar19 < 500 && ('\x01' < *(char *)(local_4 * 0xc0 + 0x599b)))) {
+     pcVar2 = (char *)(local_4 * 0xc0 + 0x599b);  // Growth rate at offset 0x19
+     *pcVar2 = *pcVar2 + -1;  // DECREASE growth rate by 1
+     iVar19 = FUN_10e0_3356(...);  // Recalculate race value
+   }
+   ```
+4. If still unbalanced, zeros out starting tech levels (lines 72170-72176)
+
+This is the "delayed punishment" mechanism - the growth rate degradation that
+community members reported experiencing after editing race values.
+
+**Related message strings:**
+- `0x015a`: "\\s has degraded \\p from a value of \\i% to \\i%."
+- `0x015b`: "\\s is currently unable to degrade the value of \\p beyond \\i%."
+- `0x0182`: "Hacked race discovered. \\L race statistics have been altered to bring them into compliance with the cosmic code."
+
+#### fCrippled (bit 1, 0x02)
+
+**Meaning: Unregistered shareware player - tech levels capped at 9**
+
+This flag indicates the player is using an unregistered shareware copy of Stars!.
+The same flag exists in the FileHeader block. When set, tech levels are capped at 9
+instead of the normal maximum of 25.
+
+**Note:** This flag is READ but never SET in Stars! 2.60j RC3 because 2.60j is a
+post-shareware version. The game still checks this flag for backward compatibility
+with save files from the shareware era.
+
+**Read locations:**
+- Lines 71933, 71948: Skip cheater detection for already-crippled players
+- Lines 81620-81628: Tech level limit check (crippled OR cheater → cap at 9)
+- Lines 115625-115626: Tech threshold calculation (10 if crippled, 26 otherwise)
+
+**Consequences when fCrippled OR fCheater is set:**
+```c
+// all_funcs.c:81620-81622 - Tech level enforcement
+if ((('\x19' < *pcVar8) ||  // tech > 25
+    (((*(byte *)((int)&DAT_1120_59d6 + local_14) & 2) != 0 && ('\t' < *pcVar8)))) ||  // crippled AND > 9
+   (((*(byte *)((int)&DAT_1120_59d6 + local_14) & 4) != 0 && ('\t' < *pcVar8))))  // cheater AND > 9
+```
+
+This caps tech levels at 9 (0x09) for crippled/cheater players instead of 25 (0x19).
+
+**IMPORTANT: fHacker does NOT trigger the tech cap!** The condition only checks
+fCrippled (bit 1) and fCheater (bit 2), not fHacker (bit 4)
 
 ### fLearned Flag Analysis (Bit 3)
 

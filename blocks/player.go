@@ -198,10 +198,10 @@ type ResearchCosts struct {
 // PlayerFlags holds player state flags (wFlags at offset 0x54)
 type PlayerFlags struct {
 	Dead     bool // Bit 0: Player has been eliminated
-	Crippled bool // Bit 1: Player is crippled
-	Cheater  bool // Bit 2: Cheater flag detected
+	Crippled bool // Bit 1: Unregistered shareware player - tech levels capped at 9
+	Cheater  bool // Bit 2: Set when players have matching homeworld coordinates; caps tech at 9
 	Learned  bool // Bit 3: Deprecated - cleared on load, unused in game
-	Hacker   bool // Bit 4: Hacker flag detected
+	Hacker   bool // Bit 4: Set when race values were corrected/degraded; does NOT cap tech
 }
 
 // ZipProdQueueItem represents a single item in a zip production template.

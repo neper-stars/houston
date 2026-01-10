@@ -78,7 +78,7 @@ func FormatSaveAndSubmit(block blocks.Block, index int) string {
 				rawVal := uint16(d[offset]) | (uint16(d[offset+1]) << 8)
 				fields = append(fields, FormatFieldRaw(offset, offset+1, fmt.Sprintf("Item[%d]", i),
 					fmt.Sprintf("0x%04X", rawVal),
-					fmt.Sprintf("(Count<<6)|ItemId")))
+					"(Count<<6)|ItemId"))
 			}
 
 			// Show decoded values
