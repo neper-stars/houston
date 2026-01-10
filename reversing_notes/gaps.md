@@ -20,12 +20,6 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 
 ## Blocks with Unknown Fields
 
-### PlayerBlock (Type 6)
-
-| Field     | Location                         | Notes                |
-|-----------|----------------------------------|----------------------|
-| `Learned` | PlayerFlags (offset 0x54, bit 3) | Unknown purpose flag |
-
 ### FileHashBlock (Type 9)
 
 | Field     | Location  | Notes                       |
@@ -39,8 +33,8 @@ To search for these blocks in your own files, run: `mise run find-unknown-blocks
 | Category                   | Count |
 |----------------------------|-------|
 | Completely unknown blocks  | 3     |
-| Blocks with unknown fields | 3     |
-| Total unknown fields/bytes | ~4    |
+| Blocks with unknown fields | 1     |
+| Total unknown fields/bytes | ~1    |
 
 ---
 

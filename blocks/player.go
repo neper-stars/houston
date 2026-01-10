@@ -197,11 +197,11 @@ type ResearchCosts struct {
 
 // PlayerFlags holds player state flags (wFlags at offset 0x54)
 type PlayerFlags struct {
-	Dead     bool // Player has been eliminated
-	Crippled bool // Player is crippled
-	Cheater  bool // Cheater flag
-	Learned  bool // Unknown purpose
-	Hacker   bool // Hacker flag
+	Dead     bool // Bit 0: Player has been eliminated
+	Crippled bool // Bit 1: Player is crippled
+	Cheater  bool // Bit 2: Cheater flag detected
+	Learned  bool // Bit 3: Deprecated - cleared on load, unused in game
+	Hacker   bool // Bit 4: Hacker flag detected
 }
 
 // ZipProdQueueItem represents a single item in a zip production template.

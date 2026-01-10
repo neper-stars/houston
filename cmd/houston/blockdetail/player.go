@@ -267,7 +267,7 @@ func formatPlayerFlags(flags blocks.PlayerFlags) string {
 		parts = append(parts, "Cheater(bit2)")
 	}
 	if flags.Learned {
-		parts = append(parts, "Learned(bit3)")
+		parts = append(parts, "Learned(bit3,deprecated)")
 	}
 	if flags.Hacker {
 		parts = append(parts, "Hacker(bit4)")

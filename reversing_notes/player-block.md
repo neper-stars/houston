@@ -937,13 +937,13 @@ Bits 5-15:  Unused (always 0)
 
 ### Flag Definitions
 
-| Bit | Mask | Name     | Description                         |
-|-----|------|----------|-------------------------------------|
-| 0   | 0x01 | Dead     | Player has been eliminated          |
-| 1   | 0x02 | Crippled | Player is crippled (definition TBD) |
-| 2   | 0x04 | Cheater  | Cheater flag detected               |
-| 3   | 0x08 | Learned  | Unknown purpose                     |
-| 4   | 0x10 | Hacker   | Hacker flag detected                |
+| Bit | Mask | Name     | Description                              |
+|-----|------|----------|------------------------------------------|
+| 0   | 0x01 | Dead     | Player has been eliminated               |
+| 1   | 0x02 | Crippled | Player is crippled (definition TBD)      |
+| 2   | 0x04 | Cheater  | Cheater flag detected                    |
+| 3   | 0x08 | Learned  | **Deprecated** - cleared on load, unused |
+| 4   | 0x10 | Hacker   | Hacker flag detected                     |
 
 ### Notes
 
@@ -951,6 +951,39 @@ Bits 5-15:  Unused (always 0)
   when certain exploit conditions are detected
 - The Crippled flag purpose needs further investigation
   (possibly related to victory conditions)
+
+### fLearned Flag Analysis (Bit 3)
+
+**Status: Deprecated/Unused**
+
+The `fLearned` flag (bit 3, mask 0x08) exists in the PLAYER structure at offset
+0x54 but is not used by the game. Analysis of the decompiled code reveals:
+
+**Evidence:**
+
+1. **Explicitly cleared on load:** The player loading function at `1070:03e4`
+   (FUN_1070_03e4 in all_funcs.c:43111) always clears this bit after loading
+   player data from a file:
+   ```c
+   // all_funcs.c:43164-43165
+   pbVar1 = (byte *)((int)param_1 + 0x54);
+   *pbVar1 = *pbVar1 & 0xf7;  // Clear bit 3
+   ```
+
+2. **Never set:** No code in the decompiled sources sets this bit (no `| 0x08`
+   or `| 8` operations on the player flags field at offset 0x54).
+
+3. **Never read:** No code tests this bit to make any decisions.
+
+**Conclusion:**
+
+This flag was likely used in an earlier version of Stars! but was deprecated.
+The game preserves the structure field for file format compatibility but
+explicitly ignores it by clearing the bit when loading players. Even if a
+file contains this bit set, it will be cleared and have no effect.
+
+**Source:** Decompiled from `FUN_1070_03e4` (player loading) at 1070:03e4
+in stars26jrc3.exe, confirmed by exhaustive search for bit operations.
 
 ---
 
