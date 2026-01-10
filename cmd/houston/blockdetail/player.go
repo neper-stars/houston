@@ -287,8 +287,9 @@ func formatPlayerFlagsDetailed(flags blocks.PlayerFlags) []string {
 	}
 	if flags.Cheater {
 		activeFlags = append(activeFlags, flagInfo{
-			name: "bit2: fCheater - File sharing detected",
+			name: "bit2: fCheater - Serial piracy detected",
 			details: []string{
+				"Same registration used on different hardware",
 				"Tech levels capped at 9",
 				"Production reduced to 80%",
 				"~75% chance of random negative events",

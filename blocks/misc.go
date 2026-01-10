@@ -184,9 +184,9 @@ func (ssb *SaveAndSubmitBlock) Encode() []byte {
 	return ssb.Data
 }
 
-// FileHashBlock represents player identification data (Type 9)
-// Contains encoded serial number and hardware fingerprint used to detect
-// multi-accounting (same serial on different machines).
+// FileHashBlock represents player registration data (Type 9)
+// Contains the registration serial number and hardware fingerprint used to detect
+// serial piracy (same serial on different machines).
 //
 // The 28-character serial string (e.g., "CV6JVUAX...") is decoded as follows:
 //  1. Each char is base64-like decoded to 6 bits:
@@ -198,15 +198,15 @@ func (ssb *SaveAndSubmitBlock) Encode() []byte {
 //     0x09, 0x07, 0x00, 0x08, 0x06}
 //     (output[i] = input[shuffle[i]])
 //  4. Bytes 0-3 become lSerial (SerialNumber field)
-//  5. Bytes 4-14 become pbEnv (hardware/environment fingerprint, 11 bytes)
+//  5. Bytes 4-14 become pbEnv (hardware fingerprint, 11 bytes)
 //
 // Format (17 bytes decrypted):
 //
-//	Bytes 0-1: Unknown (possibly flags or player ID)
-//	Bytes 2-5: lSerial (32-bit LE) - bytes 0-3 of decoded/shuffled serial
-//	Bytes 6-16: pbEnv (11 bytes) - bytes 4-14 of decoded/shuffled serial
+//	Bytes 0-3:   lSerial (32-bit LE) - registration serial number
+//	Bytes 4-14:  pbEnv (11 bytes) - hardware fingerprint (used in piracy detection)
+//	Bytes 15-16: pbEnv tail (2 bytes) - hardware fingerprint (NOT used in detection)
 //
-// The pbEnv contains hardware fingerprint data (after shuffle):
+// The pbEnv contains hardware fingerprint data:
 //
 //	Bytes 0-3: Label C: (volume label)
 //	Bytes 4-5: C: date/time of volume
@@ -214,27 +214,35 @@ func (ssb *SaveAndSubmitBlock) Encode() []byte {
 //	Byte 9: D: date/time of volume
 //	Byte 10: C: and D: drive size in 100's of MB
 //
-// Used to detect when the same serial number is used
-// on different computers (different pbEnv = likely cheating).
+// Piracy Detection:
+// During turn generation, players are flagged as cheaters (fCheater) if:
+//  1. Their lSerial values match (same registration)
+//  2. Their pbEnv[0:11] values differ (different hardware)
+//
+// This detects when multiple people share one purchased registration.
+//
+// Serial Validation:
+// FValidSerialLong(lSerial) validates: (lSerial / 36^4) ∈ {2, 4, 6, 18, 22}
 type FileHashBlock struct {
 	GenericBlock
 
-	// Unknown bytes at start (possibly flags or player ID)
-	Unknown uint16
-
-	// SerialNumber contains bytes 0-3 of the decoded and shuffled serial string.
-	// The original 28-char serial is base64-like decoded to 21 bytes, then shuffled.
+	// SerialNumber is the 32-bit registration serial (bytes 0-3).
+	// Validated by FValidSerialLong: (lSerial / 1679616) must be in {2, 4, 6, 18, 22}
 	SerialNumber uint32
 
-	// Hardware hash - machine fingerprint (11 bytes)
+	// HardwareHash is the machine fingerprint used for piracy detection (bytes 4-14, 11 bytes).
+	// Two players with same SerialNumber but different HardwareHash are flagged as cheaters.
 	HardwareHash []byte
 
-	// Parsed hardware hash components
-	LabelC       string // Volume label of C: drive (4 bytes)
-	TimestampC   uint16 // C: volume date/time
-	LabelD       string // Volume label of D: drive (3 bytes)
-	TimestampD   uint8  // D: volume date/time
-	DriveSizesMB uint8  // Combined drive sizes in 100s of MB
+	// HardwareHashTail is the remaining fingerprint bytes NOT used in detection (bytes 15-16).
+	HardwareHashTail []byte
+
+	// Parsed hardware hash components (from HardwareHash bytes 4-14)
+	LabelC       string // Volume label of C: drive (4 bytes, pbEnv offset 0-3)
+	TimestampC   uint16 // C: volume date/time (pbEnv offset 4-5)
+	LabelD       string // Volume label of D: drive (3 bytes, pbEnv offset 6-8)
+	TimestampD   uint8  // D: volume date/time (pbEnv offset 9)
+	DriveSizesMB uint8  // Combined drive sizes in 100s of MB (pbEnv offset 10)
 }
 
 // NewFileHashBlock creates a FileHashBlock from a GenericBlock
@@ -250,31 +258,32 @@ func (fhb *FileHashBlock) decode() {
 		return
 	}
 
-	// Bytes 0-1: Unknown
-	fhb.Unknown = encoding.Read16(data, 0)
+	// Bytes 0-3: lSerial - registration serial number (32-bit LE)
+	fhb.SerialNumber = encoding.Read32(data, 0)
 
-	// Bytes 2-5: Serial number (32-bit LE)
-	fhb.SerialNumber = encoding.Read32(data, 2)
-
-	// Bytes 6-16: Hardware hash (11 bytes)
+	// Bytes 4-14: pbEnv - hardware fingerprint used in piracy detection (11 bytes)
 	fhb.HardwareHash = make([]byte, 11)
-	copy(fhb.HardwareHash, data[6:17])
+	copy(fhb.HardwareHash, data[4:15])
 
-	// Parse hardware hash components
-	// Bytes 0-3 of hash: Label C: (volume label, null-terminated string)
-	fhb.LabelC = string(trimNullBytes(data[6:10]))
+	// Bytes 15-16: pbEnv tail - NOT used in piracy detection (2 bytes)
+	fhb.HardwareHashTail = make([]byte, 2)
+	copy(fhb.HardwareHashTail, data[15:17])
 
-	// Bytes 4-5 of hash: C: date/time
-	fhb.TimestampC = encoding.Read16(data, 10)
+	// Parse hardware hash components (offsets relative to pbEnv start at byte 4)
+	// pbEnv bytes 0-3: Label C: (volume label, null-terminated string)
+	fhb.LabelC = string(trimNullBytes(data[4:8]))
 
-	// Bytes 6-8 of hash: Label D: (volume label, null-terminated string)
-	fhb.LabelD = string(trimNullBytes(data[12:15]))
+	// pbEnv bytes 4-5: C: date/time
+	fhb.TimestampC = encoding.Read16(data, 8)
 
-	// Byte 9 of hash: D: date/time
-	fhb.TimestampD = data[15]
+	// pbEnv bytes 6-8: Label D: (volume label, null-terminated string)
+	fhb.LabelD = string(trimNullBytes(data[10:13]))
 
-	// Byte 10 of hash: Drive sizes in 100s of MB
-	fhb.DriveSizesMB = data[16]
+	// pbEnv byte 9: D: date/time
+	fhb.TimestampD = data[13]
+
+	// pbEnv byte 10: Drive sizes in 100s of MB
+	fhb.DriveSizesMB = data[14]
 }
 
 // trimNullBytes removes trailing null bytes from a byte slice
@@ -305,12 +314,17 @@ func (fhb *FileHashBlock) HardwareHashString() string {
 func (fhb *FileHashBlock) Encode() []byte {
 	data := make([]byte, 17)
 
-	encoding.Write16(data, 0, fhb.Unknown)
-	encoding.Write32(data, 2, fhb.SerialNumber)
+	// Bytes 0-3: lSerial - registration serial number
+	encoding.Write32(data, 0, fhb.SerialNumber)
 
-	// Hardware hash (11 bytes)
+	// Bytes 4-14: pbEnv - hardware fingerprint (11 bytes)
 	if len(fhb.HardwareHash) >= 11 {
-		copy(data[6:17], fhb.HardwareHash)
+		copy(data[4:15], fhb.HardwareHash)
+	}
+
+	// Bytes 15-16: pbEnv tail (2 bytes)
+	if len(fhb.HardwareHashTail) >= 2 {
+		copy(data[15:17], fhb.HardwareHashTail)
 	}
 
 	return data

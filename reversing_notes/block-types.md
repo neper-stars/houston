@@ -11,20 +11,20 @@
 | 6  | PlayerBlock                     |                                                 |
 | 7  | PlanetsBlock                    |                                                 |
 | 8  | FileHeaderBlock                 | Unencrypted                                     |
-| 9  | FileHashBlock                   | Copy protection                                 |
+| 9  | FileHashBlock                   | Registration serial + hardware fingerprint      |
 | 10 | WaypointRepeatOrdersBlock       |                                                 |
-| 11 | Unknown                         | Never observed                                  |
+| 11 | Reserved                        | Never written or read in 2.60j RC3              |
 | 12 | EventsBlock                     |                                                 |
 | 13 | PlanetBlock                     | Full planet data                                |
 | 14 | PartialPlanetBlock              | Scanned planet data                             |
-| 15 | Unknown                         | Never observed                                  |
+| 15 | Reserved                        | Never written or read in 2.60j RC3              |
 | 16 | FleetBlock                      | Full fleet data                                 |
 | 17 | PartialFleetBlock               | Scanned fleet data                              |
-| 18 | Unknown                         | Never observed                                  |
+| 18 | Reserved                        | Never written or read in 2.60j RC3              |
 | 19 | WaypointTaskBlock               | In .M/.HST files                                |
 | 20 | WaypointBlock                   | In .M/.HST files                                |
 | 21 | FleetNameBlock                  | Custom fleet names                              |
-| 22 | Unknown                         | Never observed                                  |
+| 22 | Reserved                        | Never written or read in 2.60j RC3              |
 | 23 | MoveShipsBlock                  |                                                 |
 | 24 | FleetSplitBlock                 |                                                 |
 | 25 | ManualLargeLoadUnloadTaskBlock  |                                                 |
@@ -140,12 +140,20 @@ Block header format: `(size & 0x3FF) | (type << 10)` (10-bit size + 6-bit type)
 | 38 (0x26) | PlayersRelationChange      | LogChangeRelations              | Diplomatic relation changes         |
 | 44 (0x2c) | RenameFleet                | LogChangeName                   | Fleet renaming                      |
 
-### Unknown Block Types
+### Reserved Block Types (11, 15, 18, 22)
 
-Block types 11, 15, 18, and 22 were not found in the standard game operation functions. Possible explanations:
-- Used only in specific edge cases (AI host file records, tutorial mode)
-- Legacy/deprecated types no longer written by modern game versions
-- Used only in M-file read operations but never written to X files
+Block types 11, 15, 18, and 22 are **reserved/deprecated** - they have no associated write code
+in the decompiled Stars! 2.60j RC3 binary. Analysis of all `WriteRt` and `WriteMemRt` calls
+confirms these block type IDs are never used.
+
+These block type IDs exist in the numerical sequence but serve no function. Possible origins:
+- Reserved for features that were never implemented
+- Used in earlier versions of Stars! that predate 2.60j
+- Placeholder IDs that were skipped during development
+
+**Note:** Values 0x0F (15), 0x12 (18), and 0x16 (22) appear elsewhere in the codebase as
+Windows message constants (e.g., WM_PAINT = 0x0F) and ship part type IDs, but these are
+unrelated to the block type system.
 
 ### Key Structures
 
@@ -178,4 +186,55 @@ typedef struct _rtchgname {
     int16_t id;           // Object ID
     uint8_t rgb[1];       // Compressed name data
 } RTCHGNAME;
+```
+
+---
+
+## FileHashBlock (Type 9) - Registration Data
+
+The FileHashBlock contains the player's registration serial number and hardware fingerprint.
+It is used for serial piracy detection (fCheater flag).
+
+### Structure (17 bytes)
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0-3 | 4 | lSerial | 32-bit registration serial number |
+| 4-14 | 11 | pbEnv | Hardware fingerprint (used in piracy detection) |
+| 15-16 | 2 | pbEnv tail | Hardware fingerprint (NOT copied to TURNSERIAL) |
+
+**Important:** Some documentation incorrectly shows bytes 0-1 as "Unknown" with lSerial at
+offset 2-5. Analysis of `FValidSerialLong` confirms bytes 0-3 are the serial number.
+
+### Serial Validation
+
+The serial number is validated by `FValidSerialLong(lSerial)`:
+
+```c
+quotient = lSerial / (36^4);  // 36^4 = 1,679,616
+if (quotient ∈ {2, 4, 6, 18, 22}) {
+    return VALID;
+}
+return INVALID;
+```
+
+### Piracy Detection
+
+During turn generation, the game loads FileHashBlock from each player's .m file into
+the TURNSERIAL array (16 bytes per player, bytes 15-16 of block are discarded).
+
+Two players are flagged as cheaters (fCheater) if:
+1. Their lSerial values match (same registration)
+2. Their pbEnv[0:11] values differ (different hardware)
+
+This detects when multiple people share one purchased registration.
+
+### TURNSERIAL Memory Structure
+
+```c
+typedef struct _TURNSERIAL {
+    uint32_t lSerial;      // +0x00: Registration serial (from block[0:4])
+    uint8_t  pbEnv[11];    // +0x04: Hardware fingerprint (from block[4:15])
+    uint8_t  padding;      // +0x0F: Unused
+} TURNSERIAL;  // 16 bytes total
 ```

@@ -9,7 +9,7 @@ Stars! implements several mechanisms to detect and punish players who cheat,
 plus a shareware limitation system:
 
 1. **Shareware Limitation** (fCrippled flag) - Unregistered shareware players have tech capped at 9
-2. **File Sharing Detection** (fCheater flag) - Detects when players share save files
+2. **Serial Piracy Detection** (fCheater flag) - Detects when multiple players share one registration
 3. **Race Hacking Detection** (fHacker flag) - Detects modified race files with illegal advantages
 
 ## Player Flags (Offset 0x54)
@@ -18,7 +18,7 @@ plus a shareware limitation system:
 |-----|-----------|-------|----------|------------------------------------------|
 | 0   | fDead     | 0x01  | Active   | Player has been eliminated               |
 | 1   | fCrippled | 0x02  | Legacy   | Unregistered shareware player            |
-| 2   | fCheater  | 0x04  | Active   | File sharing detected                    |
+| 2   | fCheater  | 0x04  | Active   | Serial number piracy detected            |
 | 3   | fLearned  | 0x08  | Unused   | Cleared on load, never read              |
 | 4   | fHacker   | 0x10  | Active   | Race file modification detected          |
 
@@ -26,21 +26,40 @@ plus a shareware limitation system:
 
 ## Detection Mechanisms
 
-### 1. File Sharing Detection (fCheater)
+### 1. Serial Piracy Detection (fCheater)
 
-**Trigger:** Two players have identical homeworld coordinates.
+**Trigger:** Two players have the same serial number but different hardware fingerprints.
 
-**Code Location:** `all_funcs.c:71947-71967`
+**Code Location:** `generate_turn.c:214-246`, `IPlrAlsoCheater @ 1018:07aa`
 
 **How it works:**
+
+Each player's .m file contains a FileHashBlock (type 9, 17 bytes) with:
+
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 0-3 | 4 | lSerial | 32-bit registration serial number |
+| 4-14 | 11 | pbEnv | Hardware fingerprint (used in detection) |
+| 15-16 | 2 | pbEnv tail | Hardware fingerprint (NOT used in detection) |
+
+**Note:** Some documentation incorrectly lists bytes 0-1 as "Unknown" and lSerial at
+offset 2-5. Analysis of `FValidSerialLong` and `IPlrAlsoCheater` confirms that bytes 0-3
+are validated as the 32-bit serial number: `FValidSerialLong(CONCAT22(block[2:4], block[0:2]))`.
+
+During turn generation, the game compares all player pairs:
 ```
 For each player pair (A, B):
-    If homeworld_coords[A] == homeworld_coords[B]:
-        Set fCheater on player A
-        Set fCheater on player B
+    If lSerial[A] == lSerial[B]:                    // Same registration
+        If pbEnv[A][0:11] != pbEnv[B][0:11]:        // Different hardware
+            Set fCheater on player A
+            Set fCheater on player B
 ```
 
-When players share .m files (e.g., to see each other's view), their homeworld coordinates will match, triggering detection.
+**Validation:** Before comparison, `FValidSerialLong(lSerial)` validates the serial number.
+Valid serials satisfy: `(lSerial / 36^4) ∈ {2, 4, 6, 18, 22}`
+
+**Purpose:** Detects when two different people are using the same purchased registration
+on different computers - i.e., sharing/pirating the serial number.
 
 ### 2. Race Hacking Detection (fHacker)
 
@@ -178,22 +197,24 @@ The punishment/limitation system has three distinct purposes:
    - Affects race statistics, NOT tech advancement
    - Does NOT trigger tech cap
 
-3. **File Sharing Detection (fCheater):**
+3. **Serial Piracy Detection (fCheater):**
    - Tech cap at 9 (same as shareware)
    - Production penalties (80% and 50%)
    - Random negative events (~75% chance)
-   - Detects players sharing .m files via homeworld coordinate matching
+   - Detects multiple players using same registration serial on different hardware
 
 ---
 
 ## Key Functions
 
-| Function      | Purpose                            | Location        |
-|---------------|------------------------------------|-----------------|
-| FUN_1018_050e | Find matching cheater by homeworld | Line 2366       |
-| FUN_10e0_3356 | Calculate race value               | Called at 72142 |
-| FUN_1030_766a | Send player message                | Line 11892      |
-| FUN_1040_1676 | Random number check                | Called at 73345 |
+| Function          | Purpose                                | Location         |
+|-------------------|----------------------------------------|------------------|
+| IPlrAlsoCheater   | Find player with matching serial       | 1018:07aa        |
+| FValidSerialLong  | Validate 32-bit serial number          | 1070:48c4        |
+| SpankTheCheaters  | Apply turn-based penalties to cheaters | 10f0:192a        |
+| CAdvantagePoints  | Calculate race value                   | 10e0:444c        |
+| FSendPlrMsg       | Send player message                    | 1030:7ee8        |
+| Random            | Random number generation               | 1040:16d2        |
 
 ---
 
