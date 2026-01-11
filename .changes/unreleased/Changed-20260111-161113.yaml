@@ -1,3 +1,0 @@
-kind: Changed
-body: 'Fixed the fleet custom name interpretation: the FleetName block follows the fleet to rename, not the other way around.'
-time: 2026-01-11T16:11:13.954801135+01:00
