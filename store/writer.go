@@ -675,6 +675,104 @@ func (gs *GameStore) regenerateWithChanges(source *FileSource) ([]byte, error) {
 	return result, nil
 }
 
+// RegenerateHFile creates a new H file (history) with any modified entities re-encoded.
+func (gs *GameStore) RegenerateHFile(playerIndex int) ([]byte, error) {
+	// Find the source file for this player
+	var sourceFile *FileSource
+	for _, source := range gs.sources {
+		if source.PlayerIndex == playerIndex && source.Type == SourceTypeHFile {
+			sourceFile = source
+			break
+		}
+	}
+
+	if sourceFile == nil {
+		return nil, fmt.Errorf("%w: player %d", ErrNoSourceForPlayer, playerIndex)
+	}
+
+	return gs.regenerateHFileWithChanges(sourceFile)
+}
+
+// regenerateHFileWithChanges regenerates an H file, replacing dirty entities with re-encoded blocks.
+func (gs *GameStore) regenerateHFileWithChanges(source *FileSource) ([]byte, error) {
+	writer := NewFileWriter()
+	var result []byte
+
+	header := source.Header
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+
+	// Write file header
+	result = append(result, writer.WriteHeader(header)...)
+
+	// Initialize encryption
+	shareware := 0
+	if header.Crippled() {
+		shareware = 1
+	}
+	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
+
+	// Process all blocks from the source
+	for _, block := range source.Blocks {
+		typeID := block.BlockTypeID()
+
+		// Skip header and footer
+		if typeID == blocks.FileHeaderBlockType || typeID == blocks.FileFooterBlockType {
+			continue
+		}
+
+		var decrypted []byte
+
+		switch b := block.(type) {
+		case blocks.FleetBlock:
+			key := EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			if fleet, ok := gs.Fleets.Get(key); ok && fleet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodeFleetBlock(fleet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		case blocks.PartialFleetBlock:
+			key := EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			if fleet, ok := gs.Fleets.Get(key); ok && fleet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodeFleetBlock(fleet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		case blocks.PlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		case blocks.PartialPlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		}
+
+		// Use original data if not replaced
+		if decrypted == nil {
+			decrypted = block.DecryptedData()
+		}
+
+		result = append(result, writer.WriteEncryptedBlock(typeID, decrypted)...)
+	}
+
+	// Write footer (H files have no footer data)
+	result = append(result, writer.WriteFooter(false, 0)...)
+
+	return result, nil
+}
+
 // GenerateHSTFile generates an HST file (host file) from the GameStore.
 // HST files contain all players' data in a single file.
 func (gs *GameStore) GenerateHSTFile() ([]byte, error) {
