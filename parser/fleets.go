@@ -66,8 +66,8 @@ func getPrimaryDesignSlot(shipTypes uint16) int {
 // ExtractFleets extracts all fleets from a block list, associating
 // FleetNameBlocks with their corresponding FleetBlocks.
 //
-// In Stars! M files, a FleetNameBlock (Type 21) immediately precedes
-// the FleetBlock (Type 16) it names. Fleets without a preceding
+// In Stars! M files, a FleetNameBlock (Type 21) immediately follows
+// the FleetBlock (Type 16) it names. Fleets without a following
 // FleetNameBlock have auto-generated names.
 //
 // This version does not resolve design names. Use ExtractFleetsWithDesigns
@@ -83,20 +83,13 @@ func ExtractFleets(blockList []blocks.Block) []*FleetInfo {
 // Use ExtractDesigns to get a DesignMap from the same block list.
 func ExtractFleetsWithDesigns(blockList []blocks.Block, designs DesignMap) []*FleetInfo {
 	var fleets []*FleetInfo
-	var pendingName *blocks.FleetNameBlock
+	var lastFleetInfo *FleetInfo
 
 	for _, block := range blockList {
 		switch b := block.(type) {
-		case blocks.FleetNameBlock:
-			pendingName = &b
 		case blocks.FleetBlock:
 			info := &FleetInfo{
 				Fleet: &b,
-			}
-			if pendingName != nil {
-				info.CustomName = pendingName.Name
-				info.HasCustomName = true
-				pendingName = nil
 			}
 			// Resolve primary design
 			if designs != nil {
@@ -106,10 +99,20 @@ func ExtractFleetsWithDesigns(blockList []blocks.Block, designs DesignMap) []*Fl
 				}
 			}
 			fleets = append(fleets, info)
+			lastFleetInfo = info
+		case blocks.FleetNameBlock:
+			// FleetNameBlock follows the FleetBlock it names
+			if lastFleetInfo != nil {
+				lastFleetInfo.CustomName = b.Name
+				lastFleetInfo.HasCustomName = true
+			}
+			lastFleetInfo = nil // Clear after assigning name
+		case blocks.WaypointBlock, blocks.WaypointTaskBlock:
+			// Waypoint blocks can appear between FleetBlock and FleetNameBlock
+			// Don't clear lastFleetInfo
 		default:
-			// Any other block type clears a pending name
-			// (FleetNameBlock must immediately precede FleetBlock)
-			pendingName = nil
+			// Any other block type ends the fleet context
+			lastFleetInfo = nil
 		}
 	}
 

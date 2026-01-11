@@ -247,24 +247,28 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 	}
 
 	// Second pass: Extract fleets, planets, objects, production queues, and waypoints
-	var pendingName *blocks.FleetNameBlock
+	// Note: FleetNameBlock (type 21) follows the FleetBlock it names, so we track
+	// the last fleet and apply the name when we see FleetNameBlock.
 	var currentFleet *FleetEntity
 	var waypointIndex int
 	var lastPlanetNumber = -1
 	for _, block := range source.Blocks {
 		switch b := block.(type) {
-		case blocks.FleetNameBlock:
-			pendingName = &b
 		case blocks.FleetBlock:
-			currentFleet = gs.mergeFleet(&b.PartialFleetBlock, pendingName, source)
+			currentFleet = gs.mergeFleet(&b.PartialFleetBlock, nil, source)
 			waypointIndex = 0
-			pendingName = nil
 			lastPlanetNumber = -1
 		case blocks.PartialFleetBlock:
-			currentFleet = gs.mergeFleet(&b, pendingName, source)
+			currentFleet = gs.mergeFleet(&b, nil, source)
 			waypointIndex = 0
-			pendingName = nil
 			lastPlanetNumber = -1
+		case blocks.FleetNameBlock:
+			// FleetNameBlock follows the FleetBlock it names
+			if currentFleet != nil {
+				currentFleet.CustomName = b.Name
+				currentFleet.HasCustomName = true
+				currentFleet.nameBlock = &b
+			}
 		case blocks.WaypointBlock:
 			if currentFleet != nil {
 				wp := newWaypointEntityFromBlock(&b, currentFleet.Owner, currentFleet.FleetNumber, waypointIndex, source)
@@ -293,9 +297,6 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 			if lastPlanetNumber >= 0 {
 				gs.mergeProductionQueue(&b, lastPlanetNumber, source)
 			}
-		default:
-			// Any other block type clears pending fleet name
-			pendingName = nil
 		}
 	}
 

@@ -130,14 +130,26 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 				if fb.ShipCountTwoBytes {
 					if idx+2 <= len(d) {
 						raw := encoding.Read16(d, idx)
-						fields = append(fields, fmt.Sprintf("           %s Design %d: 0x%04X -> %d ships",
-							prefix, bit, raw, fb.ShipCount[bit]))
+						designName := getDesignNameForFleet(fb.Owner, bit)
+						if designName != "" {
+							fields = append(fields, fmt.Sprintf("           %s Design %d (%s): 0x%04X -> %d ships",
+								prefix, bit, designName, raw, fb.ShipCount[bit]))
+						} else {
+							fields = append(fields, fmt.Sprintf("           %s Design %d: 0x%04X -> %d ships",
+								prefix, bit, raw, fb.ShipCount[bit]))
+						}
 						idx += 2
 					}
 				} else {
 					if idx < len(d) {
-						fields = append(fields, fmt.Sprintf("           %s Design %d: 0x%02X -> %d ships",
-							prefix, bit, d[idx], fb.ShipCount[bit]))
+						designName := getDesignNameForFleet(fb.Owner, bit)
+						if designName != "" {
+							fields = append(fields, fmt.Sprintf("           %s Design %d (%s): 0x%02X -> %d ships",
+								prefix, bit, designName, d[idx], fb.ShipCount[bit]))
+						} else {
+							fields = append(fields, fmt.Sprintf("           %s Design %d: 0x%02X -> %d ships",
+								prefix, bit, d[idx], fb.ShipCount[bit]))
+						}
 						idx++
 					}
 				}
@@ -176,8 +188,14 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 		if fb.DamagedShipTypes != 0 {
 			for bit := 0; bit < 16; bit++ {
 				if (fb.DamagedShipTypes & (1 << bit)) != 0 {
-					fields = append(fields, fmt.Sprintf("           %s Design %d damage info = 0x%04X",
-						TreeBranch, bit, fb.DamagedShipInfo[bit]))
+					designName := getDesignNameForFleet(fb.Owner, bit)
+					if designName != "" {
+						fields = append(fields, fmt.Sprintf("           %s Design %d (%s) damage info = 0x%04X",
+							TreeBranch, bit, designName, fb.DamagedShipInfo[bit]))
+					} else {
+						fields = append(fields, fmt.Sprintf("           %s Design %d damage info = 0x%04X",
+							TreeBranch, bit, fb.DamagedShipInfo[bit]))
+					}
 				}
 			}
 		}
@@ -224,4 +242,13 @@ func formatFleetCommon(fb *blocks.PartialFleetBlock, block blocks.Block, index i
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
+}
+
+// getDesignNameForFleet returns the design name for the given owner and design slot
+func getDesignNameForFleet(owner, designSlot int) string {
+	ctx := GetContext()
+	if ctx == nil {
+		return ""
+	}
+	return ctx.GetDesignName(owner, designSlot)
 }

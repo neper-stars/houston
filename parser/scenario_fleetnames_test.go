@@ -35,7 +35,7 @@ func TestScenarioFleetRename(t *testing.T) {
 }
 
 // TestScenarioFleetName tests the FleetNameBlock (Type 21) parsing in M files.
-// After turn generation, the renamed fleet has a FleetNameBlock preceding its FleetBlock.
+// After turn generation, the renamed fleet has a FleetNameBlock following its FleetBlock.
 func TestScenarioFleetName(t *testing.T) {
 	data, err := os.ReadFile("../testdata/scenario-orders/fleetnames/results/game.m1")
 	require.NoError(t, err)
@@ -134,4 +134,37 @@ func TestExtractFleetsMap(t *testing.T) {
 	for fleetNum, fi := range fleetsMap {
 		assert.Equal(t, fleetNum, fi.Fleet.FleetNumber)
 	}
+}
+
+// TestFleetNameAssociation verifies that FleetNameBlock is correctly associated
+// with the PRECEDING FleetBlock (FleetNameBlock follows the fleet it names).
+// This test uses scenario-singleplayer/2499 where:
+// - Fleet 9 at (1371, 1378) has custom name "Dive Miners"
+// - Fleet 10 at (1390, 1332) has no custom name
+func TestFleetNameAssociation(t *testing.T) {
+	data, err := os.ReadFile("../testdata/scenario-singleplayer/2499/Game.m1")
+	require.NoError(t, err)
+
+	fd := parser.FileData(data)
+	blockList, err := fd.BlockList()
+	require.NoError(t, err)
+
+	fleetsMap := parser.ExtractFleetsMap(blockList)
+	require.NotEmpty(t, fleetsMap, "should find fleets")
+
+	// Fleet 9 should have the custom name "Dive Miners"
+	fleet9, ok := fleetsMap[9]
+	require.True(t, ok, "should find fleet 9")
+	assert.True(t, fleet9.HasCustomName, "fleet 9 should have custom name")
+	assert.Equal(t, "Dive Miners", fleet9.CustomName, "fleet 9 custom name should be 'Dive Miners'")
+	assert.Equal(t, 1371, fleet9.Fleet.X, "fleet 9 X coordinate")
+	assert.Equal(t, 1378, fleet9.Fleet.Y, "fleet 9 Y coordinate")
+
+	// Fleet 10 should NOT have the custom name (it comes after the FleetNameBlock)
+	fleet10, ok := fleetsMap[10]
+	require.True(t, ok, "should find fleet 10")
+	assert.False(t, fleet10.HasCustomName, "fleet 10 should NOT have custom name")
+	assert.Equal(t, "", fleet10.CustomName, "fleet 10 should have empty custom name")
+	assert.Equal(t, 1390, fleet10.Fleet.X, "fleet 10 X coordinate")
+	assert.Equal(t, 1332, fleet10.Fleet.Y, "fleet 10 Y coordinate")
 }

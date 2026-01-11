@@ -54,6 +54,13 @@ func (c *blocksCommand) Execute(args []string) error {
 	fmt.Printf("File: %s (%d bytes)\n", c.Args.File, len(fileBytes))
 	fmt.Printf("Blocks: %d\n\n", len(blockList))
 
+	// Build context for detailed formatting (enables design name resolution in fleet blocks)
+	if c.Detailed {
+		ctx := blockdetail.BuildContextFromBlocks(blockList)
+		blockdetail.SetContext(ctx)
+		defer blockdetail.ClearContext()
+	}
+
 	for i, block := range blockList {
 		// Apply filter if set
 		if len(filterSet) > 0 && !filterSet[block.BlockTypeID()] {

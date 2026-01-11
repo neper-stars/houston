@@ -307,7 +307,7 @@ func (fmb *FleetsMergeBlock) decode() {
 }
 
 // FleetNameBlock represents a fleet name record (Type 21)
-// Found in M files, precedes the FleetBlock it names.
+// Found in M files, follows the FleetBlock it names.
 //
 // Format:
 //
@@ -316,7 +316,7 @@ func (fmb *FleetsMergeBlock) decode() {
 //	└────────────────────────── Name length
 //
 // Note: The fleet association is positional - this block immediately
-// precedes the FleetBlock whose name it contains.
+// follows the FleetBlock whose name it contains.
 type FleetNameBlock struct {
 	GenericBlock
 

@@ -55,7 +55,7 @@ func FormatFleetName(block blocks.Block, index int) string {
 	fields = append(fields, "")
 	fields = append(fields, "── Summary ──")
 	fields = append(fields, fmt.Sprintf("  Fleet name: %q", fnb.Name))
-	fields = append(fields, "  Note: This block precedes the FleetBlock it names")
+	fields = append(fields, "  Note: This block follows the FleetBlock it names")
 
 	fieldsSection := FormatFieldsSection(fields, width)
 	return BuildOutput(header, hexSection, fieldsSection)
