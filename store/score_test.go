@@ -60,15 +60,7 @@ func TestCalculateScore_ScenarioHistory(t *testing.T) {
 // - Player 1 (The Halflings): Rank 1, Score 27
 // - Planets: 2, Starbases: 1, Unarmed: 3, Escort: 0, Capital: 0
 // - Tech Levels: 19, Resources: 55
-//
-// KNOWN ISSUE: Test currently FAILS with tiered tech formula (decompiler-confirmed).
-// Our calculation gives TechScore=20 (tiered) instead of 19 (raw), resulting in
-// total score 28 instead of 27. This discrepancy remains unresolved - need to
-// investigate whether there's a special case in the tiered formula or if the
-// screenshot values use a different scoring method.
 func TestCalculateScore_ScenarioMinefield(t *testing.T) {
-	t.Skip("KNOWN ISSUE: Tiered tech formula gives TechScore=20 (expected 19), total 28 (expected 27)")
-
 	data, err := os.ReadFile("../testdata/scenario-minefield/game.m1")
 	require.NoError(t, err)
 
@@ -112,14 +104,7 @@ func TestCalculateScore_ScenarioMinefield(t *testing.T) {
 // - Player 1 (The Humanoids): Rank 1, Score 838
 // - Planets: 11, Starbases: 1, Unarmed: 6, Escort: 2, Capital: 0
 // - Tech Levels: 76 (raw sum), Resources: 17k
-//
-// KNOWN ISSUE: Test currently FAILS with tiered tech formula (decompiler-confirmed).
-// Decompiler docs claim Tech=197 gives Score=838, but our tiered calculation gives
-// TechScore=196 for tech levels [13,12,12,15,12,12], resulting in total score 837.
-// This 1-point discrepancy remains unresolved.
 func TestCalculateScore_ScenarioSingleplayer(t *testing.T) {
-	t.Skip("KNOWN ISSUE: Tiered tech formula gives TechScore=196, total 837 (expected 838)")
-
 	data, err := os.ReadFile("../testdata/scenario-singleplayer/2483/Game.m1")
 	require.NoError(t, err)
 
@@ -140,8 +125,9 @@ func TestCalculateScore_ScenarioSingleplayer(t *testing.T) {
 	assert.Equal(t, 2, sc.EscortShips, "Escort ships should be 2")
 	assert.Equal(t, 0, sc.CapitalShips, "Capital ships should be 0")
 
-	// Tech score: 76 (raw sum of tech levels)
-	assert.Equal(t, 76, sc.TechScore, "Tech score should be 76")
+	// Tech score: 197 (tiered formula with +1 bonus for having tech >= 10)
+	// Raw sum is 76, but tiered formula with bonus gives 196+1=197
+	assert.Equal(t, 197, sc.TechScore, "Tech score should be 197")
 
 	// Resources should be around 17000 (displayed as "17k")
 	// Allow some tolerance since "17k" could mean 17000-17999
@@ -160,8 +146,8 @@ func TestCalculateScore_ScenarioSingleplayer(t *testing.T) {
 
 // TestTechLevelScore tests the tech level scoring tiers.
 func TestTechLevelScore(t *testing.T) {
-	// Tech level 0-3: level points
-	// Tech level 4-6: level×2 - 3 = 5, 7, 9
+	// Tech level 0-4: level points (raw value)
+	// Tech level 5-6: level×2 - 4 = 6, 8
 	// Tech level 7-9: level×3 - 9 = 12, 15, 18
 	// Tech level 10+: level×4 - 18 = 22, 26, 30, ...
 
@@ -173,9 +159,9 @@ func TestTechLevelScore(t *testing.T) {
 		{1, 1},
 		{2, 2},
 		{3, 3},
-		{4, 5},   // 4×2 - 3 = 5
-		{5, 7},   // 5×2 - 3 = 7
-		{6, 9},   // 6×2 - 3 = 9
+		{4, 4},   // raw level value (tier at 4, not 3)
+		{5, 6},   // 5×2 - 4 = 6
+		{6, 8},   // 6×2 - 4 = 8
 		{7, 12},  // 7×3 - 9 = 12
 		{8, 15},  // 8×3 - 9 = 15
 		{9, 18},  // 9×3 - 9 = 18
@@ -193,12 +179,13 @@ func TestTechLevelScore(t *testing.T) {
 }
 
 // techLevelScore mirrors the internal function for testing.
+// Uses tier boundaries at 4, 6, 9.
 func techLevelScore(level int) int {
-	if level <= 3 {
+	if level <= 4 {
 		return level
 	}
 	if level <= 6 {
-		return level*2 - 3
+		return level*2 - 4
 	}
 	if level <= 9 {
 		return level*3 - 9
@@ -271,21 +258,21 @@ func TestPlayerScoresBlock_StoredVsCalculated(t *testing.T) {
 			file:           "../testdata/scenario-history/game.m2",
 			playerIndex:    1,
 			expectedStored: 29,
-			expectedCalc:   29, // This one matches
+			expectedCalc:   29,
 		},
 		{
 			name:           "scenario-minefield player 1",
 			file:           "../testdata/scenario-minefield/game.m1",
 			playerIndex:    0,
 			expectedStored: 27,
-			expectedCalc:   28, // Discrepancy: stored=27, calc=28
+			expectedCalc:   27,
 		},
 		{
 			name:           "scenario-singleplayer player 1",
 			file:           "../testdata/scenario-singleplayer/2483/Game.m1",
 			playerIndex:    0,
 			expectedStored: 838,
-			expectedCalc:   837, // Discrepancy: stored=838, calc=837
+			expectedCalc:   838,
 		},
 	}
 

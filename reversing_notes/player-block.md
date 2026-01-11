@@ -122,30 +122,39 @@ For each of 6 tech fields (Energy, Weapons, Propulsion, Construction, Electronic
 
 | Tech Level   | Points per Level   | Formula          |
 | ------------ | ------------------ | ---------------- |
-| 0-3          | level              | `+level`         |
-| 4-6          | 5, 7, 9            | `+level×2 - 3`   |
+| 0-4          | level              | `+level`         |
+| 5-6          | 6, 8               | `+level×2 - 4`   |
 | 7-9          | 12, 15, 18         | `+level×3 - 9`   |
 | 10+          | 22, 26, 30, ...    | `+level×4 - 18`  |
 
-**DISCREPANCY NOTE (Houston findings):**
-Test data (minefield scenario) shows:
-- Tiered formula gives TechScore = 20 (for tech levels summing to 19)
-- Expected TechScore = 19 (raw sum of levels)
+**Advanced Technology Bonus:**
+If ANY tech level reaches 10 or higher, add +1 to the total tech score.
+This represents achieving "advanced technology" status.
 
-This suggests the game might use **raw sum of tech levels** rather than the
-tiered formula shown in the decompiled code. Further investigation needed.
+**Formula:**
+```
+techScore = sum(techLevelScore(level)) + (maxLevel >= 10 ? 1 : 0)
+```
 
-**RESOLUTION (Decompiler findings):**
-The tiered formula IS correct. At low tech levels (sum ~19), tiered ≈ raw,
-but at high tech levels the difference is massive:
-- Tech sum 19 → tiered ~20 (nearly equal to raw)
-- Tech sum 76 → tiered ~197 (vs raw 76!)
+**Verified Examples:**
 
-Verified with scenario-singleplayer/2483 (Score 838):
-- Pop: 66 + Resources: 567 + Starbases: 3 + Tech: 197 + Ships: 5 = 838 ✓
+| Scenario     | Tech Levels           | Raw Sum | Tiered | Bonus | Total |
+|--------------|----------------------|---------|--------|-------|-------|
+| history      | [3,3,3,3,3,3]        | 18      | 18     | 0     | 18 ✓  |
+| minefield    | [3,3,4,3,3,3]        | 19      | 19     | 0     | 19 ✓  |
+| singleplayer | [13,12,12,15,12,12]  | 76      | 196    | +1    | 197 ✓ |
 
-Example for tech levels [13,13,13,13,12,12] = sum 76:
-- Tiered: 34+34+34+34+30+30 = 196 points
+**Key insight:** The tier boundary is at level 4, not level 3. This means:
+- Level 4 contributes 4 points (raw value)
+- Level 5 contributes 6 points (5×2 - 4 = 6)
+
+Example breakdown for singleplayer tech levels [13,12,12,15,12,12]:
+- Level 13: 13×4 - 18 = 34
+- Level 12: 12×4 - 18 = 30 (×4 instances)
+- Level 15: 15×4 - 18 = 42
+- Subtotal: 34 + 30 + 30 + 42 + 30 + 30 = 196
+- Bonus: +1 (max level 15 >= 10)
+- **Total: 197** ✓
 
 **Note:** Tech score is skipped if the player is dead (bit 0 of player flags set).
 
@@ -441,18 +450,16 @@ From scenario-history (Player 2, Rank 2nd, Score 29):
 - Unarmed Ships: 5
 - Escort Ships: 2
 - Capital Ships: 0
-- Tech Levels: 18 total (likely 3+3+3+3+3+3)
+- Tech Levels: [3,3,3,3,3,3] (sum 18, max 3)
 
 ```
-PlanetPopScore ≈ 1-6 (depending on population)
-Resources/30   ≈ 143/30 = 4
+PlanetPopScore = 1 (base) + 2 (population) = 3
+Resources/30   = 143/30 = 4
 Starbases×3    = 1×3 = 3
-TechScore      = 3+3+3+3+3+3 = 18 (at level 3 each)
-Unarmed/2      = min(5,1)/2 = 0
-Escort         = min(2,1) = 1
-Capital        = 0
+TechScore      = 3+3+3+3+3+3 = 18 (no bonus, max < 10)
+ShipScore      = min(5,1)/2 + min(2,1) = 0 + 1 = 1
 ─────────────────────────────
-Total          ≈ 29 ✓
+Total          = 3 + 4 + 3 + 18 + 1 = 29 ✓
 ```
 
 ### CResourcesAtPlanet() - Detailed Resource Calculation

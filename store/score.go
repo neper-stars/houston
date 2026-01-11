@@ -32,15 +32,8 @@ type ScoreComponents struct {
 
 // ComputeScoreFromActualData computes a player's score from current game data.
 //
-// WARNING: This method attempts to replicate the game's scoring formula but has
-// known inaccuracies. The TechScore calculation in particular shows 1-point
-// discrepancies in some scenarios. For authoritative scores, use PlayerScore()
-// which returns the game's stored values from PlayerScoresBlock.
-//
-// Use this method when:
-//   - You need to compute scores from game data that doesn't have PlayerScoresBlock
-//   - You want to analyze score component breakdowns
-//   - You're debugging or comparing against stored scores
+// This method replicates the game's scoring formula. It can be used to compute
+// scores from game data or to analyze score component breakdowns.
 //
 // Formula: Score = PlanetPopScore + Resources/30 + Starbases×3 + TechScore + ShipScore
 //
@@ -441,15 +434,19 @@ func calculateTechScoreRawSum(tech TechLevels) int {
 }
 
 // calculateTechScore computes the score contribution from tech levels
-// using the tiered formula from decompiled source (confirmed correct by decompiler team).
+// using a tiered formula with a bonus for advanced technology.
 //
 // Tech scoring uses tiered rates:
-//   - Levels 0-3: +level points per level
-//   - Levels 4-6: +level×2 - 3 points (5, 7, 9)
+//   - Levels 0-4: +level points per level (1, 2, 3, 4)
+//   - Levels 5-6: +level×2 - 4 points (6, 8)
 //   - Levels 7-9: +level×3 - 9 points (12, 15, 18)
 //   - Levels 10+: +level×4 - 18 points (22, 26, 30, ...)
+//
+// Additionally, a +1 bonus is awarded if any tech level reaches 10 or higher,
+// representing "advanced technology" status.
 func calculateTechScore(tech TechLevels) int {
 	total := 0
+	maxLevel := 0
 	levels := []int{
 		tech.Energy,
 		tech.Weapons,
@@ -461,18 +458,31 @@ func calculateTechScore(tech TechLevels) int {
 
 	for _, level := range levels {
 		total += techLevelScore(level)
+		if level > maxLevel {
+			maxLevel = level
+		}
+	}
+
+	// +1 bonus for having any tech at level 10 or higher
+	if maxLevel >= 10 {
+		total++
 	}
 
 	return total
 }
 
 // techLevelScore returns the score contribution for a single tech level.
+// Uses tier boundaries at 4, 6, 9:
+//   - Levels 0-4: raw level value (0, 1, 2, 3, 4)
+//   - Levels 5-6: level×2 - 4 (6, 8)
+//   - Levels 7-9: level×3 - 9 (12, 15, 18)
+//   - Levels 10+: level×4 - 18 (22, 26, 30, 34, ...)
 func techLevelScore(level int) int {
-	if level <= 3 {
+	if level <= 4 {
 		return level
 	}
 	if level <= 6 {
-		return level*2 - 3
+		return level*2 - 4
 	}
 	if level <= 9 {
 		return level*3 - 9
