@@ -27,63 +27,77 @@ func FormatMessagesFilter(block blocks.Block, index int) string {
 	if len(d) == 0 {
 		fields = append(fields, "(no data)")
 	} else {
-		// Structure not fully documented - show raw bytes with potential interpretations
-		fields = append(fields, "── Raw Data (structure TBD) ──")
+		// Summary of filtered messages
+		fields = append(fields, "── Filter Summary ──")
+		fields = append(fields, fmt.Sprintf("  Bitmap size: %d bytes (%d bits)", len(mfb.FilterBitmap), len(mfb.FilterBitmap)*8))
+		fields = append(fields, fmt.Sprintf("  Filtered message types: %d", mfb.FilteredCount))
 
-		// Messages filter likely contains bitmasks for filtering message types
-		// Show each byte with potential filter flag interpretation
-		for i := 0; i < len(d); i++ {
-			annotation := "TBD"
-			if i == 0 {
-				annotation = fmt.Sprintf("0b%08b (possibly filter flags)", d[i])
-			} else if i < 4 {
-				annotation = fmt.Sprintf("0b%08b (possibly more flags)", d[i])
-			}
-			fields = append(fields, FormatFieldRaw(i, i, fmt.Sprintf("Byte%d", i),
-				fmt.Sprintf("0x%02X", d[i]),
-				annotation))
-		}
-
-		// If we have at least 2 bytes, show as potential bitmask
-		if len(d) >= 2 {
+		// Show which message IDs are filtered (if any)
+		filteredIds := mfb.GetFilteredMessageIds()
+		if len(filteredIds) > 0 {
 			fields = append(fields, "")
-			fields = append(fields, "── Potential Filter Flags ──")
-			fields = append(fields, "  (interpretation speculative)")
+			fields = append(fields, "── Filtered Message IDs ──")
 
-			// Common message types that might be filterable
-			filterNames := []string{
-				"Battles",
-				"Production",
-				"Research",
-				"Planets",
-				"Fleets",
-				"Diplomacy",
-				"System",
-				"Other",
+			// Group by category for cleaner display
+			categoryCount := make(map[string]int)
+			for _, id := range filteredIds {
+				cat := blocks.MessageCategory(blocks.MessageTypeID(id))
+				if cat == "" {
+					cat = "Unknown"
+				}
+				categoryCount[cat]++
 			}
 
-			for i, name := range filterNames {
-				if i < len(d)*8 {
-					byteIdx := i / 8
-					bitIdx := i % 8
-					if byteIdx < len(d) {
-						enabled := (d[byteIdx] & (1 << bitIdx)) != 0
-						prefix := TreeBranch
-						if i == len(filterNames)-1 || i == len(d)*8-1 {
-							prefix = TreeEnd
-						}
-						fields = append(fields, fmt.Sprintf("  %s bit%d: %s = %v", prefix, i, name, enabled))
-					}
+			// Show category summary first
+			fields = append(fields, "  By category:")
+			for cat, count := range categoryCount {
+				fields = append(fields, fmt.Sprintf("    %s: %d", cat, count))
+			}
+
+			// Show individual IDs (up to 30)
+			fields = append(fields, "")
+			fields = append(fields, "  Individual IDs:")
+			maxShow := 30
+			for i, id := range filteredIds {
+				if i >= maxShow {
+					fields = append(fields, fmt.Sprintf("    ... and %d more", len(filteredIds)-maxShow))
+					break
+				}
+				prefix := TreeBranch
+				if i == len(filteredIds)-1 || i == maxShow-1 {
+					prefix = TreeEnd
+				}
+				cat := blocks.MessageCategory(blocks.MessageTypeID(id))
+				if cat != "" {
+					fields = append(fields, fmt.Sprintf("  %s 0x%03X (%3d) - %s", prefix, id, id, cat))
+				} else {
+					fields = append(fields, fmt.Sprintf("  %s 0x%03X (%3d)", prefix, id, id))
 				}
 			}
 		}
+
+		// Show bitmap as hex for reference
+		fields = append(fields, "")
+		fields = append(fields, "── Bitmap (hex) ──")
+		// Show in rows of 16 bytes
+		for row := 0; row < len(mfb.FilterBitmap); row += 16 {
+			end := row + 16
+			if end > len(mfb.FilterBitmap) {
+				end = len(mfb.FilterBitmap)
+			}
+			hexStr := ""
+			for i := row; i < end; i++ {
+				hexStr += fmt.Sprintf("%02X ", mfb.FilterBitmap[i])
+			}
+			fields = append(fields, fmt.Sprintf("  %02X: %s", row, hexStr))
+		}
 	}
 
-	// Summary
+	// Info section
 	fields = append(fields, "")
 	fields = append(fields, "── Info ──")
-	fields = append(fields, "  Purpose: Message filter settings")
-	fields = append(fields, "  Structure: Not fully documented")
+	fields = append(fields, "  Purpose: Message filter preferences bitmap")
+	fields = append(fields, "  Bit addressing: byte[msgId/8] & (1 << (msgId%8))")
 	fields = append(fields, fmt.Sprintf("  Size: %d bytes", len(d)))
 
 	fieldsSection := FormatFieldsSection(fields, width)

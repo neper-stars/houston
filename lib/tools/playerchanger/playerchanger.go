@@ -14,8 +14,11 @@
 //	    log.Fatal(err)
 //	}
 //	for _, player := range info.Players {
-//	    fmt.Printf("Player %d: %s\n", player.Number, player.Name)
+//	    fmt.Printf("Player %d: %s (%s)\n", player.Number, player.Name, player.Status)
 //	}
+//
+//	// Change player 0 to AI (CA Expert)
+//	modified, result, err := playerchanger.ChangeToAIBytes(data, 0, store.AIExpertCA)
 package playerchanger
 
 import (
@@ -25,6 +28,7 @@ import (
 
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/parser"
+	"github.com/neper-stars/houston/store"
 )
 
 // PlayerInfo contains information about a player.
@@ -34,8 +38,11 @@ type PlayerInfo struct {
 	PluralName          string
 	ShipDesignCount     int
 	StarbaseDesignCount int
-	Planets             int
+	OwnedPlanets        int // Number of planets owned by this player
 	Fleets              int
+	Status              string // Human, Human (Inactive), or AI (XX)
+	StatusType          store.PlayerStatus
+	AIExpertType        store.AIExpertType // Only valid if StatusType == PlayerStatusAI
 	Block               *blocks.PlayerBlock
 }
 
@@ -52,8 +59,10 @@ type FileInfo struct {
 
 // ChangeResult contains the result of a player change operation.
 type ChangeResult struct {
-	Success bool
-	Message string
+	Success        bool
+	Message        string
+	PreviousStatus string
+	NewStatus      string
 }
 
 // ReadPlayers reads player information from a game file.
@@ -101,18 +110,40 @@ func ReadPlayersFromBytes(name string, fileBytes []byte) (*FileInfo, error) {
 		Players:    make([]PlayerInfo, 0),
 	}
 
+	// Create a temporary store to use its player status detection
+	gs := store.New()
+	if err := gs.AddFile(name, fileBytes); err != nil {
+		return nil, fmt.Errorf("failed to parse file: %w", err)
+	}
+
 	for _, block := range blockList {
 		if p, ok := block.(blocks.PlayerBlock); ok {
+			// Get the player entity from store for status info
+			playerEntity, _ := gs.Player(p.PlayerNumber)
+
+			// Get actual owned planet count from store
+			ownedPlanets := gs.PlanetsByOwner(p.PlayerNumber)
+
 			pi := PlayerInfo{
 				Number:              p.PlayerNumber,
 				Name:                p.NameSingular,
 				PluralName:          p.NamePlural,
 				ShipDesignCount:     p.ShipDesignCount,
 				StarbaseDesignCount: p.StarbaseDesignCount,
-				Planets:             p.Planets,
+				OwnedPlanets:        len(ownedPlanets),
 				Fleets:              p.Fleets,
 				Block:               &p,
 			}
+
+			if playerEntity != nil {
+				pi.Status = playerEntity.GetStatusString()
+				pi.StatusType = playerEntity.GetStatus()
+				pi.AIExpertType = playerEntity.GetAIExpertType()
+			} else {
+				pi.Status = "Unknown"
+				pi.StatusType = store.PlayerStatusHuman
+			}
+
 			info.Players = append(info.Players, pi)
 		}
 	}
@@ -136,52 +167,81 @@ func (fi *FileInfo) PlayerCount() int {
 }
 
 // ChangeToAIBytes changes a player to AI control and returns the modified data.
-func ChangeToAIBytes(data []byte, playerNumber int) ([]byte, *ChangeResult, error) {
-	info, err := ReadPlayersFromBytes("", data)
-	if err != nil {
-		return nil, nil, err
+// The expertType parameter specifies which AI expert to use.
+func ChangeToAIBytes(data []byte, playerNumber int, expertType store.AIExpertType) ([]byte, *ChangeResult, error) {
+	gs := store.New()
+	if err := gs.AddFile("game.hst", data); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse file: %w", err)
 	}
 
-	player := info.GetPlayer(playerNumber)
-	if player == nil {
+	player, ok := gs.Player(playerNumber)
+	if !ok {
 		return nil, nil, fmt.Errorf("player %d not found", playerNumber)
 	}
 
-	// Note: Actual implementation would modify the player block data
-	result := &ChangeResult{
-		Message: "player modification not yet fully implemented",
+	previousStatus := player.GetStatusString()
+
+	if err := player.ChangeToAI(expertType); err != nil {
+		return nil, nil, fmt.Errorf("failed to change player: %w", err)
 	}
 
-	return data, result, nil
+	// Regenerate the HST file with the modified player
+	modified, err := gs.RegenerateHSTFile()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to regenerate file: %w", err)
+	}
+
+	result := &ChangeResult{
+		Success:        true,
+		Message:        fmt.Sprintf("Changed player %d from %s to AI (%s)", playerNumber, previousStatus, expertType.ShortName()),
+		PreviousStatus: previousStatus,
+		NewStatus:      fmt.Sprintf("AI (%s)", expertType.ShortName()),
+	}
+
+	return modified, result, nil
 }
 
 // ChangeToAIReader changes a player to AI control from data in an io.Reader.
-func ChangeToAIReader(r io.Reader, playerNumber int) ([]byte, *ChangeResult, error) {
+func ChangeToAIReader(r io.Reader, playerNumber int, expertType store.AIExpertType) ([]byte, *ChangeResult, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read data: %w", err)
 	}
-	return ChangeToAIBytes(data, playerNumber)
+	return ChangeToAIBytes(data, playerNumber, expertType)
 }
 
 // ChangeToHumanBytes changes a player to human control and returns the modified data.
 func ChangeToHumanBytes(data []byte, playerNumber int) ([]byte, *ChangeResult, error) {
-	info, err := ReadPlayersFromBytes("", data)
-	if err != nil {
-		return nil, nil, err
+	gs := store.New()
+	if err := gs.AddFile("game.hst", data); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse file: %w", err)
 	}
 
-	player := info.GetPlayer(playerNumber)
-	if player == nil {
+	player, ok := gs.Player(playerNumber)
+	if !ok {
 		return nil, nil, fmt.Errorf("player %d not found", playerNumber)
 	}
 
-	// Note: Actual implementation would modify the player block data
-	result := &ChangeResult{
-		Message: "player modification not yet fully implemented",
+	previousStatus := player.GetStatusString()
+
+	if err := player.ChangeToHuman(); err != nil {
+		return nil, nil, fmt.Errorf("failed to change player: %w", err)
 	}
 
-	return data, result, nil
+	// Regenerate the HST file with the modified player
+	modified, err := gs.RegenerateHSTFile()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to regenerate file: %w", err)
+	}
+
+	result := &ChangeResult{
+		Success:        true,
+		Message:        fmt.Sprintf("Changed player %d from %s to Human", playerNumber, previousStatus),
+		PreviousStatus: previousStatus,
+		NewStatus:      "Human",
+	}
+
+	return modified, result, nil
 }
 
 // ChangeToHumanReader changes a player to human control from data in an io.Reader.
@@ -191,4 +251,47 @@ func ChangeToHumanReader(r io.Reader, playerNumber int) ([]byte, *ChangeResult, 
 		return nil, nil, fmt.Errorf("failed to read data: %w", err)
 	}
 	return ChangeToHumanBytes(data, playerNumber)
+}
+
+// ChangeToInactiveBytes changes a player to Human (Inactive) and returns the modified data.
+func ChangeToInactiveBytes(data []byte, playerNumber int) ([]byte, *ChangeResult, error) {
+	gs := store.New()
+	if err := gs.AddFile("game.hst", data); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse file: %w", err)
+	}
+
+	player, ok := gs.Player(playerNumber)
+	if !ok {
+		return nil, nil, fmt.Errorf("player %d not found", playerNumber)
+	}
+
+	previousStatus := player.GetStatusString()
+
+	if err := player.ChangeToInactive(); err != nil {
+		return nil, nil, fmt.Errorf("failed to change player: %w", err)
+	}
+
+	// Regenerate the HST file with the modified player
+	modified, err := gs.RegenerateHSTFile()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to regenerate file: %w", err)
+	}
+
+	result := &ChangeResult{
+		Success:        true,
+		Message:        fmt.Sprintf("Changed player %d from %s to Human (Inactive)", playerNumber, previousStatus),
+		PreviousStatus: previousStatus,
+		NewStatus:      "Human (Inactive)",
+	}
+
+	return modified, result, nil
+}
+
+// ChangeToInactiveReader changes a player to Human (Inactive) from data in an io.Reader.
+func ChangeToInactiveReader(r io.Reader, playerNumber int) ([]byte, *ChangeResult, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read data: %w", err)
+	}
+	return ChangeToInactiveBytes(data, playerNumber)
 }

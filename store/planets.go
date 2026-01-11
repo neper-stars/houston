@@ -293,3 +293,67 @@ func newPlanetEntityFromBlock(pb *blocks.PartialPlanetBlock, source *FileSource)
 	entity.meta.AddSource(source)
 	return entity
 }
+
+// SetPopulation sets the planet's population (in actual colonists, not file units).
+func (p *PlanetEntity) SetPopulation(pop int64) {
+	p.Population = pop
+	p.SetDirty()
+}
+
+// SetInstallations sets mines, factories, and defenses (12-bit values, 0-4095).
+func (p *PlanetEntity) SetInstallations(mines, factories, defenses int) {
+	p.Mines = mines
+	p.Factories = factories
+	p.Defenses = defenses
+	p.SetDirty()
+}
+
+// SetMineralConcentrations sets iron, boranium, and germanium concentrations (0-100).
+func (p *PlanetEntity) SetMineralConcentrations(iron, boran, germ int) {
+	p.IroniumConc = iron
+	p.BoraniumConc = boran
+	p.GermaniumConc = germ
+	p.SetDirty()
+}
+
+// SetHabitability sets gravity, temperature, and radiation (0-100 internal scale).
+func (p *PlanetEntity) SetHabitability(gravity, temperature, radiation int) {
+	p.Gravity = gravity
+	p.Temperature = temperature
+	p.Radiation = radiation
+	p.SetDirty()
+}
+
+// MaxPopulation returns the maximum population this planet can support for the given race.
+// This delegates to GameStore.CalcPlanetMaxPop.
+func (p *PlanetEntity) MaxPopulation(gs *GameStore, player *PlayerEntity) int {
+	return gs.CalcPlanetMaxPop(p, player)
+}
+
+// MaxFactories returns the maximum factories this planet can support for the given race.
+// This delegates to GameStore.CMaxFactories.
+func (p *PlanetEntity) MaxFactories(gs *GameStore, player *PlayerEntity) int {
+	return gs.CMaxFactories(p, player)
+}
+
+// MaxMines returns the maximum mines this planet can support for the given race.
+// Formula: max(10, (MaxPopulation × MinesOperate) / 100)
+func (p *PlanetEntity) MaxMines(gs *GameStore, player *PlayerEntity) int {
+	if player.PRT == blocks.PRTAlternateReality {
+		return 0 // AR races can't have mines
+	}
+	maxPop := p.MaxPopulation(gs, player)
+	minesOperate := player.Production.MinesOperate
+	maxMines := maxPop * minesOperate / 100
+	if maxMines < 10 {
+		maxMines = 10
+	}
+	return maxMines
+}
+
+// HabitabilityValue returns the habitability percentage for the given race.
+// Positive = habitable (0-100+), negative = uninhabitable (penalty up to -45).
+// This delegates to GameStore.PctPlanetDesirability.
+func (p *PlanetEntity) HabitabilityValue(gs *GameStore, player *PlayerEntity) int {
+	return gs.PctPlanetDesirability(p, player)
+}

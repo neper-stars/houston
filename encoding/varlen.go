@@ -109,3 +109,20 @@ func PackVarLenIndicators(values ...int64) uint16 {
 	}
 	return result
 }
+
+// WriteVarLenFixedSize writes a variable-length encoded integer using exactly the
+// specified number of bytes. This is useful for in-place updates where the byte
+// count must match the original encoding to preserve block layout.
+// If the value doesn't fit in the specified byte count, it will be truncated.
+func WriteVarLenFixedSize(data []byte, index int, value int64, byteCount int) {
+	switch byteCount {
+	case 0:
+		// Zero bytes - nothing to write
+	case 1:
+		data[index] = byte(value & 0xFF)
+	case 2:
+		Write16(data, index, uint16(value&0xFFFF))
+	case 4:
+		Write32(data, index, uint32(value&0xFFFFFFFF))
+	}
+}

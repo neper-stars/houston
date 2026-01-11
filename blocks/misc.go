@@ -1073,19 +1073,130 @@ func (eb *EventsBlock) parseResearchEvents(data []byte) {
 }
 
 // MessagesFilterBlock represents message filter settings (Type 33)
-// Structure not fully documented - preserves raw data for analysis
+//
+// This block stores the player's message filter preferences as a bitmap.
+// Each bit corresponds to a message type ID - if set, that message type is hidden.
+//
+// Format (49 bytes):
+//
+//	Bytes 0-48: bitfMsgFiltered bitmap (49 bytes = 392 bits)
+//	            Bit addressing: byte[messageId / 8] & (1 << (messageId % 8))
+//
+// The game uses this to remember which message categories the player has
+// chosen to filter out in the Messages window. The bitmap is saved to the
+// player's .M file and restored when the game is loaded.
+//
+// Related game variables:
+//   - bitfMsgFiltered: 49-byte array storing filter bits
+//   - bitfMsgSent: 49-byte array tracking which messages were sent this turn
+//   - fViewFilteredMsg: flag to toggle showing filtered messages
 type MessagesFilterBlock struct {
 	GenericBlock
+
+	// FilterBitmap is the raw 49-byte bitmap of filtered message types.
+	// Use IsFiltered(messageId) to check individual message types.
+	FilterBitmap []byte
+
+	// FilteredCount is the number of message types currently filtered
+	FilteredCount int
 }
 
 // NewMessagesFilterBlock creates a MessagesFilterBlock from a GenericBlock
 func NewMessagesFilterBlock(b GenericBlock) *MessagesFilterBlock {
-	return &MessagesFilterBlock{GenericBlock: b}
+	mfb := &MessagesFilterBlock{GenericBlock: b}
+	mfb.decode()
+	return mfb
+}
+
+func (mfb *MessagesFilterBlock) decode() {
+	data := mfb.Decrypted
+	if len(data) == 0 {
+		return
+	}
+
+	// Copy the filter bitmap (up to 49 bytes)
+	maxLen := 49
+	if len(data) < maxLen {
+		maxLen = len(data)
+	}
+	mfb.FilterBitmap = make([]byte, maxLen)
+	copy(mfb.FilterBitmap, data[:maxLen])
+
+	// Count filtered message types
+	for _, b := range mfb.FilterBitmap {
+		for bit := 0; bit < 8; bit++ {
+			if (b & (1 << bit)) != 0 {
+				mfb.FilteredCount++
+			}
+		}
+	}
+}
+
+// IsFiltered returns true if the given message type ID is filtered (hidden)
+func (mfb *MessagesFilterBlock) IsFiltered(messageId int) bool {
+	if messageId < 0 || len(mfb.FilterBitmap) == 0 {
+		return false
+	}
+	byteIdx := messageId / 8
+	bitIdx := messageId % 8
+	if byteIdx >= len(mfb.FilterBitmap) {
+		return false
+	}
+	return (mfb.FilterBitmap[byteIdx] & (1 << bitIdx)) != 0
+}
+
+// SetFiltered sets or clears the filter bit for a message type ID
+func (mfb *MessagesFilterBlock) SetFiltered(messageId int, filtered bool) {
+	if messageId < 0 {
+		return
+	}
+	byteIdx := messageId / 8
+	bitIdx := messageId % 8
+
+	// Expand bitmap if needed
+	if byteIdx >= len(mfb.FilterBitmap) {
+		newBitmap := make([]byte, byteIdx+1)
+		copy(newBitmap, mfb.FilterBitmap)
+		mfb.FilterBitmap = newBitmap
+	}
+
+	wasFiltered := (mfb.FilterBitmap[byteIdx] & (1 << bitIdx)) != 0
+	if filtered {
+		mfb.FilterBitmap[byteIdx] |= (1 << bitIdx)
+		if !wasFiltered {
+			mfb.FilteredCount++
+		}
+	} else {
+		mfb.FilterBitmap[byteIdx] &^= (1 << bitIdx)
+		if wasFiltered {
+			mfb.FilteredCount--
+		}
+	}
+}
+
+// GetFilteredMessageIds returns a slice of all message type IDs that are filtered
+func (mfb *MessagesFilterBlock) GetFilteredMessageIds() []int {
+	var ids []int
+	for byteIdx, b := range mfb.FilterBitmap {
+		for bitIdx := 0; bitIdx < 8; bitIdx++ {
+			if (b & (1 << bitIdx)) != 0 {
+				ids = append(ids, byteIdx*8+bitIdx)
+			}
+		}
+	}
+	return ids
 }
 
 // Encode returns the raw block data bytes (without the 2-byte block header).
 func (mfb *MessagesFilterBlock) Encode() []byte {
-	// Preserve raw data since structure is not fully documented
+	if len(mfb.FilterBitmap) > 0 {
+		// Return the bitmap, padded to 49 bytes if needed
+		result := make([]byte, 49)
+		copy(result, mfb.FilterBitmap)
+		return result
+	}
+
+	// Fallback to raw data
 	if mfb.Decrypted != nil {
 		return mfb.Decrypted
 	}

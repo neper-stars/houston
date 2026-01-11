@@ -220,11 +220,29 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 		case blocks.PlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			decrypted = block.DecryptedData()
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
 
 		case blocks.PartialPlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			decrypted = block.DecryptedData()
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
 
 		case blocks.ProductionQueueBlock:
 			// Find the production queue entity for the last planet
@@ -612,6 +630,22 @@ func (gs *GameStore) regenerateWithChanges(source *FileSource) ([]byte, error) {
 					replacedFleets[key] = true
 				}
 			}
+		case blocks.PlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		case blocks.PartialPlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
 		case blocks.ProductionQueueBlock:
 			// Production queues need special handling - we need to know the planet number
 			// For now, use original data
@@ -730,11 +764,29 @@ func (gs *GameStore) generateHSTFileFromSource(source *FileSource) ([]byte, erro
 
 		case blocks.PlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			decrypted = block.DecryptedData()
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
 
 		case blocks.PartialPlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			decrypted = block.DecryptedData()
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
 
 		case blocks.ProductionQueueBlock:
 			// Find the production queue entity for the last planet
