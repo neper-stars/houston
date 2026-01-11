@@ -18,6 +18,7 @@ const (
 	SourceTypeHFile                  // History file (.h*)
 	SourceTypeXYFile                 // Universe file (.xy)
 	SourceTypeRFile                  // Race file (.r*)
+	SourceTypeHSTFile                // Host file (.hst)
 )
 
 // String returns a human-readable source type name.
@@ -33,6 +34,8 @@ func (t FileSourceType) String() string {
 		return "XY-File"
 	case SourceTypeRFile:
 		return "R-File"
+	case SourceTypeHSTFile:
+		return "HST-File"
 	default:
 		return "Unknown"
 	}
@@ -55,9 +58,12 @@ type FileSource struct {
 func DetectFileType(filename string) FileSourceType {
 	lower := strings.ToLower(filename)
 
-	// Check for .xy first (before .x* check)
+	// Check for .xy and .hst first (before .x* and .h* checks)
 	if strings.HasSuffix(lower, ".xy") {
 		return SourceTypeXYFile
+	}
+	if strings.HasSuffix(lower, ".hst") {
+		return SourceTypeHSTFile
 	}
 
 	// Check for .m*, .x*, .h*, .r* patterns

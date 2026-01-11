@@ -640,3 +640,269 @@ func (gs *GameStore) regenerateWithChanges(source *FileSource) ([]byte, error) {
 
 	return result, nil
 }
+
+// GenerateHSTFile generates an HST file (host file) from the GameStore.
+// HST files contain all players' data in a single file.
+func (gs *GameStore) GenerateHSTFile() ([]byte, error) {
+	// Find an HST file source
+	var sourceFile *FileSource
+	for _, source := range gs.sources {
+		if source.Type == SourceTypeHSTFile {
+			sourceFile = source
+			break
+		}
+	}
+
+	if sourceFile == nil {
+		return nil, errors.New("no HST file source found")
+	}
+
+	return gs.generateHSTFileFromSource(sourceFile)
+}
+
+// generateHSTFileFromSource generates an HST file from a source template.
+// HST files are similar to M files but contain all players' data.
+func (gs *GameStore) generateHSTFileFromSource(source *FileSource) ([]byte, error) {
+	writer := NewFileWriter()
+	encoder := NewBlockEncoder()
+	var result []byte
+
+	header := source.Header
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+
+	// Write file header (not encrypted)
+	result = append(result, writer.WriteHeader(header)...)
+
+	// Initialize encryption
+	shareware := 0
+	if header.Crippled() {
+		shareware = 1
+	}
+	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
+
+	// Track current fleet and planet for association
+	var currentFleetKey *EntityKey
+	var lastPlanetNumber = -1
+
+	// Write all blocks from the source, replacing dirty entities with re-encoded data
+	for _, block := range source.Blocks {
+		typeID := block.BlockTypeID()
+
+		// Skip header (already written) and footer (written at end)
+		if typeID == blocks.FileHeaderBlockType {
+			continue
+		}
+		if typeID == blocks.FileFooterBlockType {
+			continue
+		}
+
+		var decrypted []byte
+
+		// Check if this block corresponds to a dirty entity and needs re-encoding
+		switch b := block.(type) {
+		case blocks.FleetBlock:
+			currentFleetKey = &EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			lastPlanetNumber = -1
+			if fleet, ok := gs.Fleets.Get(*currentFleetKey); ok && fleet.Meta().Dirty {
+				if encoded, err := encoder.EncodeFleetBlock(fleet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.PartialFleetBlock:
+			currentFleetKey = &EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			lastPlanetNumber = -1
+			if fleet, ok := gs.Fleets.Get(*currentFleetKey); ok && fleet.Meta().Dirty {
+				if encoded, err := encoder.EncodeFleetBlock(fleet); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.PlanetBlock:
+			lastPlanetNumber = b.PlanetNumber
+			decrypted = block.DecryptedData()
+
+		case blocks.PartialPlanetBlock:
+			lastPlanetNumber = b.PlanetNumber
+			decrypted = block.DecryptedData()
+
+		case blocks.ProductionQueueBlock:
+			// Find the production queue entity for the last planet
+			if lastPlanetNumber >= 0 {
+				if pq, ok := gs.ProductionQueues.GetByOwnerAndNumber(EntityTypeProductionQueue, -1, lastPlanetNumber); ok && pq.Meta().Dirty {
+					if encoded, err := encoder.EncodeProductionQueueBlock(pq); err == nil {
+						decrypted = encoded
+					} else {
+						decrypted = block.DecryptedData()
+					}
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.BattlePlanBlock:
+			// HST files may have battle plans for multiple players
+			// Use the owner from the block context if available
+			key := EntityKey{Type: EntityTypeBattlePlan, Owner: source.PlayerIndex, Number: b.PlanId}
+			if bp, ok := gs.BattlePlans.Get(key); ok && bp.Meta().Dirty {
+				if encoded, err := encoder.EncodeBattlePlanBlock(bp); err == nil {
+					decrypted = encoded
+				} else {
+					decrypted = block.DecryptedData()
+				}
+			} else {
+				decrypted = block.DecryptedData()
+			}
+
+		case blocks.WaypointBlock, blocks.WaypointTaskBlock:
+			// For waypoints, check if the associated fleet is dirty
+			// If so, we might need to re-encode (for now, use original data)
+			decrypted = block.DecryptedData()
+
+		case blocks.ObjectBlock:
+			lastPlanetNumber = -1
+			decrypted = block.DecryptedData()
+
+		default:
+			// For all other block types, use original data
+			decrypted = block.DecryptedData()
+		}
+
+		result = append(result, writer.WriteEncryptedBlock(typeID, decrypted)...)
+
+		// Handle special case for PlanetsBlock (extra trailing data)
+		if pb, ok := block.(blocks.PlanetsBlock); ok {
+			if pb.Valid && len(pb.RawPlanetsData) > 0 {
+				// The planets data follows the block, encrypted separately
+				encryptedPlanets := writer.encryptor.EncryptBytes(pb.RawPlanetsData)
+				result = append(result, encryptedPlanets...)
+			}
+		}
+	}
+
+	// Write file footer with turn/year number as footer data
+	// HST files use the same footer format as M files
+	footerData := hstFileFooterData(header)
+	result = append(result, writer.WriteFooter(true, footerData)...)
+
+	return result, nil
+}
+
+// RegenerateHSTFile creates a new HST file with any modified entities re-encoded.
+// This is the primary method for saving changes back to an HST file.
+func (gs *GameStore) RegenerateHSTFile() ([]byte, error) {
+	// Find the HST source file
+	var sourceFile *FileSource
+	for _, source := range gs.sources {
+		if source.Type == SourceTypeHSTFile {
+			sourceFile = source
+			break
+		}
+	}
+
+	if sourceFile == nil {
+		return nil, errors.New("no HST file source found")
+	}
+
+	return gs.regenerateHSTWithChanges(sourceFile)
+}
+
+// regenerateHSTWithChanges regenerates an HST file, replacing dirty entities with re-encoded blocks.
+func (gs *GameStore) regenerateHSTWithChanges(source *FileSource) ([]byte, error) {
+	writer := NewFileWriter()
+	var result []byte
+
+	header := source.Header
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+
+	// Write file header
+	result = append(result, writer.WriteHeader(header)...)
+
+	// Initialize encryption
+	shareware := 0
+	if header.Crippled() {
+		shareware = 1
+	}
+	writer.InitEncryption(header.Salt(), int(header.GameID), int(header.Turn), header.PlayerIndex(), shareware)
+
+	// Track which entities we've replaced
+	replacedFleets := make(map[EntityKey]bool)
+
+	// Process all blocks from the source
+	for _, block := range source.Blocks {
+		typeID := block.BlockTypeID()
+
+		// Skip header and footer
+		if typeID == blocks.FileHeaderBlockType || typeID == blocks.FileFooterBlockType {
+			continue
+		}
+
+		var decrypted []byte
+
+		switch b := block.(type) {
+		case blocks.FleetBlock:
+			key := EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			if fleet, ok := gs.Fleets.Get(key); ok && fleet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodeFleetBlock(fleet)
+				if err == nil {
+					decrypted = encoded
+					replacedFleets[key] = true
+				}
+			}
+		case blocks.PartialFleetBlock:
+			key := EntityKey{Type: EntityTypeFleet, Owner: b.Owner, Number: b.FleetNumber}
+			if fleet, ok := gs.Fleets.Get(key); ok && fleet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodeFleetBlock(fleet)
+				if err == nil {
+					decrypted = encoded
+					replacedFleets[key] = true
+				}
+			}
+		case blocks.ProductionQueueBlock:
+			// Production queues need special handling - we need to know the planet number
+			// For now, use original data
+		}
+
+		// Use original data if not replaced
+		if decrypted == nil {
+			decrypted = block.DecryptedData()
+		}
+
+		result = append(result, writer.WriteEncryptedBlock(typeID, decrypted)...)
+
+		// Handle PlanetsBlock trailing data
+		if pb, ok := block.(blocks.PlanetsBlock); ok {
+			if pb.Valid && len(pb.RawPlanetsData) > 0 {
+				result = append(result, pb.RawPlanetsData...)
+			}
+		}
+	}
+
+	_ = replacedFleets // silence unused warning
+
+	// Write footer with turn/year number as footer data
+	footerData := hstFileFooterData(header)
+	result = append(result, writer.WriteFooter(true, footerData)...)
+
+	return result, nil
+}
+
+// hstFileFooterData returns the footer data for an HST file.
+// HST file footer data = Turn/Year number (from header).
+func hstFileFooterData(header *blocks.FileHeader) uint16 {
+	return header.Turn
+}
