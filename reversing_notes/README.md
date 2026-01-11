@@ -4,12 +4,21 @@ Documentation of the Stars! game file format, derived from binary analysis of `s
 
 ## Block Documentation
 
+### Common Blocks (Both M and X Files)
+
+| Block Type | File                                       | Description                                     |
+|------------|--------------------------------------------|-------------------------------------------------|
+| 7          | [planets-block.md](planets-block.md)       | Universe metadata and planet positions          |
+| 8          | [fileheader-block.md](fileheader-block.md) | File header (turn, player, encryption seed)     |
+
 ### M File Blocks (Game State)
 
 | Block Type | File                                                          | Description                                                  |
 |------------|---------------------------------------------------------------|--------------------------------------------------------------|
 | 6          | [player-block.md](player-block.md)                            | Player data, race settings, relations, production templates  |
 | 12         | [events-block.md](events-block.md)                            | Turn events (production, research, battles, etc.)            |
+| 13         | [planet-block.md](planet-block.md)                            | Full planet data (owner's view)                              |
+| 16, 26     | [fleet-block.md](fleet-block.md)                              | Fleet data (full and partial)                                |
 | 31         | [battle-block.md](battle-block.md)                            | Battle VCR recording data                                    |
 | 39         | [battle-block.md](battle-block.md#block-continuation-type-39) | Battle continuation (overflow data)                          |
 | 40         | [message-block.md](message-block.md)                          | Player-to-player messages                                    |
@@ -19,8 +28,8 @@ Documentation of the Stars! game file format, derived from binary analysis of `s
 
 | Block Type | File                                                                                  | Description                  |
 |------------|---------------------------------------------------------------------------------------|------------------------------|
-| 5          | [x-file-blocks.md](x-file-blocks.md#waypointchangetaskblock-type-5---variable-length) | Waypoint task changes        |
-| 10         | [x-file-blocks.md](x-file-blocks.md#waypointrepeatordersblock-type-10---4-bytes)      | Repeat orders                |
+| 5          | [BT-11-WaypointChangeTask.md](BT-11-WaypointChangeTask.md)                            | Waypoint task changes        |
+| 10         | [BT-10-WaypointRepeatOrders.md](BT-10-WaypointRepeatOrders.md)                        | Repeat orders                |
 | 29         | [x-file-blocks.md](x-file-blocks.md#productionqueuechangeblock-type-29)               | Production queue changes     |
 | 34         | [x-file-blocks.md](x-file-blocks.md#researchchangeblock-type-34---2-bytes)            | Research changes             |
 | 35         | [x-file-blocks.md](x-file-blocks.md#planetchangeblock-type-35---6-bytes)              | Planet settings              |
@@ -31,12 +40,13 @@ Documentation of the Stars! game file format, derived from binary analysis of `s
 
 ## Reference Documentation
 
-| File                                     | Description                                              |
-|------------------------------------------|----------------------------------------------------------|
-| [block-types.md](block-types.md)         | Complete list of all 46 block types                      |
-| [file-structure.md](file-structure.md)   | File format details (headers, footers, encryption)       |
-| [password-system.md](password-system.md) | Password hashing, race file checksums, serial validation |
-| [exploits.md](exploits.md)               | Known game exploits and detection methods                |
+| File                                         | Description                                              |
+|----------------------------------------------|----------------------------------------------------------|
+| [block-types.md](block-types.md)             | Complete list of all 46 block types                      |
+| [file-structure.md](file-structure.md)       | File format details (headers, footers, encryption)       |
+| [password-system.md](password-system.md)     | Password hashing, race file checksums, serial validation |
+| [punishment-system.md](punishment-system.md) | Anti-cheat system (fCheater, fHacker, fCrippled flags)   |
+| [exploits.md](exploits.md)                   | Known game exploits and detection methods                |
 
 ## General Notes
 
@@ -48,18 +58,5 @@ Documentation of the Stars! game file format, derived from binary analysis of `s
 
 4. **Block header format**: `(size & 0x3FF) | (type << 10)` (10-bit size + 6-bit type)
 
-5. **Encryption**: Most block data is encrypted. See [file-structure.md](file-structure.md) for details on which blocks are encrypted.
-
-## Verification Status
-
-- **VERIFIED**: Confirmed against game decompilation and/or VCR screenshots
-- **Partial**: Some fields verified, others inferred
-- **TBD**: Needs further investigation
-
-## Contributing
-
-When adding new documentation:
-1. Create a new `.md` file for significant new block types
-2. Update this README with links to new files
-3. Include verification status for each field
-4. Add examples from test data where possible
+5. **Encryption**: Most block data is encrypted.
+   See [file-structure.md](file-structure.md) for details on which blocks are encrypted.
