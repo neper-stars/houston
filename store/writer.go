@@ -1022,6 +1022,22 @@ func (gs *GameStore) regenerateHSTWithChanges(source *FileSource) ([]byte, error
 					replacedFleets[key] = true
 				}
 			}
+		case blocks.PlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
+		case blocks.PartialPlanetBlock:
+			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
+			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
 		case blocks.ProductionQueueBlock:
 			// Production queues need special handling - we need to know the planet number
 			// For now, use original data
