@@ -1,9 +1,28 @@
 package store
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/neper-stars/houston/blocks"
 	"github.com/neper-stars/houston/encoding"
 )
+
+// DebugEncoding enables debug logging for encoding operations.
+// Set to true to log to houston_debug.log in current directory.
+var DebugEncoding = false
+
+func debugLog(format string, args ...interface{}) {
+	if !DebugEncoding {
+		return
+	}
+	f, err := os.OpenFile("houston_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = fmt.Fprintf(f, format, args...)
+}
 
 // BlockEncoder provides methods to encode entities back into blocks.
 type BlockEncoder struct{}
@@ -151,6 +170,75 @@ func (e *BlockEncoder) EncodePlanetBlock(planet *PlanetEntity) ([]byte, error) {
 	return nil, ErrNoRawBlockData
 }
 
+// EncodePlanetBlockFromSource encodes a planet using the SOURCE block's structure
+// with the entity's modified values. This is essential when regenerating files because
+// each file (M, HST, H) has its own block structure for the same planet.
+// The entity's planetBlock reference may point to a different file's block.
+func (e *BlockEncoder) EncodePlanetBlockFromSource(sourceBlock *blocks.PartialPlanetBlock, planet *PlanetEntity) ([]byte, error) {
+	if sourceBlock == nil || len(sourceBlock.Decrypted) < 4 {
+		return nil, ErrNoRawBlockData
+	}
+
+	debugLog("EncodePlanetBlockFromSource: planet #%d, entity.Mines=%d, entity.Factories=%d, entity.Defenses=%d, entity.HasInstallations=%v\n",
+		planet.PlanetNumber, planet.Mines, planet.Factories, planet.Defenses, planet.HasInstallations)
+	debugLog("  sourceBlock.HasInstallations=%v, sourceBlock.Mines=%d, len(sourceBlock.Decrypted)=%d\n",
+		sourceBlock.HasInstallations, sourceBlock.Mines, len(sourceBlock.Decrypted))
+
+	// Create a temporary copy of the source block to modify
+	// We don't want to mutate the original source block
+	pb := *sourceBlock
+	pb.Decrypted = make([]byte, len(sourceBlock.Decrypted))
+	copy(pb.Decrypted, sourceBlock.Decrypted)
+
+	// Apply entity values to the copy
+	pb.Owner = planet.Owner
+	pb.IsHomeworld = planet.IsHomeworld
+	pb.DetectionLevel = planet.DetectionLevel
+	pb.Include = planet.Include
+	pb.HasStarbase = planet.HasStarbase
+	pb.HasArtifact = planet.HasArtifact
+	pb.IsTerraformed = planet.IsTerraformed
+	pb.HasInstallations = planet.HasInstallations
+	pb.FirstYear = planet.FirstYear
+
+	// Environment values
+	pb.IroniumConc = planet.IroniumConc
+	pb.BoraniumConc = planet.BoraniumConc
+	pb.GermaniumConc = planet.GermaniumConc
+	pb.Gravity = planet.Gravity
+	pb.Temperature = planet.Temperature
+	pb.Radiation = planet.Radiation
+	pb.OrigGravity = planet.OrigGravity
+	pb.OrigTemperature = planet.OrigTemperature
+	pb.OrigRadiation = planet.OrigRadiation
+
+	// Surface minerals
+	pb.Ironium = planet.Ironium
+	pb.Boranium = planet.Boranium
+	pb.Germanium = planet.Germanium
+	pb.Population = planet.Population / 100 // Convert back to file units (100s of colonists)
+
+	// Installations
+	pb.Mines = planet.Mines
+	pb.Factories = planet.Factories
+	pb.Defenses = planet.Defenses
+	pb.DeltaPop = planet.DeltaPop
+	pb.ScannerID = planet.ScannerID
+	pb.InstArtifact = planet.InstArtifact
+	pb.NoResearch = planet.NoResearch
+
+	// Starbase
+	pb.StarbaseDesign = planet.StarbaseDesign
+
+	// Route
+	pb.RouteTarget = planet.RouteTarget
+
+	debugLog("  after copy: pb.Mines=%d, pb.Factories=%d, pb.Defenses=%d, pb.HasInstallations=%v\n",
+		pb.Mines, pb.Factories, pb.Defenses, pb.HasInstallations)
+
+	return e.encodePlanetBlockInPlace(&pb)
+}
+
 // encodePlanetBlockInPlace modifies the decrypted block data in-place with updated values.
 // This handles the complex variable-length planet block format.
 func (e *BlockEncoder) encodePlanetBlockInPlace(pb *blocks.PartialPlanetBlock) ([]byte, error) {
@@ -246,44 +334,75 @@ func (e *BlockEncoder) encodePlanetBlockInPlace(pb *blocks.PartialPlanetBlock) (
 		}
 	}
 
-	// Skip surface minerals section (variable length - preserve original encoding)
-	// Note: Changing population/surface minerals to different byte lengths would require
-	// rebuilding the entire block, which is complex. For now, we preserve the original
-	// encoding and only update fixed sections.
+	// Surface minerals section (variable length)
+	// We need to properly encode values with the right byte lengths
 	if pb.HasSurfaceMinerals && index < len(data) {
-		contentsLengths := data[index]
-		index++
-		ironLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(contentsLengths, 0))
-		boraLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(contentsLengths, 2))
-		germLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(contentsLengths, 4))
-		popLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(contentsLengths, 6))
+		// Calculate old byte lengths from original contents byte
+		oldContentsLengths := data[index]
+		oldIronLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(oldContentsLengths, 0))
+		oldBoraLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(oldContentsLengths, 2))
+		oldGermLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(oldContentsLengths, 4))
+		oldPopLen := encoding.VarLenByteCount(encoding.ExtractVarLenField(oldContentsLengths, 6))
+		oldTotalLen := 1 + oldIronLen + oldBoraLen + oldGermLen + oldPopLen // 1 for contents byte
 
-		// Update surface minerals in-place using the same byte lengths as original
-		if index+ironLen <= len(data) {
-			encoding.WriteVarLenFixedSize(data, index, pb.Ironium, ironLen)
-			index += ironLen
+		// Calculate new required byte lengths
+		newIronEnc := encoding.ByteLengthForInt(pb.Ironium)
+		newBoraEnc := encoding.ByteLengthForInt(pb.Boranium)
+		newGermEnc := encoding.ByteLengthForInt(pb.Germanium)
+		newPopEnc := encoding.ByteLengthForInt(pb.Population)
+		newIronLen := encoding.VarLenByteCount(newIronEnc)
+		newBoraLen := encoding.VarLenByteCount(newBoraEnc)
+		newGermLen := encoding.VarLenByteCount(newGermEnc)
+		newPopLen := encoding.VarLenByteCount(newPopEnc)
+		newTotalLen := 1 + newIronLen + newBoraLen + newGermLen + newPopLen
+
+		// Build new contents byte
+		newContentsLengths := byte(newIronEnc | (newBoraEnc << 2) | (newGermEnc << 4) | (newPopEnc << 6))
+
+		// Check if size changed
+		sizeDelta := newTotalLen - oldTotalLen
+		if sizeDelta != 0 {
+			// Need to rebuild the data array with new size
+			surfaceMineralsStart := index
+			afterSurfaceMinerals := index + oldTotalLen
+			restOfData := data[afterSurfaceMinerals:]
+
+			newData := make([]byte, len(data)+sizeDelta)
+			// Copy header and environment sections
+			copy(newData[:surfaceMineralsStart], data[:surfaceMineralsStart])
+			// We'll write the new surface minerals section below
+			// Copy the rest (installations, starbase, route)
+			copy(newData[surfaceMineralsStart+newTotalLen:], restOfData)
+			data = newData
 		}
-		if index+boraLen <= len(data) {
-			encoding.WriteVarLenFixedSize(data, index, pb.Boranium, boraLen)
-			index += boraLen
-		}
-		if index+germLen <= len(data) {
-			encoding.WriteVarLenFixedSize(data, index, pb.Germanium, germLen)
-			index += germLen
-		}
-		if index+popLen <= len(data) {
-			encoding.WriteVarLenFixedSize(data, index, pb.Population, popLen)
-			index += popLen
-		}
+
+		// Write surface minerals section
+		data[index] = newContentsLengths
+		index++
+		index = encoding.WriteVarLen(data, index, pb.Ironium)
+		index = encoding.WriteVarLen(data, index, pb.Boranium)
+		index = encoding.WriteVarLen(data, index, pb.Germanium)
+		index = encoding.WriteVarLen(data, index, pb.Population)
 	}
 
 	// Update installations section (8 bytes, fixed)
-	if pb.HasInstallations && index+8 <= len(data) {
+	// If data array is too small but entity has installations, expand it
+	debugLog("  installations: HasInstallations=%v, index=%d, len(data)=%d\n", pb.HasInstallations, index, len(data))
+	debugLog("  installations values: Mines=%d, Factories=%d, Defenses=%d, ScannerID=%d\n", pb.Mines, pb.Factories, pb.Defenses, pb.ScannerID)
+	if pb.HasInstallations {
+		if index+8 > len(data) {
+			debugLog("  expanding data array from %d to %d\n", len(data), index+8)
+			// Need to expand array for installations
+			newData := make([]byte, index+8)
+			copy(newData, data)
+			data = newData
+		}
 		// First dword: population change + mines + factories
 		dword1 := uint32(pb.DeltaPop&0xFF) |
 			uint32((pb.Mines&0xFFF)<<8) |
 			uint32((pb.Factories&0xFFF)<<20)
 		encoding.Write32(data, index, dword1)
+		debugLog("  wrote dword1=0x%08X at index %d\n", dword1, index)
 
 		// Second dword: defenses + scanner + flags
 		dword2 := uint32(pb.Defenses&0xFFF) |
@@ -295,12 +414,32 @@ func (e *BlockEncoder) encodePlanetBlockInPlace(pb *blocks.PartialPlanetBlock) (
 			dword2 |= 1 << 23
 		}
 		encoding.Write32(data, index+4, dword2)
-		// Note: index not incremented as it's not used after this point
+		debugLog("  wrote dword2=0x%08X at index %d\n", dword2, index+4)
+		index += 8
 	}
 
 	// Starbase and route sections are preserved from original data
 
+	debugLog("  final: len(data)=%d, index=%d\n", len(data), index)
 	return data, nil
+}
+
+// EncodePlayerBlock encodes a PlayerEntity back to block data.
+// Updates the block fields and re-encodes.
+func (e *BlockEncoder) EncodePlayerBlock(player *PlayerEntity) ([]byte, error) {
+	// If the player has the original block data and hasn't been modified, use it
+	if player.playerBlock != nil && !player.Meta().Dirty {
+		return player.playerBlock.DecryptedData(), nil
+	}
+
+	// If the player has been modified but has a block, encode it
+	if player.playerBlock != nil {
+		// The playerBlock fields are updated in-place by ChangeToAI/ChangeToHuman/etc
+		// so we can just encode it directly
+		return player.playerBlock.Encode()
+	}
+
+	return nil, ErrNoRawBlockData
 }
 
 // GetRawBlockData returns the raw decrypted block data for an entity if available.

@@ -5,6 +5,12 @@ import (
 	"github.com/neper-stars/houston/data"
 )
 
+// Planetary scanner ID constants
+const (
+	ScannerNone    = 0  // No scanner installed
+	ScannerInvalid = 31 // Special value meaning "no scanner" in file format
+)
+
 // PlanetEntity represents a planet with full context.
 type PlanetEntity struct {
 	meta EntityMeta
@@ -112,7 +118,7 @@ func (p *PlanetEntity) SetMinerals(c Cargo) {
 // HasScanner returns true if the planet has a planetary scanner installed.
 // ScannerID of 0 or 31 means no scanner.
 func (p *PlanetEntity) HasScanner() bool {
-	return p.ScannerID > 0 && p.ScannerID != 31
+	return p.ScannerID > ScannerNone && p.ScannerID < ScannerInvalid
 }
 
 // CanSeeEnvironment returns true if environment data (gravity, temp, radiation,
@@ -301,10 +307,23 @@ func (p *PlanetEntity) SetPopulation(pop int64) {
 }
 
 // SetInstallations sets mines, factories, and defenses (12-bit values, 0-4095).
+// Sets HasInstallations flag based on whether any installation value is non-zero.
 func (p *PlanetEntity) SetInstallations(mines, factories, defenses int) {
 	p.Mines = mines
 	p.Factories = factories
 	p.Defenses = defenses
+	// HasInstallations if any value is set, including scanner
+	p.HasInstallations = mines > 0 || factories > 0 || defenses > 0 || p.HasScanner()
+	p.SetDirty()
+}
+
+// SetScannerID sets the planet's scanner type index (0=none, 1-30=valid, 31=no scanner).
+func (p *PlanetEntity) SetScannerID(scannerID int) {
+	p.ScannerID = scannerID
+	// If setting a valid scanner, ensure HasInstallations is true
+	if scannerID > ScannerNone && scannerID < ScannerInvalid {
+		p.HasInstallations = true
+	}
 	p.SetDirty()
 }
 
@@ -325,15 +344,15 @@ func (p *PlanetEntity) SetHabitability(gravity, temperature, radiation int) {
 }
 
 // MaxPopulation returns the maximum population this planet can support for the given race.
-// This delegates to GameStore.CalcPlanetMaxPop.
+// This delegates to GameStore.MaxPopulation.
 func (p *PlanetEntity) MaxPopulation(gs *GameStore, player *PlayerEntity) int {
-	return gs.CalcPlanetMaxPop(p, player)
+	return gs.MaxPopulation(p, player)
 }
 
 // MaxFactories returns the maximum factories this planet can support for the given race.
-// This delegates to GameStore.CMaxFactories.
+// This delegates to GameStore.MaxFactories.
 func (p *PlanetEntity) MaxFactories(gs *GameStore, player *PlayerEntity) int {
-	return gs.CMaxFactories(p, player)
+	return gs.MaxFactories(p, player)
 }
 
 // MaxMines returns the maximum mines this planet can support for the given race.
@@ -349,6 +368,20 @@ func (p *PlanetEntity) MaxMines(gs *GameStore, player *PlayerEntity) int {
 		maxMines = 10
 	}
 	return maxMines
+}
+
+// MaxDefenses returns the absolute maximum defenses based on planet habitability.
+// This delegates to GameStore.MaxDefenses.
+// Formula: clamp(habitability% * 4, 10, 100), AR races return 0.
+func (p *PlanetEntity) MaxDefenses(gs *GameStore, player *PlayerEntity) int {
+	return gs.MaxDefenses(p, player)
+}
+
+// MaxOperableDefenses returns the population-limited defenses that can operate.
+// This delegates to GameStore.MaxOperableDefenses.
+// This is the actual limit on functional defenses, considering both habitability and population.
+func (p *PlanetEntity) MaxOperableDefenses(gs *GameStore, player *PlayerEntity) int {
+	return gs.MaxOperableDefenses(p, player)
 }
 
 // HabitabilityValue returns the habitability percentage for the given race.

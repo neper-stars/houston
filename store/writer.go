@@ -220,9 +220,9 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 		case blocks.PlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := encoder.EncodePlanetBlockFromSource(&b.PartialPlanetBlock, planet); err == nil {
 					decrypted = encoded
 				} else {
 					decrypted = block.DecryptedData()
@@ -233,9 +233,9 @@ func (gs *GameStore) generateFileFromSource(source *FileSource) ([]byte, error) 
 
 		case blocks.PartialPlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := encoder.EncodePlanetBlockFromSource(&b, planet); err == nil {
 					decrypted = encoded
 				} else {
 					decrypted = block.DecryptedData()
@@ -631,18 +631,16 @@ func (gs *GameStore) regenerateWithChanges(source *FileSource) ([]byte, error) {
 				}
 			}
 		case blocks.PlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
-				if err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b.PartialPlanetBlock, planet); err == nil {
 					decrypted = encoded
 				}
 			}
 		case blocks.PartialPlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
-				if err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b, planet); err == nil {
 					decrypted = encoded
 				}
 			}
@@ -742,17 +740,17 @@ func (gs *GameStore) regenerateHFileWithChanges(source *FileSource) ([]byte, err
 				}
 			}
 		case blocks.PlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b.PartialPlanetBlock, planet)
 				if err == nil {
 					decrypted = encoded
 				}
 			}
 		case blocks.PartialPlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b, planet)
 				if err == nil {
 					decrypted = encoded
 				}
@@ -862,9 +860,9 @@ func (gs *GameStore) generateHSTFileFromSource(source *FileSource) ([]byte, erro
 
 		case blocks.PlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := encoder.EncodePlanetBlockFromSource(&b.PartialPlanetBlock, planet); err == nil {
 					decrypted = encoded
 				} else {
 					decrypted = block.DecryptedData()
@@ -875,9 +873,9 @@ func (gs *GameStore) generateHSTFileFromSource(source *FileSource) ([]byte, erro
 
 		case blocks.PartialPlanetBlock:
 			lastPlanetNumber = b.PlanetNumber
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				if encoded, err := encoder.EncodePlanetBlock(planet); err == nil {
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				if encoded, err := encoder.EncodePlanetBlockFromSource(&b, planet); err == nil {
 					decrypted = encoded
 				} else {
 					decrypted = block.DecryptedData()
@@ -1023,17 +1021,17 @@ func (gs *GameStore) regenerateHSTWithChanges(source *FileSource) ([]byte, error
 				}
 			}
 		case blocks.PlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b.PartialPlanetBlock, planet)
 				if err == nil {
 					decrypted = encoded
 				}
 			}
 		case blocks.PartialPlanetBlock:
-			key := EntityKey{Type: EntityTypePlanet, Owner: b.Owner, Number: b.PlanetNumber}
-			if planet, ok := gs.Planets.Get(key); ok && planet.Meta().Dirty {
-				encoded, err := writer.encoder.EncodePlanetBlock(planet)
+			if planet, ok := gs.PlanetForSave(b.PlanetNumber); ok && planet.Meta().Dirty {
+				// Use source block structure with entity values
+				encoded, err := writer.encoder.EncodePlanetBlockFromSource(&b, planet)
 				if err == nil {
 					decrypted = encoded
 				}
@@ -1041,6 +1039,15 @@ func (gs *GameStore) regenerateHSTWithChanges(source *FileSource) ([]byte, error
 		case blocks.ProductionQueueBlock:
 			// Production queues need special handling - we need to know the planet number
 			// For now, use original data
+
+		case blocks.PlayerBlock:
+			// Handle dirty player entities (e.g., changed to AI or human)
+			if player, ok := gs.Player(b.PlayerNumber); ok && player.Meta().Dirty {
+				encoded, err := writer.encoder.EncodePlayerBlock(player)
+				if err == nil {
+					decrypted = encoded
+				}
+			}
 		}
 
 		// Use original data if not replaced

@@ -132,9 +132,9 @@ func (gs *GameStore) CResourcesAtPlanet(planet *PlanetEntity, player *PlayerEnti
 
 	// Step 3: Overcrowding Adjustment
 	// If population exceeds max capacity, excess contributes at 50% efficiency
-	// Note: CalcPlanetMaxPop returns maxPop in "actual colonists" scale,
+	// Note: MaxPopulation returns maxPop in "actual colonists" scale,
 	// but comparison uses file units for the calculation to match original behavior
-	maxPop := gs.CalcPlanetMaxPop(planet, player)
+	maxPop := gs.MaxPopulation(planet, player)
 	effectivePop := popFileUnits
 	if popFileUnits > maxPop && maxPop > 0 {
 		effectivePop = (popFileUnits-maxPop)/2 + maxPop
@@ -193,7 +193,7 @@ func (gs *GameStore) CResourcesAtPlanet(planet *PlanetEntity, player *PlayerEnti
 // CMaxOperableFactories calculates how many factories the current population can operate.
 // This replicates PLANET::CMaxOperableFactories at MEMORY_PLANET:0x7618.
 //
-// Formula: maxOperable = min(CMaxFactories, (Population × FactoriesOperate) / 100)
+// Formula: maxOperable = min(MaxFactories, (Population × FactoriesOperate) / 100)
 // Note: Population is in file units (100s of colonists) for this calculation.
 func (gs *GameStore) CMaxOperableFactories(planet *PlanetEntity, player *PlayerEntity) int {
 	// AR races can't operate factories
@@ -212,7 +212,7 @@ func (gs *GameStore) CMaxOperableFactories(planet *PlanetEntity, player *PlayerE
 	maxOperable := popFileUnits * factoriesOperate / 100
 
 	// Cap at planet's max factories
-	maxFactories := gs.CMaxFactories(planet, player)
+	maxFactories := gs.MaxFactories(planet, player)
 	if maxOperable > maxFactories {
 		maxOperable = maxFactories
 	}
@@ -223,85 +223,6 @@ func (gs *GameStore) CMaxOperableFactories(planet *PlanetEntity, player *PlayerE
 	}
 
 	return maxOperable
-}
-
-// CMaxFactories calculates the maximum number of factories a planet can support.
-// This replicates PLANET::CMaxFactories at MEMORY_PLANET:0x755c.
-//
-// Formula: maxFactories = max(10, (CalcPlanetMaxPop × FactoriesOperate) / 100)
-func (gs *GameStore) CMaxFactories(planet *PlanetEntity, player *PlayerEntity) int {
-	// AR races can't have factories
-	if player.PRT == blocks.PRTAlternateReality {
-		return 0
-	}
-
-	// Get max population for this planet
-	maxPop := gs.CalcPlanetMaxPop(planet, player)
-
-	// Get race's "factories per 100 colonists" setting
-	factoriesOperate := player.Production.FactoriesOperate
-
-	// Calculate max factories based on max population
-	maxFactories := maxPop * factoriesOperate / 100
-
-	// Minimum of 10 factories
-	if maxFactories < 10 {
-		maxFactories = 10
-	}
-
-	return maxFactories
-}
-
-// CalcPlanetMaxPop calculates the maximum population a planet can support for a given race.
-// This replicates PLANET::CalcPlanetMaxPop at MEMORY_PLANET:0x7096.
-func (gs *GameStore) CalcPlanetMaxPop(planet *PlanetEntity, player *PlayerEntity) int {
-	prt := player.PRT
-
-	// AR races can only have population at planets with their own starbases
-	if prt == blocks.PRTAlternateReality {
-		if planet.Owner != player.PlayerNumber || !planet.HasStarbase {
-			return 0
-		}
-		// Max pop = starbase hull capacity × 4
-		// We need the starbase design to get hull capacity
-		if design, ok := gs.StarbaseDesign(player.PlayerNumber, planet.StarbaseDesign); ok {
-			if hull := design.Hull(); hull != nil {
-				// Hull BaseCapacity is stored with an offset of 0x20 in the original
-				// The formula is: (hull.baseCapacity - 0x20) * 4
-				// For simplicity, we use the hull's cargo capacity as a proxy
-				// Note: This may need adjustment based on actual hull data structure
-				return hull.CargoCapacity * 4
-			}
-		}
-		return 0
-	}
-
-	// Standard race calculation
-	pctDesire := gs.PctPlanetDesirability(planet, player)
-
-	var maxPop int
-	if pctDesire < 5 {
-		maxPop = 500 // Minimum for barely habitable
-	} else {
-		maxPop = pctDesire * 100 // Base: 100 colonists per % desirability
-	}
-
-	// PRT Modifiers
-	switch prt {
-	case blocks.PRTHyperExpansion:
-		// HE: -50% capacity
-		maxPop -= maxPop / 2
-	case blocks.PRTJackOfAllTrades:
-		// JOAT: +20% capacity
-		maxPop += maxPop / 5
-	}
-
-	// LRT Modifier: OBRM (Only Basic Remote Mining) = +10%
-	if player.HasLRT(blocks.LRTOnlyBasicRemoteMining) {
-		maxPop += maxPop / 10
-	}
-
-	return maxPop
 }
 
 // PctPlanetDesirability calculates how desirable a planet is for a race.

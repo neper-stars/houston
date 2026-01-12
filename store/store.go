@@ -688,6 +688,20 @@ func (gs *GameStore) Planet(number int) (*PlanetEntity, bool) {
 	return nil, false
 }
 
+// PlanetForSave returns a planet by number, prioritizing dirty planets.
+// This is used when regenerating files to ensure we find the modified entity
+// even if it's stored with a different owner key than the source block.
+func (gs *GameStore) PlanetForSave(number int) (*PlanetEntity, bool) {
+	// First, search all planets for a dirty one with this number
+	for _, planet := range gs.Planets.All() {
+		if planet.PlanetNumber == number && planet.Meta().Dirty {
+			return planet, true
+		}
+	}
+	// If no dirty planet found, return any planet with this number
+	return gs.Planet(number)
+}
+
 // PlanetsByOwner returns all planets owned by a player.
 // Use owner=-1 for unowned planets.
 func (gs *GameStore) PlanetsByOwner(owner int) []*PlanetEntity {
