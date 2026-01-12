@@ -132,12 +132,11 @@ func (gs *GameStore) CResourcesAtPlanet(planet *PlanetEntity, player *PlayerEnti
 
 	// Step 3: Overcrowding Adjustment
 	// If population exceeds max capacity, excess contributes at 50% efficiency
-	// Note: MaxPopulation returns maxPop in "actual colonists" scale,
-	// but comparison uses file units for the calculation to match original behavior
-	maxPop := gs.MaxPopulation(planet, player)
+	// MaxPopulation returns actual colonists, convert to file units for this calculation
+	maxPopFileUnits := gs.MaxPopulation(planet, player) / 100
 	effectivePop := popFileUnits
-	if popFileUnits > maxPop && maxPop > 0 {
-		effectivePop = (popFileUnits-maxPop)/2 + maxPop
+	if popFileUnits > maxPopFileUnits && maxPopFileUnits > 0 {
+		effectivePop = (popFileUnits-maxPopFileUnits)/2 + maxPopFileUnits
 	}
 
 	var resources int

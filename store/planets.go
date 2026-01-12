@@ -356,14 +356,15 @@ func (p *PlanetEntity) MaxFactories(gs *GameStore, player *PlayerEntity) int {
 }
 
 // MaxMines returns the maximum mines this planet can support for the given race.
-// Formula: max(10, (MaxPopulation × MinesOperate) / 100)
+// Formula: max(10, (MaxPopulation × MinesOperate) / 10000)
+// Where MaxPopulation is in actual colonists and MinesOperate is per 10k colonists.
 func (p *PlanetEntity) MaxMines(gs *GameStore, player *PlayerEntity) int {
 	if player.PRT == blocks.PRTAlternateReality {
 		return 0 // AR races can't have mines
 	}
 	maxPop := p.MaxPopulation(gs, player)
 	minesOperate := player.Production.MinesOperate
-	maxMines := maxPop * minesOperate / 100
+	maxMines := maxPop * minesOperate / 10000
 	if maxMines < 10 {
 		maxMines = 10
 	}

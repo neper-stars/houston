@@ -6,6 +6,7 @@ import "github.com/neper-stars/houston/blocks"
 // These calculations replicate the original Stars! game formulas.
 
 // MaxPopulation calculates the maximum population a planet can support for a given race.
+// Returns the value in actual colonists (same scale as PlanetEntity.Population).
 // This replicates PLANET::CalcPlanetMaxPop at MEMORY_PLANET:0x7096.
 func (gs *GameStore) MaxPopulation(planet *PlanetEntity, player *PlayerEntity) int {
 	prt := player.PRT
@@ -15,7 +16,7 @@ func (gs *GameStore) MaxPopulation(planet *PlanetEntity, player *PlayerEntity) i
 		if planet.Owner != player.PlayerNumber || !planet.HasStarbase {
 			return 0
 		}
-		// Max pop = starbase hull capacity × 4
+		// Max pop = starbase hull capacity × 4 (in file units)
 		// We need the starbase design to get hull capacity
 		if design, ok := gs.StarbaseDesign(player.PlayerNumber, planet.StarbaseDesign); ok {
 			if hull := design.Hull(); hull != nil {
@@ -23,20 +24,21 @@ func (gs *GameStore) MaxPopulation(planet *PlanetEntity, player *PlayerEntity) i
 				// The formula is: (hull.baseCapacity - 0x20) * 4
 				// For simplicity, we use the hull's cargo capacity as a proxy
 				// Note: This may need adjustment based on actual hull data structure
-				return hull.CargoCapacity * 4
+				// Multiply by 100 to convert from file units to actual colonists
+				return hull.CargoCapacity * 4 * 100
 			}
 		}
 		return 0
 	}
 
-	// Standard race calculation
+	// Standard race calculation (in file units, then converted)
 	pctDesire := gs.PctPlanetDesirability(planet, player)
 
 	var maxPop int
 	if pctDesire < 5 {
-		maxPop = 500 // Minimum for barely habitable
+		maxPop = 500 // Minimum for barely habitable (in file units)
 	} else {
-		maxPop = pctDesire * 100 // Base: 100 colonists per % desirability
+		maxPop = pctDesire * 100 // Base: 100 file units per % desirability
 	}
 
 	// PRT Modifiers
@@ -54,27 +56,30 @@ func (gs *GameStore) MaxPopulation(planet *PlanetEntity, player *PlayerEntity) i
 		maxPop += maxPop / 10
 	}
 
-	return maxPop
+	// Convert from file units (100s of colonists) to actual colonists
+	return maxPop * 100
 }
 
 // MaxFactories calculates the maximum number of factories a planet can support.
 // This replicates PLANET::CMaxFactories at MEMORY_PLANET:0x755c.
 //
-// Formula: maxFactories = max(10, (MaxPopulation × FactoriesOperate) / 100)
+// Formula: maxFactories = max(10, (MaxPopulation × FactoriesOperate) / 10000)
+// Where MaxPopulation is in actual colonists and FactoriesOperate is per 10k colonists.
 func (gs *GameStore) MaxFactories(planet *PlanetEntity, player *PlayerEntity) int {
 	// AR races can't have factories
 	if player.PRT == blocks.PRTAlternateReality {
 		return 0
 	}
 
-	// Get max population for this planet
+	// Get max population for this planet (in actual colonists)
 	maxPop := gs.MaxPopulation(planet, player)
 
-	// Get race's "factories per 100 colonists" setting
+	// Get race's "factories per 10k colonists" setting
 	factoriesOperate := player.Production.FactoriesOperate
 
 	// Calculate max factories based on max population
-	maxFactories := maxPop * factoriesOperate / 100
+	// maxPop is in actual colonists, factoriesOperate is per 10k colonists
+	maxFactories := maxPop * factoriesOperate / 10000
 
 	// Minimum of 10 factories
 	if maxFactories < 10 {
