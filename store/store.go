@@ -225,13 +225,22 @@ func (gs *GameStore) validateSource(source *FileSource) error {
 // mergeSource extracts and merges entities from a source.
 func (gs *GameStore) mergeSource(source *FileSource) error {
 	// First pass: Extract planet names from PlanetsBlock, designs, players, battle plans, messages, and events
+	// Brief designs (IsFullDesign=false) are stored separately - they belong to enemy players,
+	// and we'll associate them with the correct owner when processing enemy fleets.
+	briefDesigns := make(map[int]*blocks.DesignBlock) // keyed by design slot
 	messageIndex := 0
 	for _, block := range source.Blocks {
 		switch b := block.(type) {
 		case blocks.PlanetsBlock:
 			gs.mergePlanetsBlock(&b, source)
 		case blocks.DesignBlock:
-			gs.mergeDesign(&b, source)
+			if b.IsFullDesign {
+				// Full designs belong to the file's player
+				gs.mergeDesign(&b, source)
+			} else {
+				// Brief designs are for enemy ships - defer ownership assignment
+				briefDesigns[b.DesignNumber] = &b
+			}
 		case blocks.PlayerBlock:
 			gs.mergePlayer(&b, source)
 		case blocks.BattlePlanBlock:
@@ -249,6 +258,8 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 	// Second pass: Extract fleets, planets, objects, production queues, and waypoints
 	// Note: FleetNameBlock (type 21) follows the FleetBlock it names, so we track
 	// the last fleet and apply the name when we see FleetNameBlock.
+	// We also track enemy design slot usage to associate brief designs with correct owners.
+	enemyDesignSlots := make(map[int]map[int]bool) // owner -> set of design slots used
 	var currentFleet *FleetEntity
 	var waypointIndex int
 	var lastPlanetNumber = -1
@@ -256,10 +267,32 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 		switch b := block.(type) {
 		case blocks.FleetBlock:
 			currentFleet = gs.mergeFleet(&b.PartialFleetBlock, nil, source)
+			// Track enemy design slot usage
+			if b.Owner != source.PlayerIndex {
+				if enemyDesignSlots[b.Owner] == nil {
+					enemyDesignSlots[b.Owner] = make(map[int]bool)
+				}
+				for slot := 0; slot < 16; slot++ {
+					if (b.ShipTypes & (1 << slot)) != 0 {
+						enemyDesignSlots[b.Owner][slot] = true
+					}
+				}
+			}
 			waypointIndex = 0
 			lastPlanetNumber = -1
 		case blocks.PartialFleetBlock:
 			currentFleet = gs.mergeFleet(&b, nil, source)
+			// Track enemy design slot usage
+			if b.Owner != source.PlayerIndex {
+				if enemyDesignSlots[b.Owner] == nil {
+					enemyDesignSlots[b.Owner] = make(map[int]bool)
+				}
+				for slot := 0; slot < 16; slot++ {
+					if (b.ShipTypes & (1 << slot)) != 0 {
+						enemyDesignSlots[b.Owner][slot] = true
+					}
+				}
+			}
 			waypointIndex = 0
 			lastPlanetNumber = -1
 		case blocks.FleetNameBlock:
@@ -296,6 +329,19 @@ func (gs *GameStore) mergeSource(source *FileSource) error {
 		case blocks.ProductionQueueBlock:
 			if lastPlanetNumber >= 0 {
 				gs.mergeProductionQueue(&b, lastPlanetNumber, source)
+			}
+		}
+	}
+
+	// Third pass: Associate brief designs with enemy players
+	// Brief designs are scanned enemy ship designs - we now know which enemy players
+	// use which design slots, so we can assign the correct owner.
+	for owner, slots := range enemyDesignSlots {
+		for slot := range slots {
+			// Check if we have a brief design for this slot
+			if briefDesign, ok := briefDesigns[slot]; ok {
+				// Create a design entity for this enemy player
+				gs.mergeDesignForOwner(briefDesign, owner, source)
 			}
 		}
 	}
@@ -371,6 +417,51 @@ func (gs *GameStore) mergeDesign(db *blocks.DesignBlock, source *FileSource) {
 	entity := newDesignEntityFromBlock(db, source)
 	key := entity.Meta().Key
 
+	if existing, ok := gs.Designs.Get(key); ok {
+		if gs.resolver.ShouldReplace(existing, entity) {
+			existing.Meta().AddSource(source)
+			gs.Designs.Add(entity)
+		} else {
+			existing.Meta().AddSource(source)
+		}
+	} else {
+		gs.Designs.Add(entity)
+	}
+}
+
+// mergeDesignForOwner merges a design into the store with a specific owner.
+// This is used for brief designs (scanned enemy ships) where the owner
+// is determined from the fleet that uses the design, not the file's PlayerIndex.
+func (gs *GameStore) mergeDesignForOwner(db *blocks.DesignBlock, owner int, source *FileSource) {
+	entityType := EntityTypeDesign
+	if db.IsStarbase {
+		entityType = EntityTypeStarbaseDesign
+	}
+
+	// Brief designs (scanned) have lower quality than full designs
+	quality := QualityPartial
+
+	entity := &DesignEntity{
+		meta: EntityMeta{
+			Key: EntityKey{
+				Type:   entityType,
+				Owner:  owner,
+				Number: db.DesignNumber,
+			},
+			BestSource: source,
+			Quality:    quality,
+			Turn:       source.Turn,
+		},
+		DesignNumber: db.DesignNumber,
+		Owner:        owner,
+		IsStarbase:   db.IsStarbase,
+		Name:         db.Name,
+		HullId:       db.HullId,
+		designBlock:  db,
+	}
+	entity.meta.AddSource(source)
+
+	key := entity.Meta().Key
 	if existing, ok := gs.Designs.Get(key); ok {
 		if gs.resolver.ShouldReplace(existing, entity) {
 			existing.Meta().AddSource(source)
@@ -721,6 +812,73 @@ func (gs *GameStore) PlanetByName(name string) (*PlanetEntity, bool) {
 		}
 	}
 	return nil, false
+}
+
+// VisiblePlanets returns all planets visible to a player (detection level > 0).
+// This filters out planets from the XY file that the player hasn't detected.
+func (gs *GameStore) VisiblePlanets() []*PlanetEntity {
+	var result []*PlanetEntity
+	for _, planet := range gs.Planets.All() {
+		if planet.DetectionLevel > blocks.DetNotVisible {
+			result = append(result, planet)
+		}
+	}
+	return result
+}
+
+// VisiblePlanetsByOwner returns planets owned by a player that are visible.
+// For the player's own planets, this returns all owned planets.
+// For opponent planets, this only returns planets with detection level > 0.
+func (gs *GameStore) VisiblePlanetsByOwner(owner int) []*PlanetEntity {
+	var result []*PlanetEntity
+	for _, planet := range gs.Planets.ByOwner(owner) {
+		if planet.DetectionLevel > blocks.DetNotVisible {
+			result = append(result, planet)
+		}
+	}
+	return result
+}
+
+// VisibleOpponentPlanets returns all opponent planets (owned by another player, not unowned)
+// that are visible (detection level > 0).
+func (gs *GameStore) VisibleOpponentPlanets(playerNumber int) []*PlanetEntity {
+	var result []*PlanetEntity
+	for _, planet := range gs.Planets.All() {
+		// Owner >= 0 means owned by a player (Owner == -1 means unowned)
+		if planet.Owner >= 0 && planet.Owner != playerNumber && planet.DetectionLevel > blocks.DetNotVisible {
+			result = append(result, planet)
+		}
+	}
+	return result
+}
+
+// CanSeePopulation returns true if the detection level allows seeing population data.
+// Population is visible at detection level >= DetNormalScan (3) for enemy planets,
+// or always for owned planets.
+func (gs *GameStore) CanSeePopulation(planet *PlanetEntity, viewerPlayerNumber int) bool {
+	if planet.Owner == viewerPlayerNumber {
+		return true
+	}
+	return planet.DetectionLevel >= blocks.DetNormalScan
+}
+
+// CanSeeMinerals returns true if the detection level allows seeing mineral data.
+// Minerals are visible at detection level >= DetNormalScan (3) for enemy planets,
+// or always for owned planets.
+func (gs *GameStore) CanSeeMinerals(planet *PlanetEntity, viewerPlayerNumber int) bool {
+	if planet.Owner == viewerPlayerNumber {
+		return true
+	}
+	return planet.DetectionLevel >= blocks.DetNormalScan
+}
+
+// CanSeeInstallations returns true if the detection level allows seeing installations.
+// Installations (mines, factories, defenses) require DetFull (4+).
+func (gs *GameStore) CanSeeInstallations(planet *PlanetEntity, viewerPlayerNumber int) bool {
+	if planet.Owner == viewerPlayerNumber {
+		return true
+	}
+	return planet.DetectionLevel >= blocks.DetFull
 }
 
 // Player returns a player by index.

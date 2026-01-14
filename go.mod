@@ -11,6 +11,7 @@ require (
 
 require (
 	codeberg.org/go-pdf/fpdf v0.11.1 // indirect
+	github.com/AlexJarrah/go-ods v1.0.7 // indirect
 	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
 	github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
@@ -42,3 +43,5 @@ require (
 	modernc.org/token v1.1.0 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
+
+replace github.com/AlexJarrah/go-ods => ../go-ods

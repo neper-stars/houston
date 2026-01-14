@@ -16,6 +16,7 @@
 //	merge-h    Merge H (history) files
 //	map        Render galaxy maps as PNG or animated GIF
 //	exploits   Detect and fix known exploits
+//	report     Generate analysis report as ODS spreadsheet
 package main
 
 import (
@@ -54,6 +55,7 @@ func main() {
 	addMergeHCommand(parser)
 	addMapCommand(parser)
 	addExploitsCommand(parser)
+	addReportCommand(parser)
 
 	_, err := parser.Parse()
 	if err != nil {

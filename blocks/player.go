@@ -158,19 +158,22 @@ type Habitability struct {
 	RadiationHigh     int
 }
 
-// IsGravityImmune returns true if the race is immune to gravity
+// IsGravityImmune returns true if the race is immune to gravity.
+// Immunity is indicated by Center == 255 OR High < 0 (negative signed byte).
 func (h *Habitability) IsGravityImmune() bool {
-	return h.GravityCenter == 255
+	return h.GravityCenter == 255 || h.GravityHigh < 0
 }
 
-// IsTemperatureImmune returns true if the race is immune to temperature
+// IsTemperatureImmune returns true if the race is immune to temperature.
+// Immunity is indicated by Center == 255 OR High < 0 (negative signed byte).
 func (h *Habitability) IsTemperatureImmune() bool {
-	return h.TemperatureCenter == 255
+	return h.TemperatureCenter == 255 || h.TemperatureHigh < 0
 }
 
-// IsRadiationImmune returns true if the race is immune to radiation
+// IsRadiationImmune returns true if the race is immune to radiation.
+// Immunity is indicated by Center == 255 OR High < 0 (negative signed byte).
 func (h *Habitability) IsRadiationImmune() bool {
-	return h.RadiationCenter == 255
+	return h.RadiationCenter == 255 || h.RadiationHigh < 0
 }
 
 // ProductionSettings holds factory and mine production parameters
@@ -406,9 +409,10 @@ func (p *PlayerBlock) decode() error {
 		p.Hab.GravityLow = int(p.Decrypted[19])
 		p.Hab.TemperatureLow = int(p.Decrypted[20])
 		p.Hab.RadiationLow = int(p.Decrypted[21])
-		p.Hab.GravityHigh = int(p.Decrypted[22])
-		p.Hab.TemperatureHigh = int(p.Decrypted[23])
-		p.Hab.RadiationHigh = int(p.Decrypted[24])
+		// High values are signed bytes - negative values indicate immunity
+		p.Hab.GravityHigh = int(int8(p.Decrypted[22]))
+		p.Hab.TemperatureHigh = int(int8(p.Decrypted[23]))
+		p.Hab.RadiationHigh = int(int8(p.Decrypted[24]))
 
 		// Growth rate (byte 25, FDB 17)
 		p.GrowthRate = int(p.Decrypted[25])

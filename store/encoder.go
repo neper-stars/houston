@@ -418,7 +418,59 @@ func (e *BlockEncoder) encodePlanetBlockInPlace(pb *blocks.PartialPlanetBlock) (
 		index += 8
 	}
 
-	// Starbase and route sections are preserved from original data
+	// Starbase section encoding
+	// For full planets (Type 13), starbase requires 4 bytes
+	debugLog("  starbase: HasStarbase=%v, StarbaseDesign=%d, len(StarbaseBytes)=%d, index=%d\n",
+		pb.HasStarbase, pb.StarbaseDesign, len(pb.StarbaseBytes), index)
+
+	// Determine if original data had starbase bytes at this position
+	originalHadStarbase := len(pb.StarbaseBytes) == 4
+
+	if pb.HasStarbase {
+		if originalHadStarbase {
+			// Update starbase design in existing bytes (preserve damage and other info)
+			if index+4 <= len(data) {
+				// Clear design bits (low nibble) and set new design
+				data[index] = (data[index] & 0xF0) | byte(pb.StarbaseDesign&0x0F)
+				// Update mass driver destination if set
+				data[index+2] = byte(pb.MassDriverDest & 0xFF)
+				debugLog("  updated starbase design=%d at index %d\n", pb.StarbaseDesign, index)
+				index += 4
+			}
+		} else {
+			// Need to insert 4 bytes of starbase data
+			// This is a new starbase - no damage, no mass driver
+			starbaseBytes := make([]byte, 4)
+			starbaseBytes[0] = byte(pb.StarbaseDesign & 0x0F) // Design in low nibble, no damage
+			starbaseBytes[1] = 0                              // StarbaseInfo
+			starbaseBytes[2] = byte(pb.MassDriverDest & 0xFF) // Mass driver dest
+			starbaseBytes[3] = 0                              // StarbaseInfo
+
+			// Insert starbase bytes into data
+			newData := make([]byte, len(data)+4)
+			copy(newData[:index], data[:index])
+			copy(newData[index:index+4], starbaseBytes)
+			if index < len(data) {
+				copy(newData[index+4:], data[index:])
+			}
+			data = newData
+			debugLog("  inserted new starbase bytes at index %d\n", index)
+			index += 4
+		}
+	} else if originalHadStarbase {
+		// Starbase was removed - need to remove 4 bytes from data
+		if index+4 <= len(data) {
+			newData := make([]byte, len(data)-4)
+			copy(newData[:index], data[:index])
+			if index+4 < len(data) {
+				copy(newData[index:], data[index+4:])
+			}
+			data = newData
+			debugLog("  removed starbase bytes at index %d\n", index)
+		}
+	}
+
+	// Route section is preserved from original data (follows starbase)
 
 	debugLog("  final: len(data)=%d, index=%d\n", len(data), index)
 	return data, nil
